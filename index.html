@@ -988,7 +988,9 @@
     var ringBtn = '<button class="ring-btn" data-action="' + (isReview ? "toggle-review-day" : "toggle-manual-task") + '" ' +
       (isReview ? 'data-mistake-id="' + task.mistakeId + '"' : 'data-id="' + task.id + '"') + '><span class="ring"></span></button>';
 
-    var delBtn = (!isReview && !task.done) ? '<button class="task-del" data-action="delete-task" data-id="' + task.id + '" title="削除">×</button>' : "";
+    var delBtn = isReview
+      ? '<button class="task-del" data-action="delete-mistake" data-mistake-id="' + task.mistakeId + '" title="このまちがいを削除">×</button>'
+      : '<button class="task-del" data-action="delete-task" data-id="' + task.id + '" title="削除">×</button>';
 
     var panel = reviewOpen ? renderReviewPanel(task.mistakeId) : "";
 
@@ -1078,7 +1080,8 @@
 
       return '<div class="mistake-card' + (due ? " due" : "") + '">' +
         '<div class="mistake-top">' +
-          '<div class="mistake-head"><span class="badge">' + escapeHtml(m.subject) + '</span><span class="mistake-unit">' + escapeHtml(m.unit) + '</span></div>' +
+          '<div class="mistake-head"><span class="badge">' + escapeHtml(m.subject) + '</span><span class="mistake-unit">' + escapeHtml(m.unit) + '</span>' +
+          '<button class="task-del" data-action="delete-mistake" data-mistake-id="' + m.id + '" title="削除" style="margin-left:auto">×</button></div>' +
           '<div class="mistake-q">' + escapeHtml(m.question) + '</div>' + photoHtml +
           '<div class="mistake-due-date">理由：' + escapeHtml(m.reason) + '　・　' + dueText + '</div>' +
         '</div>' + actions + reviewPanel + '</div>';
@@ -1165,6 +1168,15 @@
     if (action === "delete-task-group") {
       var gid = actionEl.getAttribute("data-group-id");
       state.plannerTasks = state.plannerTasks.filter(function (x) { return x.groupId !== gid; });
+      saveState(state);
+      render();
+      return;
+    }
+
+    if (action === "delete-mistake") {
+      var mid2 = actionEl.getAttribute("data-mistake-id");
+      state.mistakes = state.mistakes.filter(function (x) { return x.id !== mid2; });
+      state.plannerTasks = state.plannerTasks.filter(function (x) { return x.mistakeId !== mid2; });
       saveState(state);
       render();
       return;
