@@ -102,7 +102,7 @@
 
   /* ===== Top bar ===== */
   .topbar { position: sticky; top: 0; z-index: 10; background: var(--paper-raised); border-bottom: 1px solid var(--line); }
-  .topbar-inner { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 14px 18px; }
+  .topbar-inner { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: calc(14px + env(safe-area-inset-top)) 18px 14px; }
   .brand-mark { font-size: 20px; font-weight: 700; letter-spacing: .02em; display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
   .brand-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .date-chip { flex: none; }
