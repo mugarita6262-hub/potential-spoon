@@ -293,7 +293,7 @@
   .empty-note { color: var(--ink-soft); font-size: 13px; padding: 4px 0; }
 
   /* ===== Tab bar ===== */
-  .tabbar { position: sticky; bottom: 0; z-index: 10; background: var(--paper-raised); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+  .tabbar { position: sticky; bottom: 0; z-index: 10; background: var(--paper-raised); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
   .tab-btn { background: none; border: none; cursor: pointer; color: var(--ink-faint); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); }
   .tab-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
   .tab-btn.active { color: var(--accent); }
@@ -706,9 +706,10 @@
     photoDraft: null
   };
 
+  // "log" (学習記録) is intentionally left out of the tab bar — not deleted, just hidden
+  // for now. Its view/data/handlers are all still here; add its row back in to bring it back.
   var VIEWS = [
     { id: "calendar", label: "カレンダー" },
-    { id: "log", label: "記録" },
     { id: "mistakes", label: "ノート" },
     { id: "weakness", label: "弱点" }
   ];
