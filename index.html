@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>まるつけノート</title>
+<title>二葉専用まるつけノート</title>
 <link rel="icon" href="apple-touch-icon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="apple-mobile-web-app-title" content="まるつけノート">
+<meta name="apple-mobile-web-app-title" content="二葉専用まるつけノート">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#2C4A6E">
@@ -102,8 +102,10 @@
 
   /* ===== Top bar ===== */
   .topbar { position: sticky; top: 0; z-index: 10; background: var(--paper-raised); border-bottom: 1px solid var(--line); }
-  .topbar-inner { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 18px; }
-  .brand-mark { font-size: 20px; font-weight: 700; letter-spacing: .02em; display: flex; align-items: baseline; gap: 6px; }
+  .topbar-inner { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 14px 18px; }
+  .brand-mark { font-size: 20px; font-weight: 700; letter-spacing: .02em; display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
+  .brand-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .date-chip { flex: none; }
   .brand-mark .maru { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid var(--danger); transform: translateY(1px); }
   .date-chip { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
@@ -336,7 +338,7 @@
 <div id="app">
   <header class="topbar">
     <div class="topbar-inner">
-      <span class="brand-mark"><span class="maru"></span>まるつけノート</span>
+      <span class="brand-mark"><span class="maru"></span><span class="brand-text">二葉専用まるつけノート</span></span>
       <span class="date-chip" id="dateChip"></span>
     </div>
   </header>
