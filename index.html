@@ -1,0 +1,1242 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>まるつけノート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  /* ===== Design tokens ===== */
+  :root {
+    --paper: #EFF3EE;
+    --paper-raised: #FFFFFF;
+    --paper-sunken: #E4EAE3;
+    --ink: #22302B;
+    --ink-soft: #5B6B62;
+    --ink-faint: #93A199;
+    --line: #C9D4CC;
+    --accent: #2C4A6E;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #E1E8EF;
+    --good: #3B7A5E;
+    --good-soft: #E1EEE7;
+    --warn: #9C7A22;
+    --warn-soft: #F3EAD3;
+    --danger: #A8402C;
+    --danger-soft: #F3E0DB;
+    --shadow: 0 1px 2px rgba(34,48,43,.07), 0 6px 16px rgba(34,48,43,.08);
+    --radius: 10px;
+    --radius-sm: 6px;
+    --font-display: 'Shippori Mincho', serif;
+    --font-body: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #171F1B;
+      --paper-raised: #202B25;
+      --paper-sunken: #131A16;
+      --ink: #EAF0EA;
+      --ink-soft: #A3B3A9;
+      --ink-faint: #6B7A70;
+      --line: #35443D;
+      --accent: #9BC0E3;
+      --accent-ink: #12212F;
+      --accent-soft: #223244;
+      --good: #7BC6A2;
+      --good-soft: #1D3A2C;
+      --warn: #E0C165;
+      --warn-soft: #3B331A;
+      --danger: #E5947E;
+      --danger-soft: #3E241E;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #171F1B;
+    --paper-raised: #202B25;
+    --paper-sunken: #131A16;
+    --ink: #EAF0EA;
+    --ink-soft: #A3B3A9;
+    --ink-faint: #6B7A70;
+    --line: #35443D;
+    --accent: #9BC0E3;
+    --accent-ink: #12212F;
+    --accent-soft: #223244;
+    --good: #7BC6A2;
+    --good-soft: #1D3A2C;
+    --warn: #E0C165;
+    --warn-soft: #3B331A;
+    --danger: #E5947E;
+    --danger-soft: #3E241E;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.4);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 22px 22px;
+    background-attachment: local;
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  h1, h2, h3, .brand-mark, .day-title { font-family: var(--font-display); text-wrap: balance; }
+  button { font-family: inherit; }
+  ::selection { background: var(--accent-soft); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  #app { max-width: 560px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ===== Top bar ===== */
+  .topbar { position: sticky; top: 0; z-index: 10; background: var(--paper-raised); border-bottom: 1px solid var(--line); }
+  .topbar-inner { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 18px; }
+  .brand-mark { font-size: 20px; font-weight: 700; letter-spacing: .02em; display: flex; align-items: baseline; gap: 6px; }
+  .brand-mark .maru { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid var(--danger); transform: translateY(1px); }
+  .date-chip { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+  /* ===== Main view ===== */
+  .view { flex: 1; padding: 18px 18px 100px; }
+  .section-label { font-size: 12px; font-weight: 700; color: var(--ink-soft); letter-spacing: .08em; margin: 0 0 10px; text-transform: uppercase; }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--accent); text-transform: uppercase; margin: 0 0 4px; }
+
+  /* ===== Cards ===== */
+  .card { background: var(--paper-raised); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
+
+  /* ===== Calendar ===== */
+  .cal-card { padding: 14px 14px 8px; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .cal-title { font-size: 16px; font-weight: 700; }
+  .cal-nav { display: flex; gap: 4px; }
+  .cal-nav-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); background: var(--paper-raised); color: var(--ink-soft); cursor: pointer; font-size: 14px; line-height: 1; }
+  .cal-nav-btn:hover { background: var(--paper-sunken); }
+  .cal-dow-row, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal-dow { text-align: center; font-size: 10px; font-weight: 700; color: var(--ink-faint); padding-bottom: 5px; }
+  .cal-cell { position: relative; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: var(--radius-sm); border: 1.5px solid transparent; background: none; padding: 0; }
+  .cal-cell:hover { background: var(--paper-sunken); }
+  .cal-cell.other-month .num { opacity: .3; }
+  .cal-cell.today { border-color: var(--accent); }
+  .cal-cell.selected { background: var(--accent-soft); }
+  .cal-cell .num { position: relative; z-index: 1; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .cal-cell .stamp { position: absolute; inset: 8%; border-radius: 50%; border: 2px solid var(--danger); opacity: 0; }
+  .cal-cell.complete .stamp { opacity: .9; transform: rotate(-6deg); }
+  .cal-cell.complete .num { color: var(--danger); font-weight: 700; }
+  .cal-cell:nth-child(4n).complete .stamp { transform: rotate(5deg); }
+  .cal-cell:nth-child(3n+1).complete .stamp { transform: rotate(-3deg); }
+  .cal-cell.partial .num::after { content: ""; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background: var(--warn); }
+  .cal-legend { display: flex; gap: 14px; padding: 10px 2px 4px; font-size: 11px; color: var(--ink-soft); }
+  .cal-legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .legend-mark { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--danger); display: inline-block; }
+  .legend-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); display: inline-block; }
+  .streak-line { font-size: 12px; color: var(--ink-soft); padding: 2px 2px 12px; }
+  .streak-line b { color: var(--warn); font-family: var(--font-display); font-size: 14px; }
+
+  /* ===== Day page ===== */
+  .day-card { border-left: 5px solid var(--accent); padding: 16px 16px 14px; }
+  .day-card.day-complete { border-left-color: var(--danger); }
+  .day-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+  .day-title { font-size: 19px; font-weight: 700; }
+  .day-progress { font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; flex: none; }
+  .day-sub { font-size: 12px; color: var(--ink-soft); margin: 0 0 12px; }
+
+  .task-list { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .task-item { display: flex; align-items: flex-start; gap: 10px; background: var(--paper-sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 10px; }
+  .ring-btn { background: none; border: none; padding: 0; cursor: pointer; flex: none; margin-top: 1px; }
+  .ring { display: block; width: 24px; height: 24px; border-radius: 50%; border: 2.5px solid var(--ink-faint); position: relative; }
+  .task-item.done .ring { border-color: var(--danger); }
+  .task-item.done .ring::after {
+    content: ""; position: absolute; left: 1px; top: 1px; right: 1px; bottom: 1px;
+    border-radius: 50%; border: 2.5px solid var(--danger);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .task-item.done .ring::after { animation: stampPop .3s ease-out; }
+  }
+  @keyframes stampPop { 0% { transform: scale(.25); opacity: 0; } 65% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+  .task-item .txt { flex: 1; min-width: 0; }
+  .task-item .label { font-weight: 500; line-height: 1.4; font-size: 14px; }
+  .task-item.done .label { color: var(--ink-soft); text-decoration: line-through; text-decoration-color: var(--ink-faint); }
+  .task-item .tag { display: inline-block; margin-top: 3px; font-size: 11px; color: var(--ink-soft); }
+  .task-item .tag.overdue { color: var(--danger); font-weight: 700; }
+  .task-del { background: none; border: none; color: var(--ink-faint); font-size: 16px; cursor: pointer; padding: 0 2px; line-height: 1; flex: none; }
+  .task-del:hover { color: var(--danger); }
+  .task-empty { color: var(--ink-soft); font-size: 13px; padding: 8px 2px; }
+
+  /* ===== Task group (material name + page numbers) ===== */
+  .task-group { background: var(--paper-sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px; }
+  .task-group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .tg-name { font-weight: 700; font-size: 14px; flex: 1; min-width: 0; }
+  .tg-name .tag { font-weight: 400; font-size: 11px; color: var(--ink-soft); margin-left: 2px; }
+  .tg-progress { font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; flex: none; }
+  .tg-pages { display: flex; flex-wrap: wrap; gap: 6px; }
+  .page-pill {
+    min-width: 36px; height: 34px; padding: 0 8px; border-radius: 8px; border: 1.5px solid var(--line);
+    background: var(--paper-raised); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+    color: var(--ink); cursor: pointer;
+  }
+  .page-pill::before { content: "p."; font-weight: 400; color: var(--ink-faint); font-size: 10px; }
+  .page-pill.done { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .page-pill.done::before { color: rgba(255,255,255,.75); }
+  @media (prefers-reduced-motion: no-preference) {
+    .page-pill.done { animation: stampPop .3s ease-out; }
+  }
+
+  .review-panel { background: var(--paper-raised); border: 1px dashed var(--line); border-radius: var(--radius-sm); padding: 11px 12px; margin-top: 8px; }
+  .review-panel .field-label { display: block; font-size: 11px; font-weight: 700; color: var(--ink-soft); margin-bottom: 5px; }
+  .review-answer { font-size: 13px; white-space: pre-wrap; background: var(--paper-sunken); border-radius: var(--radius-sm); padding: 9px; margin-bottom: 9px; }
+  .review-choice { display: flex; gap: 8px; }
+
+  .add-task-toggle { margin-top: 10px; }
+  .field-hint { font-size: 11px; color: var(--ink-faint); margin: -8px 0 12px; }
+
+  /* ===== Buttons / forms ===== */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--accent); color: var(--accent-ink); border: none; border-radius: var(--radius-sm); padding: 11px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .btn:active { opacity: .85; }
+  .btn-ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+  .btn-block { width: 100%; }
+  .btn-sm { padding: 7px 12px; font-size: 13px; }
+  .btn-good { background: var(--good); }
+  .btn-danger { background: var(--danger); }
+
+  label.field { display: block; margin-bottom: 12px; }
+  .field-label { display: block; font-size: 12px; font-weight: 700; color: var(--ink-soft); margin-bottom: 5px; }
+  input[type="text"], input[type="number"], select, textarea {
+    width: 100%; font-family: inherit; font-size: 15px; color: var(--ink);
+    background: var(--paper-sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 11px;
+  }
+  textarea { resize: vertical; min-height: 64px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  input[type="file"] { font-size: 13px; }
+
+  /* ===== Page headers ===== */
+  .page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .page-head h2 { margin: 0; font-size: 19px; font-weight: 700; }
+
+  /* ===== Log list ===== */
+  .log-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px dashed var(--line); font-size: 14px; }
+  .log-row:first-child { border-top: none; }
+  .log-row .subj { font-weight: 700; color: var(--accent); min-width: 34px; }
+  .log-row .unit { flex: 1; color: var(--ink); }
+  .log-row .meta { color: var(--ink-soft); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+
+  /* ===== Badges / chips ===== */
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  .chip { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .chip-high { background: var(--danger-soft); color: var(--danger); }
+  .chip-mid { background: var(--warn-soft); color: var(--warn); }
+  .chip-low { background: var(--good-soft); color: var(--good); }
+
+  /* ===== Mistake cards ===== */
+  .mistake-card { border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; background: var(--paper-raised); }
+  .mistake-card.due { border-left: 4px solid var(--danger); }
+  .mistake-top { padding: 13px 14px 10px; }
+  .mistake-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .mistake-unit { font-weight: 700; }
+  .mistake-q { font-size: 14px; color: var(--ink); white-space: pre-wrap; margin: 4px 0 8px; }
+  .mistake-photo { max-width: 100%; max-height: 160px; border-radius: var(--radius-sm); border: 1px solid var(--line); display: block; margin: 6px 0; }
+  .mistake-due-date { font-size: 12px; color: var(--ink-soft); }
+  .mistake-actions { padding: 0 14px 13px; display: flex; gap: 8px; }
+  .mistake-card .review-panel { margin: 0 14px 13px; }
+
+  /* ===== Weakness bars ===== */
+  .weak-row { padding: 12px 0; border-top: 1px dashed var(--line); }
+  .weak-row:first-child { border-top: none; }
+  .weak-row-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; gap: 8px; }
+  .weak-name { font-weight: 700; font-size: 14px; }
+  .weak-sub { font-size: 12px; color: var(--ink-soft); }
+  .weak-bar-track { height: 8px; background: var(--paper-sunken); border-radius: 999px; overflow: hidden; }
+  .weak-bar-fill { height: 100%; border-radius: 999px; background: var(--danger); }
+  .weak-bar-fill.mid { background: var(--warn); }
+  .weak-bar-fill.low { background: var(--good); }
+
+  .empty-note { color: var(--ink-soft); font-size: 13px; padding: 4px 0; }
+
+  /* ===== Tab bar ===== */
+  .tabbar { position: sticky; bottom: 0; z-index: 10; background: var(--paper-raised); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+  .tab-btn { background: none; border: none; cursor: pointer; color: var(--ink-faint); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); }
+  .tab-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+  .tab-btn.active { color: var(--accent); }
+  .tab-btn.active .dot { background: var(--accent); }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%) translateY(8px);
+    background: var(--ink); color: var(--paper); font-size: 13px; font-weight: 500;
+    padding: 10px 16px; border-radius: 999px; box-shadow: var(--shadow);
+    opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; z-index: 50;
+    max-width: 90%; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ===== Celebration overlay ===== */
+  .celebrate-overlay {
+    position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
+    background: rgba(8, 8, 12, .74); cursor: pointer; overflow: hidden;
+  }
+  .celebrate-overlay[hidden] { display: none; }
+  #confettiCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .celebrate-modal {
+    position: relative; z-index: 2; text-align: center; max-width: 320px; margin: 0 16px;
+    padding: 16px; cursor: default; isolation: isolate;
+    animation: modalPop .55s cubic-bezier(.34,1.56,.64,1);
+  }
+  .celebrate-modal::before {
+    content: ""; position: absolute; z-index: -1; inset: -50px; border-radius: 50%;
+    background: conic-gradient(from 0deg, #FF3B6E, #FFD400, #38D9A9, #3B82F6, #B14BFF, #FF8A00, #FF3B6E);
+    opacity: .65; filter: blur(20px); animation: burstSpin 5s linear infinite;
+  }
+  @keyframes burstSpin { to { transform: rotate(360deg); } }
+  @keyframes modalPop {
+    0% { transform: scale(.35) rotate(-10deg); opacity: 0; }
+    55% { transform: scale(1.15) rotate(5deg); opacity: 1; }
+    75% { transform: scale(.95) rotate(-3deg); }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+  .celebrate-flash {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0; animation: flashPulse .6s ease-out;
+    background: radial-gradient(circle at 50% 45%, #ffffff, #FFD400 35%, transparent 72%);
+  }
+  @keyframes flashPulse { 0% { opacity: 0; } 12% { opacity: .85; } 100% { opacity: 0; } }
+  .celebrate-stamp { margin: 0 auto 10px; width: 60px; height: 60px; filter: drop-shadow(0 3px 10px rgba(0,0,0,.5)); }
+  .stamp-check { stroke-dasharray: 40; stroke-dashoffset: 40; animation: drawCheck .5s ease .2s forwards; }
+  @keyframes drawCheck { to { stroke-dashoffset: 0; } }
+  .celebrate-title {
+    font-family: var(--font-body); font-weight: 900; font-size: 34px; line-height: 1.25; margin: 0 0 8px;
+    letter-spacing: .01em;
+    background: linear-gradient(90deg, #FF3B6E, #FF8A00, #FFD400, #38D9A9, #3B82F6, #B14BFF);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    -webkit-text-stroke: 1.5px rgba(0,0,0,.4);
+    filter: drop-shadow(0 3px 10px rgba(0,0,0,.4));
+  }
+  .celebrate-sub { font-size: 14px; font-weight: 700; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.55); margin: 0 0 20px; }
+  .celebrate-close {
+    background: rgba(255,255,255,.14); border: 1.5px solid rgba(255,255,255,.6); color: #fff;
+    border-radius: 999px; padding: 9px 22px; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .celebrate-close:hover, .celebrate-close:active { background: rgba(255,255,255,.28); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+    .stamp-check { stroke-dashoffset: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="brand-mark"><span class="maru"></span>まるつけノート</span>
+      <span class="date-chip" id="dateChip"></span>
+    </div>
+  </header>
+  <main class="view" id="view"></main>
+  <nav class="tabbar" id="tabbar"></nav>
+  <div class="toast" id="toast"></div>
+  <div class="celebrate-overlay" id="celebrateOverlay" data-action="close-celebrate" hidden>
+    <div class="celebrate-flash"></div>
+    <canvas id="confettiCanvas"></canvas>
+    <div class="celebrate-modal">
+      <svg class="celebrate-stamp" viewBox="0 0 48 48" width="60" height="60" style="color:#FFD400">
+        <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="4"></circle>
+        <path class="stamp-check" d="M14 25 L21 32 L34 17" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+      <p class="celebrate-title" id="celebrateTitle"></p>
+      <p class="celebrate-sub" id="celebrateSub"></p>
+      <button class="celebrate-close" data-action="close-celebrate">とじる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ================= Data layer ================= */
+  var STORAGE_KEY = "maruTsukeNote:v3";
+  var REVIEW_INTERVALS = [1, 3, 7, 14, 30];
+  var SUBJECTS = ["算数", "国語", "理科", "社会"];
+  var REASONS = ["計算ミス", "知識不足", "読み間違い", "時間切れ", "その他"];
+  var WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function isoOf(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function todayISO() { return isoOf(new Date()); }
+  function addDays(iso, n) { var d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return isoOf(d); }
+  function monthOf(iso) { return iso.slice(0, 7); }
+  function addMonths(monthStr, n) {
+    var parts = monthStr.split("-"); var y = Number(parts[0]), mo = Number(parts[1]);
+    var d = new Date(y, mo - 1 + n, 1);
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1);
+  }
+  function formatJP(iso) { var d = new Date(iso + "T00:00:00"); return (d.getMonth() + 1) + "月" + d.getDate() + "日(" + WEEKDAYS[d.getDay()] + ")"; }
+  function formatShort(iso) { var d = new Date(iso + "T00:00:00"); return (d.getMonth() + 1) + "/" + d.getDate(); }
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // Parses free-form page-number input like "12,14,16-18　20" into a sorted, de-duplicated
+  // array of integers. Accepts commas (、,), whitespace, and ranges written with - or 〜/~.
+  function parsePageNumbers(str) {
+    if (!str) return [];
+    var parts = str.split(/[,、\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var nums = [];
+    parts.forEach(function (p) {
+      var range = p.match(/^(\d+)\s*[-〜~]\s*(\d+)$/);
+      if (range) {
+        var a = parseInt(range[1], 10), b = parseInt(range[2], 10);
+        if (a > b) { var tmp = a; a = b; b = tmp; }
+        for (var i = a; i <= b; i++) nums.push(i);
+      } else {
+        var n = parseInt(p.replace(/[^\d]/g, ""), 10);
+        if (!isNaN(n)) nums.push(n);
+      }
+    });
+    var seen = {}; var out = [];
+    nums.forEach(function (n) { if (!seen[n]) { seen[n] = true; out.push(n); } });
+    out.sort(function (a, b) { return a - b; });
+    return out;
+  }
+
+  function seedState() {
+    var t = todayISO();
+    var m1Id = uid(), m2Id = uid();
+    var mathGroupId = uid();
+    return {
+      studyLogs: [
+        { id: uid(), date: addDays(t, -2), subject: "算数", unit: "割合の文章題", minutes: 30, correctRate: 70 },
+        { id: uid(), date: addDays(t, -1), subject: "国語", unit: "漢字の読み書き", minutes: 15, correctRate: 90 },
+        { id: uid(), date: addDays(t, -1), subject: "理科", unit: "てこのはたらき", minutes: 25, correctRate: 55 }
+      ],
+      mistakes: [
+        {
+          id: m1Id, date: addDays(t, -3), subject: "算数", unit: "割合の文章題",
+          question: "定価2400円の品物を2割引きで売った。売った値段はいくらか。",
+          photo: null, reason: "知識不足",
+          correctMethod: "割引後の代金＝定価×(1-割引率)。2400×0.8=1920円。「〜引き」は定価にかける倍率を先に出すと間違えにくい。",
+          reviewHistory: [], interval: 0, nextReviewDate: t, resolved: false
+        },
+        {
+          id: m2Id, date: addDays(t, -6), subject: "理科", unit: "てこのはたらき",
+          question: "支点からの距離が2倍になると、同じ力で持ち上げられる重さは何倍になるか。",
+          photo: null, reason: "計算ミス",
+          correctMethod: "てこは「力×支点からの距離」が支点の両側で等しくなる。距離が2倍なら持ち上げられる重さも2倍。",
+          reviewHistory: [{ date: addDays(t, -3), result: "ok" }], interval: 1, nextReviewDate: addDays(t, 4), resolved: false
+        }
+      ],
+      plannerTasks: [
+        { id: uid(), date: addDays(t, -2), subject: "国語", label: "漢字ドリルP10", done: true, source: "manual" },
+        { id: uid(), date: addDays(t, -2), subject: "算数", label: "計算練習10問", done: true, source: "manual" },
+        { id: uid(), date: addDays(t, -3), subject: "理科", label: "てこのはたらき の復習", done: true, source: "review", mistakeId: m2Id },
+        { id: uid(), date: addDays(t, -1), subject: "理科", label: "理科プリント", done: true, source: "manual" },
+        { id: uid(), date: addDays(t, -1), subject: "社会", label: "社会一問一答", done: false, source: "manual" },
+        { id: uid(), date: t, subject: "国語", label: "漢字ドリルP12", done: false, source: "manual" },
+        { id: uid(), date: t, subject: "算数", label: "算数『割合の文章題』の復習", done: false, source: "review", mistakeId: m1Id },
+        { id: uid(), date: t, subject: "算数", label: "予習シリーズ算数", page: 12, groupId: mathGroupId, done: true, source: "manual" },
+        { id: uid(), date: t, subject: "算数", label: "予習シリーズ算数", page: 13, groupId: mathGroupId, done: false, source: "manual" },
+        { id: uid(), date: t, subject: "算数", label: "予習シリーズ算数", page: 15, groupId: mathGroupId, done: false, source: "manual" },
+        { id: uid(), date: addDays(t, 1), subject: "算数", label: "過去問A校 大問1〜2", done: false, source: "manual" },
+        { id: uid(), date: addDays(t, 4), subject: "理科", label: "理科『てこのはたらき』の復習", done: false, source: "review", mistakeId: m2Id }
+      ]
+    };
+  }
+
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    var s = seedState();
+    saveState(s);
+    return s;
+  }
+  function saveState(s) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {} }
+
+  var state = loadState();
+
+  /* ================= Domain logic: mistakes & review scheduling ================= */
+  function findOpenReviewTask(mistakeId) {
+    return state.plannerTasks.find(function (t) { return t.source === "review" && t.mistakeId === mistakeId && !t.done; });
+  }
+
+  function scheduleReviewAndTask(mistake, ok) {
+    var t = todayISO();
+    mistake.reviewHistory.push({ date: t, result: ok ? "ok" : "retry" });
+    if (ok) {
+      mistake.interval = Math.min(mistake.interval + 1, REVIEW_INTERVALS.length - 1);
+      mistake.nextReviewDate = addDays(t, REVIEW_INTERVALS[mistake.interval]);
+      if (mistake.interval >= REVIEW_INTERVALS.length - 1) {
+        var okStreak = mistake.reviewHistory.slice(-2).every(function (h) { return h.result === "ok"; });
+        if (okStreak) mistake.resolved = true;
+      }
+    } else {
+      mistake.interval = 0;
+      mistake.nextReviewDate = addDays(t, REVIEW_INTERVALS[0]);
+    }
+    var openTask = findOpenReviewTask(mistake.id);
+    if (openTask) openTask.done = true;
+    if (!mistake.resolved) {
+      state.plannerTasks.push({
+        id: uid(), date: mistake.nextReviewDate, subject: mistake.subject,
+        label: mistake.subject + "『" + mistake.unit + "』の復習",
+        done: false, source: "review", mistakeId: mistake.id
+      });
+    }
+    saveState(state);
+  }
+
+  function weaknessStats() {
+    var map = {};
+    state.mistakes.forEach(function (m) {
+      var key = m.subject + "｜" + m.unit;
+      if (!map[key]) map[key] = { subject: m.subject, unit: m.unit, count: 0, unresolved: 0 };
+      map[key].count++;
+      if (!m.resolved) map[key].unresolved++;
+    });
+    var arr = Object.keys(map).map(function (k) {
+      var x = map[k]; x.score = x.count * 2 + x.unresolved * 3; return x;
+    });
+    arr.sort(function (a, b) { return b.score - a.score; });
+    return arr;
+  }
+  function priorityLabel(score) {
+    if (score >= 8) return { label: "優先度：高", cls: "chip-high", bar: "" };
+    if (score >= 4) return { label: "優先度：中", cls: "chip-mid", bar: "mid" };
+    return { label: "優先度：低", cls: "chip-low", bar: "low" };
+  }
+
+  /* ================= Domain logic: calendar & tasks ================= */
+  function tasksOnDate(dateStr) { return state.plannerTasks.filter(function (t) { return t.date === dateStr; }); }
+
+  function dayStatus(dateStr) {
+    var list = tasksOnDate(dateStr);
+    if (!list.length) return "none";
+    var done = list.filter(function (t) { return t.done; }).length;
+    if (done === list.length) return "complete";
+    if (done > 0) return "partial";
+    return "pending";
+  }
+
+  function getTasksForDay(dateStr) {
+    var own = tasksOnDate(dateStr);
+    var overdue = [];
+    if (dateStr === todayISO()) {
+      overdue = state.plannerTasks.filter(function (t) { return t.source === "review" && !t.done && t.date < dateStr; });
+    }
+    var combined = overdue.concat(own);
+    combined.sort(function (a, b) { return (a.done === b.done) ? 0 : (a.done ? 1 : -1); });
+    return combined;
+  }
+
+  function dayCardComplete(dateStr) {
+    var tasks = getTasksForDay(dateStr);
+    return tasks.length > 0 && tasks.every(function (t) { return t.done; });
+  }
+
+  function computeStreak() {
+    var t = todayISO();
+    var cursor = dayStatus(t) === "complete" ? t : addDays(t, -1);
+    var streak = 0;
+    while (dayStatus(cursor) === "complete") { streak++; cursor = addDays(cursor, -1); }
+    return streak;
+  }
+
+  function buildMonthGrid(monthStr) {
+    var parts = monthStr.split("-"); var y = Number(parts[0]), mo = Number(parts[1]);
+    var startWeekday = new Date(y, mo - 1, 1).getDay();
+    var daysInMonth = new Date(y, mo, 0).getDate();
+    var cells = [];
+    for (var i = 0; i < startWeekday; i++) cells.push({ date: isoOf(new Date(y, mo - 1, 1 - (startWeekday - i))), inMonth: false });
+    for (var day = 1; day <= daysInMonth; day++) cells.push({ date: isoOf(new Date(y, mo - 1, day)), inMonth: true });
+    while (cells.length % 7 !== 0) {
+      var lastD = new Date(cells[cells.length - 1].date + "T00:00:00");
+      lastD.setDate(lastD.getDate() + 1);
+      cells.push({ date: isoOf(lastD), inMonth: false });
+    }
+    return cells;
+  }
+
+  /* ================= App / view state ================= */
+  var app = {
+    view: "calendar",
+    calMonth: monthOf(todayISO()),
+    selectedDate: todayISO(),
+    openTaskForm: false,
+    openReviewMistakeId: null,   // expanded review panel on the day page
+    openMistakeFormReviewId: null, // expanded review panel on the mistakes tab
+    openMistakeForm: false,
+    photoDraft: null
+  };
+
+  var VIEWS = [
+    { id: "calendar", label: "カレンダー" },
+    { id: "log", label: "記録" },
+    { id: "mistakes", label: "ノート" },
+    { id: "weakness", label: "弱点" }
+  ];
+
+  function goto(view) { app.view = view; render(); }
+  function toast(msg) {
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { el.classList.remove("show"); }, 1800);
+  }
+
+  /* ================= Celebration overlay (day fully complete) ================= */
+  var celebrateOpen = false, celebrateTimer = null, confettiRAF = null;
+
+  function prefersReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  function showCelebration(dateStr) {
+    if (celebrateOpen) return;
+    celebrateOpen = true;
+    var isToday = dateStr === todayISO();
+    var streak = computeStreak();
+    document.getElementById("celebrateTitle").innerHTML = (isToday ? "きょうのページ" : escapeHtml(formatJP(dateStr))) + "<br>コンプリート！";
+    document.getElementById("celebrateSub").textContent = (isToday && streak > 1) ? "これで " + streak + " 日連続！花丸コンプリート" : "よくがんばりました！";
+
+    var overlay = document.getElementById("celebrateOverlay");
+    overlay.hidden = false;
+
+    if (!prefersReducedMotion()) {
+      var canvas = document.getElementById("confettiCanvas");
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+      startCelebrationFX(canvas);
+    }
+    clearTimeout(celebrateTimer);
+    celebrateTimer = setTimeout(closeCelebration, 5200);
+  }
+
+  // Bright, saturated palette used only inside the celebration overlay — deliberately
+  // louder than the calm notebook palette the rest of the app uses.
+  var PARTY_COLORS = ["#FF3B6E", "#FF8A00", "#FFD400", "#38D9A9", "#3B82F6", "#B14BFF", "#FF4D4D", "#00E0C6"];
+
+  function closeCelebration() {
+    if (!celebrateOpen) return;
+    celebrateOpen = false;
+    document.getElementById("celebrateOverlay").hidden = true;
+    clearTimeout(celebrateTimer);
+    stopCelebrationFX();
+  }
+
+  /* ---- particle factories ---- */
+  function makeConfettiRain(w, h, colors) {
+    var count = Math.min(140, Math.round((w * h) / 6500));
+    var arr = [];
+    for (var i = 0; i < count; i++) arr.push(makeConfettiPiece(colors, Math.random() * w, -30 - Math.random() * h * 0.7, -2 + Math.random() * 4, 3 + Math.random() * 3.5));
+    return arr;
+  }
+  function makeConfettiBurst(x, y, colors, count) {
+    var arr = [];
+    for (var i = 0; i < count; i++) {
+      var angle = -Math.PI / 2 + (Math.random() * 1.9 - 0.95);
+      var speed = 8 + Math.random() * 11;
+      arr.push(makeConfettiPiece(colors, x, y, Math.cos(angle) * speed, Math.sin(angle) * speed));
+    }
+    return arr;
+  }
+  function makeConfettiPiece(colors, x, y, vx, vy) {
+    return {
+      x: x, y: y, w: 6 + Math.random() * 8, h: 10 + Math.random() * 26,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      vx: vx, vy: vy, rot: Math.random() * Math.PI * 2, vr: -0.32 + Math.random() * 0.64,
+      round: Math.random() < 0.4
+    };
+  }
+  function drawConfettiPiece(ctx, p) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.rot += p.vr;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.color;
+    if (p.round) { ctx.beginPath(); ctx.arc(0, 0, p.w / 2 + 1, 0, Math.PI * 2); ctx.fill(); }
+    else { ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); }
+    ctx.restore();
+  }
+
+  function makeBalloons(w, h, colors) {
+    var count = 8 + Math.floor(Math.random() * 4);
+    var arr = [];
+    for (var i = 0; i < count; i++) {
+      arr.push({
+        x: (w / (count + 1)) * (i + 1) + (Math.random() * 80 - 40),
+        y: h + 60 + Math.random() * h * 0.9,
+        size: 34 + Math.random() * 26,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        vy: -(0.9 + Math.random() * 0.9),
+        phase: Math.random() * Math.PI * 2,
+        swayAmp: 16 + Math.random() * 24,
+        swaySpeed: 0.0012 + Math.random() * 0.0009
+      });
+    }
+    return arr;
+  }
+  function drawBalloon(ctx, b, elapsed) {
+    b.y += b.vy;
+    var sway = Math.sin(elapsed * b.swaySpeed + b.phase) * b.swayAmp;
+    ctx.save();
+    ctx.translate(b.x + sway, b.y);
+    ctx.strokeStyle = "rgba(0,0,0,.3)"; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(-b.size * 0.22, b.size * 0.82); ctx.lineTo(-b.size * 0.1, b.size * 1.22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(b.size * 0.22, b.size * 0.82); ctx.lineTo(b.size * 0.1, b.size * 1.22); ctx.stroke();
+    ctx.fillStyle = "rgba(92,68,46,.9)";
+    ctx.fillRect(-b.size * 0.16, b.size * 1.18, b.size * 0.32, b.size * 0.22);
+    ctx.shadowColor = b.color; ctx.shadowBlur = 18;
+    ctx.beginPath(); ctx.ellipse(0, 0, b.size * 0.66, b.size * 0.84, 0, 0, Math.PI * 2); ctx.fillStyle = b.color; ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.moveTo(-b.size * 0.16, b.size * 0.74); ctx.lineTo(b.size * 0.16, b.size * 0.74); ctx.lineTo(0, b.size * 0.92);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-b.size * 0.22, -b.size * 0.3, b.size * 0.16, b.size * 0.24, -0.4, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,.4)"; ctx.fill();
+    ctx.restore();
+  }
+
+  function makePlane(w, h, color) {
+    var dir = Math.random() < 0.5 ? 1 : -1;
+    return { x: dir === 1 ? -60 : w + 60, y: h * 0.14 + Math.random() * h * 0.16, vx: dir * (3.4 + Math.random() * 1.2), vy: -0.15, color: color, trail: [] };
+  }
+  function drawPlane(ctx, p) {
+    p.x += p.vx; p.y += p.vy;
+    p.trail.push({ x: p.x, y: p.y });
+    if (p.trail.length > 14) p.trail.shift();
+    p.trail.forEach(function (pt, i) {
+      var t = i / p.trail.length;
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, 4 * t + 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = p.color; ctx.globalAlpha = t * 0.4; ctx.fill(); ctx.globalAlpha = 1;
+    });
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(Math.atan2(p.vy, p.vx));
+    ctx.shadowColor = p.color; ctx.shadowBlur = 14;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.moveTo(30, 0); ctx.lineTo(-21, -14); ctx.lineTo(-9, 0); ctx.lineTo(-21, 14);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  function makeFlock(w, h, colors) {
+    var dir = Math.random() < 0.5 ? 1 : -1;
+    var offsets = [[0, 0], [-24, 13], [24, 13], [-46, 24], [46, 24], [-66, 37], [66, 37], [-84, 48], [-100, 58], [100, 58]];
+    var birds = offsets.map(function (o, i) {
+      return { dx: o[0] * dir, dy: o[1], size: 15 + Math.random() * 6, phase: i * 0.5, color: colors[i % colors.length] };
+    });
+    return {
+      leaderX: dir === 1 ? -130 : w + 130, leaderY: h * 0.08 + Math.random() * h * 0.14,
+      vx: dir * (2.4 + Math.random() * 0.8), birds: birds
+    };
+  }
+  function drawFlock(ctx, flock, elapsed) {
+    flock.leaderX += flock.vx;
+    flock.birds.forEach(function (bd) {
+      var x = flock.leaderX + bd.dx;
+      var y = flock.leaderY + bd.dy + Math.sin(elapsed * 0.004 + bd.phase) * 5;
+      var wing = Math.abs(Math.sin(elapsed * 0.022 + bd.phase)) * bd.size * 0.95 + bd.size * 0.3;
+      ctx.save(); ctx.translate(x, y);
+      ctx.strokeStyle = bd.color; ctx.lineWidth = Math.max(2, bd.size * 0.2); ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(-bd.size, 0);
+      ctx.quadraticCurveTo(-bd.size * 0.4, -wing, 0, 0);
+      ctx.quadraticCurveTo(bd.size * 0.4, -wing, bd.size, 0);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  // Runs the whole "ハチャメチャ" celebration: rain + popper-burst confetti, rising balloons,
+  // a plane flyover with a glowing contrail, and a gull flock in bright, saturated colors.
+  function startCelebrationFX(canvas) {
+    var ctx = canvas.getContext("2d");
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+
+    var confetti = makeConfettiRain(w, h, PARTY_COLORS);
+    var balloons = makeBalloons(w, h, PARTY_COLORS);
+    var plane = makePlane(w, h, PARTY_COLORS[Math.floor(Math.random() * PARTY_COLORS.length)]);
+    var flock = makeFlock(w, h, PARTY_COLORS);
+
+    var bursts = [
+      { t: 0, x: w * 0.06, y: h * 0.98 }, { t: 0, x: w * 0.94, y: h * 0.98 },
+      { t: 550, x: w * 0.5, y: h * 1.02 },
+      { t: 1300, x: w * 0.15, y: h * 0.98 }, { t: 1300, x: w * 0.85, y: h * 0.98 },
+      { t: 2200, x: w * 0.5, y: h * 1.02 }
+    ];
+    var fired = bursts.map(function () { return false; });
+
+    var start = performance.now();
+    var duration = 4800;
+    function frame(now) {
+      var elapsed = now - start;
+      bursts.forEach(function (b, i) {
+        if (!fired[i] && elapsed >= b.t) { fired[i] = true; confetti = confetti.concat(makeConfettiBurst(b.x, b.y, PARTY_COLORS, 46)); }
+      });
+      confetti = confetti.filter(function (p) { return p.y < h + 80 && p.y > -h * 1.2; });
+
+      ctx.clearRect(0, 0, w, h);
+      balloons.forEach(function (b) { drawBalloon(ctx, b, elapsed); });
+      drawFlock(ctx, flock, elapsed);
+      drawPlane(ctx, plane);
+      confetti.forEach(function (p) { drawConfettiPiece(ctx, p); });
+      if (elapsed < duration) confettiRAF = requestAnimationFrame(frame);
+      else ctx.clearRect(0, 0, w, h);
+    }
+    confettiRAF = requestAnimationFrame(frame);
+  }
+
+  function stopCelebrationFX() {
+    if (confettiRAF) cancelAnimationFrame(confettiRAF);
+    confettiRAF = null;
+    var canvas = document.getElementById("confettiCanvas");
+    var ctx = canvas && canvas.getContext("2d");
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  /* ================= Render: shell ================= */
+  function render() {
+    document.getElementById("dateChip").textContent = formatJP(todayISO());
+    renderTabbar();
+    var view = document.getElementById("view");
+    if (app.view === "calendar") view.innerHTML = renderCalendarView();
+    else if (app.view === "log") view.innerHTML = renderLog();
+    else if (app.view === "mistakes") view.innerHTML = renderMistakes();
+    else if (app.view === "weakness") view.innerHTML = renderWeakness();
+  }
+
+  function renderTabbar() {
+    document.getElementById("tabbar").innerHTML = VIEWS.map(function (v) {
+      var active = v.id === app.view ? " active" : "";
+      return '<button class="tab-btn' + active + '" data-action="goto" data-view="' + v.id + '"><span class="dot"></span>' + escapeHtml(v.label) + '</button>';
+    }).join("");
+  }
+
+  /* ================= Render: calendar (home) ================= */
+  function renderCalendarView() {
+    var cells = buildMonthGrid(app.calMonth);
+    var t = todayISO();
+    var parts = app.calMonth.split("-");
+    var titleText = parts[0] + "年" + Number(parts[1]) + "月";
+
+    var dowHtml = WEEKDAYS.map(function (w) { return '<div class="cal-dow">' + w + '</div>'; }).join("");
+    var cellsHtml = cells.map(function (c) {
+      var status = dayStatus(c.date);
+      var cls = "cal-cell";
+      if (!c.inMonth) cls += " other-month";
+      if (c.date === t) cls += " today";
+      if (c.date === app.selectedDate) cls += " selected";
+      if (status === "complete") cls += " complete";
+      if (status === "partial") cls += " partial";
+      var day = Number(c.date.slice(8, 10));
+      return '<button class="' + cls + '" data-action="select-day" data-date="' + c.date + '">' +
+        '<span class="stamp"></span><span class="num">' + day + '</span></button>';
+    }).join("");
+
+    var streak = computeStreak();
+
+    return '' +
+      '<div class="card cal-card">' +
+        '<div class="cal-head"><span class="cal-title">' + titleText + '</span>' +
+          '<span class="cal-nav">' +
+            '<button class="cal-nav-btn" data-action="cal-prev">‹</button>' +
+            '<button class="cal-nav-btn" data-action="cal-next">›</button>' +
+          '</span></div>' +
+        '<div class="cal-dow-row">' + dowHtml + '</div>' +
+        '<div class="cal-grid">' + cellsHtml + '</div>' +
+        '<div class="cal-legend"><span><i class="legend-mark"></i>ぜんぶ終わった</span><span><i class="legend-dot"></i>とちゅう</span></div>' +
+      '</div>' +
+      '<p class="streak-line">花丸コンプリート、つづけて <b>' + streak + '日</b></p>' +
+      renderDayCard();
+  }
+
+  function renderDayCard() {
+    var d = app.selectedDate;
+    var t = todayISO();
+    var tasks = getTasksForDay(d);
+    var doneCount = tasks.filter(function (x) { return x.done; }).length;
+    var allDone = tasks.length > 0 && doneCount === tasks.length;
+
+    var subLabel = d === t ? "今日のページ" : (d < t ? formatJP(d) + " の記録" : formatJP(d) + " の よてい");
+
+    var taskListHtml = renderTaskListHtml(tasks);
+
+    var toggleLabel = app.openTaskForm ? "閉じる" : "＋ やることを追加";
+    var formHtml = app.openTaskForm ? renderTaskForm() : "";
+
+    return '<div class="card day-card' + (allDone ? " day-complete" : "") + '">' +
+      '<div class="day-head"><span class="day-title">' + formatJP(d) + '</span>' +
+      '<span class="day-progress">' + doneCount + '/' + tasks.length + '</span></div>' +
+      '<p class="day-sub">' + escapeHtml(subLabel) + '</p>' +
+      taskListHtml +
+      '<div class="add-task-toggle"><button class="btn btn-sm btn-ghost" data-action="toggle-task-form">' + toggleLabel + '</button></div>' +
+      formHtml +
+      '</div>';
+  }
+
+  // Splits a day's flat task list into single items (review reminders, plain to-dos)
+  // and grouped items (same material name + multiple page numbers added together).
+  function renderTaskListHtml(tasks) {
+    if (!tasks.length) return '<p class="task-empty">この日はまだ何も予定していません。「＋ やることを追加」で入れてみましょう。</p>';
+
+    var groups = {}; var groupOrder = []; var singles = [];
+    tasks.forEach(function (t) {
+      if (t.groupId) {
+        if (!groups[t.groupId]) { groups[t.groupId] = []; groupOrder.push(t.groupId); }
+        groups[t.groupId].push(t);
+      } else {
+        singles.push(t);
+      }
+    });
+
+    var html = "";
+    if (singles.length) html += '<ul class="task-list">' + singles.map(renderTaskItem).join("") + '</ul>';
+    groupOrder.forEach(function (gid) { html += renderTaskGroup(gid, groups[gid]); });
+    return html;
+  }
+
+  function renderTaskGroup(groupId, items) {
+    items = items.slice().sort(function (a, b) { return (a.page || 0) - (b.page || 0); });
+    var matName = items[0].label;
+    var subject = items[0].subject;
+    var done = items.filter(function (x) { return x.done; }).length;
+    var pillsHtml = items.map(function (t) {
+      return '<button class="page-pill' + (t.done ? " done" : "") + '" data-action="toggle-manual-task" data-id="' + t.id + '">' + t.page + '</button>';
+    }).join("");
+    return '<div class="task-group">' +
+      '<div class="task-group-head"><span class="tg-name">' + escapeHtml(matName) + (subject ? '<span class="tag">・' + escapeHtml(subject) + '</span>' : '') + '</span>' +
+      '<span class="tg-progress">' + done + '/' + items.length + '</span>' +
+      '<button class="task-del" data-action="delete-task-group" data-group-id="' + groupId + '" title="削除">×</button></div>' +
+      '<div class="tg-pages">' + pillsHtml + '</div>' +
+    '</div>';
+  }
+
+  function renderTaskItem(task) {
+    var isReview = task.source === "review";
+    var overdue = task.date < todayISO() && !task.done;
+    var tagText = isReview ? (overdue ? "期限切れ・復習リマインダー" : "復習リマインダー") : (task.subject || "やること");
+    var reviewOpen = isReview && app.openReviewMistakeId === task.mistakeId;
+
+    var body = '<span class="txt"><span class="label">' + escapeHtml(task.label) + '</span>' +
+      '<span class="tag' + (overdue ? " overdue" : "") + '">' + escapeHtml(tagText) + '</span></span>';
+
+    var ringBtn = '<button class="ring-btn" data-action="' + (isReview ? "toggle-review-day" : "toggle-manual-task") + '" ' +
+      (isReview ? 'data-mistake-id="' + task.mistakeId + '"' : 'data-id="' + task.id + '"') + '><span class="ring"></span></button>';
+
+    var delBtn = (!isReview && !task.done) ? '<button class="task-del" data-action="delete-task" data-id="' + task.id + '" title="削除">×</button>' : "";
+
+    var panel = reviewOpen ? renderReviewPanel(task.mistakeId) : "";
+
+    return '<li class="task-item' + (task.done ? " done" : "") + '">' + ringBtn + body + delBtn +
+      (panel ? '</li><li style="list-style:none">' + panel + '</li>' : '</li>');
+  }
+
+  function renderReviewPanel(mistakeId) {
+    var m = state.mistakes.find(function (x) { return x.id === mistakeId; });
+    if (!m) return "";
+    return '<div class="review-panel"><span class="field-label">正しい解き方</span>' +
+      '<div class="review-answer">' + escapeHtml(m.correctMethod) + '</div>' +
+      '<div class="review-choice">' +
+        '<button class="btn btn-sm btn-good" data-action="answer-review" data-id="' + m.id + '" data-ok="1">できた</button>' +
+        '<button class="btn btn-sm btn-danger" data-action="answer-review" data-id="' + m.id + '" data-ok="0">まだ苦手</button>' +
+      '</div></div>';
+  }
+
+  function renderTaskForm() {
+    return '<form class="card" id="taskForm" style="margin:10px 0 0;box-shadow:none;background:var(--paper-sunken)">' +
+      '<div class="field-row">' +
+        '<label class="field"><span class="field-label">科目（任意）</span>' +
+          '<select name="subject"><option value="">指定なし</option>' + SUBJECTS.map(function (s) { return '<option>' + s + '</option>'; }).join("") + '</select>' +
+        '</label>' +
+        '<label class="field"><span class="field-label">教材名・やること</span>' +
+          '<input type="text" name="matName" placeholder="例：予習シリーズ算数" required>' +
+        '</label>' +
+      '</div>' +
+      '<label class="field"><span class="field-label">ページ番号（任意・複数OK）</span>' +
+        '<input type="text" name="pages" placeholder="例：12,14,16-18">' +
+      '</label>' +
+      '<p class="field-hint">カンマ区切りや「16-18」のような範囲も入力できます。空欄なら1件のやることとして追加されます。</p>' +
+      '<button type="submit" class="btn btn-sm">この日に追加</button>' +
+    '</form>';
+  }
+
+  /* ================= Render: log ================= */
+  function renderLog() {
+    var recent = state.studyLogs.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).slice(0, 12);
+    var rows = recent.length ? recent.map(function (l) {
+      return '<div class="log-row"><span class="subj">' + escapeHtml(l.subject) + '</span>' +
+        '<span class="unit">' + escapeHtml(l.unit) + '</span>' +
+        '<span class="meta">' + formatShort(l.date) + '・' + l.minutes + '分・正答' + l.correctRate + '%</span></div>';
+    }).join("") : '<p class="empty-note">まだ記録がありません。</p>';
+
+    return '' +
+      '<div class="page-head"><h2>学習記録</h2></div>' +
+      '<form class="card" id="logForm">' +
+        '<div class="field-row">' +
+          '<label class="field"><span class="field-label">科目</span>' +
+            '<select name="subject">' + SUBJECTS.map(function (s) { return '<option>' + s + '</option>'; }).join("") + '</select>' +
+          '</label>' +
+          '<label class="field"><span class="field-label">時間（分）</span>' +
+            '<input type="number" name="minutes" min="1" max="600" value="20" required>' +
+          '</label>' +
+        '</div>' +
+        '<label class="field"><span class="field-label">単元</span>' +
+          '<input type="text" name="unit" placeholder="例：割合の文章題" required>' +
+        '</label>' +
+        '<label class="field"><span class="field-label">正答率（％）</span>' +
+          '<input type="number" name="correctRate" min="0" max="100" value="80" required>' +
+        '</label>' +
+        '<button type="submit" class="btn btn-block">記録する</button>' +
+      '</form>' +
+      '<div class="card"><p class="section-label">最近の記録</p>' + rows + '</div>';
+  }
+
+  /* ================= Render: mistakes ================= */
+  function renderMistakes() {
+    var list = state.mistakes.slice().sort(function (a, b) {
+      var da = a.resolved ? "9999-99-99" : a.nextReviewDate;
+      var db = b.resolved ? "9999-99-99" : b.nextReviewDate;
+      return da < db ? -1 : 1;
+    });
+    var t = todayISO();
+    var formHtml = app.openMistakeForm ? renderMistakeForm() : "";
+    var toggleLabel = app.openMistakeForm ? "閉じる" : "＋ まちがいを追加";
+
+    var cardsHtml = list.length ? list.map(function (m) {
+      var due = !m.resolved && m.nextReviewDate <= t;
+      var photoHtml = m.photo ? '<img class="mistake-photo" src="' + m.photo + '" alt="問題の写真">' : "";
+      var dueText = m.resolved ? "習得済み" : (due ? "きょう復習予定" : formatJP(m.nextReviewDate) + " に復習");
+      var reviewOpen = app.openMistakeFormReviewId === m.id;
+      var actions = m.resolved ? "" :
+        '<div class="mistake-actions"><button class="btn btn-sm" data-action="toggle-review-note" data-id="' + m.id + '">' + (reviewOpen ? "閉じる" : "復習する") + '</button></div>';
+      var reviewPanel = reviewOpen ? renderReviewPanel(m.id) : "";
+
+      return '<div class="mistake-card' + (due ? " due" : "") + '">' +
+        '<div class="mistake-top">' +
+          '<div class="mistake-head"><span class="badge">' + escapeHtml(m.subject) + '</span><span class="mistake-unit">' + escapeHtml(m.unit) + '</span></div>' +
+          '<div class="mistake-q">' + escapeHtml(m.question) + '</div>' + photoHtml +
+          '<div class="mistake-due-date">理由：' + escapeHtml(m.reason) + '　・　' + dueText + '</div>' +
+        '</div>' + actions + reviewPanel + '</div>';
+    }).join("") : '<p class="empty-note">まだ登録がありません。まちがえた問題を追加しましょう。</p>';
+
+    return '' +
+      '<div class="page-head"><h2>まちがいノート</h2><button class="btn btn-sm btn-ghost" data-action="toggle-mistake-form">' + toggleLabel + '</button></div>' +
+      formHtml + cardsHtml;
+  }
+
+  function renderMistakeForm() {
+    var photoPreview = app.photoDraft ? '<img class="mistake-photo" src="' + app.photoDraft + '" alt="プレビュー">' : "";
+    return '<form class="card" id="mistakeForm">' +
+      '<div class="field-row">' +
+        '<label class="field"><span class="field-label">科目</span><select name="subject">' + SUBJECTS.map(function (s) { return '<option>' + s + '</option>'; }).join("") + '</select></label>' +
+        '<label class="field"><span class="field-label">間違えた理由</span><select name="reason">' + REASONS.map(function (r) { return '<option>' + r + '</option>'; }).join("") + '</select></label>' +
+      '</div>' +
+      '<label class="field"><span class="field-label">単元</span><input type="text" name="unit" placeholder="例：割合の文章題" required></label>' +
+      '<label class="field"><span class="field-label">問題</span><textarea name="question" placeholder="問題文を入力（写真を登録してもOK）"></textarea></label>' +
+      '<label class="field"><span class="field-label">写真（任意）</span><input type="file" accept="image/*" id="photoInput">' + photoPreview + '</label>' +
+      '<label class="field"><span class="field-label">正しい解き方</span><textarea name="correctMethod" placeholder="どう考えれば解けるか" required></textarea></label>' +
+      '<button type="submit" class="btn btn-block">まちがいノートに保存</button>' +
+    '</form>';
+  }
+
+  /* ================= Render: weakness ================= */
+  function renderWeakness() {
+    var stats = weaknessStats();
+    var max = stats.length ? stats[0].score : 1;
+    var rows = stats.length ? stats.map(function (s) {
+      var p = priorityLabel(s.score);
+      var pct = Math.max(6, Math.round((s.score / max) * 100));
+      return '<div class="weak-row"><div class="weak-row-top"><div><span class="weak-name">' + escapeHtml(s.unit) + '</span> ' +
+        '<span class="weak-sub">' + escapeHtml(s.subject) + '・まちがい' + s.count + '回</span></div>' +
+        '<span class="chip ' + p.cls + '">' + p.label + '</span></div>' +
+        '<div class="weak-bar-track"><div class="weak-bar-fill ' + p.bar + '" style="width:' + pct + '%"></div></div></div>';
+    }).join("") : '<p class="empty-note">まちがいノートが増えると、ここに弱点が表示されます。</p>';
+
+    return '<div class="page-head"><h2>弱点分析</h2></div><div class="card"><p class="section-label">単元別・復習優先度</p>' + rows + '</div>';
+  }
+
+  /* ================= Events ================= */
+  var appEl = document.getElementById("app");
+
+  appEl.addEventListener("click", function (e) {
+    var actionEl = e.target.closest("[data-action]");
+    if (!actionEl) return;
+    var action = actionEl.getAttribute("data-action");
+
+    if (action === "goto") { goto(actionEl.getAttribute("data-view")); return; }
+
+    if (action === "cal-prev") { app.calMonth = addMonths(app.calMonth, -1); render(); return; }
+    if (action === "cal-next") { app.calMonth = addMonths(app.calMonth, 1); render(); return; }
+
+    if (action === "select-day") {
+      var date = actionEl.getAttribute("data-date");
+      app.selectedDate = date;
+      app.calMonth = monthOf(date);
+      app.openTaskForm = false;
+      render();
+      return;
+    }
+
+    if (action === "toggle-task-form") { app.openTaskForm = !app.openTaskForm; render(); return; }
+
+    if (action === "toggle-manual-task") {
+      var tid = actionEl.getAttribute("data-id");
+      var task = state.plannerTasks.find(function (x) { return x.id === tid; });
+      var wasComplete = dayCardComplete(app.selectedDate);
+      if (task) { task.done = !task.done; saveState(state); }
+      render();
+      if (!wasComplete && dayCardComplete(app.selectedDate)) showCelebration(app.selectedDate);
+      return;
+    }
+
+    if (action === "delete-task") {
+      var did = actionEl.getAttribute("data-id");
+      state.plannerTasks = state.plannerTasks.filter(function (x) { return x.id !== did; });
+      saveState(state);
+      render();
+      return;
+    }
+
+    if (action === "delete-task-group") {
+      var gid = actionEl.getAttribute("data-group-id");
+      state.plannerTasks = state.plannerTasks.filter(function (x) { return x.groupId !== gid; });
+      saveState(state);
+      render();
+      return;
+    }
+
+    if (action === "toggle-review-day") {
+      var mid = actionEl.getAttribute("data-mistake-id");
+      app.openReviewMistakeId = app.openReviewMistakeId === mid ? null : mid;
+      render();
+      return;
+    }
+
+    if (action === "toggle-review-note") {
+      var nid = actionEl.getAttribute("data-id");
+      app.openMistakeFormReviewId = app.openMistakeFormReviewId === nid ? null : nid;
+      render();
+      return;
+    }
+
+    if (action === "toggle-mistake-form") { app.openMistakeForm = !app.openMistakeForm; app.photoDraft = null; render(); return; }
+
+    if (action === "answer-review") {
+      var rid = actionEl.getAttribute("data-id");
+      var ok = actionEl.getAttribute("data-ok") === "1";
+      var m = state.mistakes.find(function (x) { return x.id === rid; });
+      var celebrateDate = app.view === "calendar" ? app.selectedDate : null;
+      var wasComplete = celebrateDate ? dayCardComplete(celebrateDate) : false;
+      if (m) {
+        scheduleReviewAndTask(m, ok);
+        toast(ok ? "よくできました！次の復習日を予約しました" : "もう一度チャレンジしよう。近いうちにまた出します");
+      }
+      app.openReviewMistakeId = null;
+      app.openMistakeFormReviewId = null;
+      render();
+      if (celebrateDate && !wasComplete && dayCardComplete(celebrateDate)) showCelebration(celebrateDate);
+      return;
+    }
+
+    if (action === "close-celebrate") { closeCelebration(); return; }
+
+  });
+
+  appEl.addEventListener("submit", function (e) {
+    if (e.target && e.target.id === "logForm") {
+      e.preventDefault();
+      var f = e.target;
+      state.studyLogs.push({
+        id: uid(), date: todayISO(), subject: f.subject.value, unit: f.unit.value.trim(),
+        minutes: Number(f.minutes.value) || 0, correctRate: Math.max(0, Math.min(100, Number(f.correctRate.value) || 0))
+      });
+      saveState(state);
+      toast("記録しました");
+      goto("calendar");
+      return;
+    }
+
+    if (e.target && e.target.id === "mistakeForm") {
+      e.preventDefault();
+      var mf = e.target;
+      var unit = mf.unit.value.trim();
+      if (!unit) return;
+      var t = todayISO();
+      var mistakeId = uid();
+      var nextReview = addDays(t, REVIEW_INTERVALS[0]);
+      state.mistakes.push({
+        id: mistakeId, date: t, subject: mf.subject.value, unit: unit,
+        question: mf.question.value.trim(), photo: app.photoDraft, reason: mf.reason.value,
+        correctMethod: mf.correctMethod.value.trim(), reviewHistory: [], interval: 0,
+        nextReviewDate: nextReview, resolved: false
+      });
+      state.plannerTasks.push({
+        id: uid(), date: nextReview, subject: mf.subject.value,
+        label: mf.subject.value + "『" + unit + "』の復習", done: false, source: "review", mistakeId: mistakeId
+      });
+      saveState(state);
+      app.openMistakeForm = false;
+      app.photoDraft = null;
+      toast("まちがいノートに保存しました");
+      render();
+      return;
+    }
+
+    if (e.target && e.target.id === "taskForm") {
+      e.preventDefault();
+      var tf = e.target;
+      var matName = tf.matName.value.trim();
+      if (!matName) return;
+      var subject = tf.subject.value || null;
+      var pages = parsePageNumbers(tf.pages.value);
+      if (pages.length === 0) {
+        state.plannerTasks.push({ id: uid(), date: app.selectedDate, subject: subject, label: matName, done: false, source: "manual" });
+      } else {
+        var groupId = uid();
+        pages.forEach(function (p) {
+          state.plannerTasks.push({ id: uid(), date: app.selectedDate, subject: subject, label: matName, page: p, groupId: groupId, done: false, source: "manual" });
+        });
+      }
+      saveState(state);
+      app.openTaskForm = false;
+      toast(pages.length ? "ページを" + pages.length + "件追加しました" : "カレンダーに追加しました");
+      render();
+      return;
+    }
+  });
+
+  appEl.addEventListener("change", function (e) {
+    if (e.target && e.target.id === "photoInput" && e.target.files && e.target.files[0]) {
+      resizeImageToDataUrl(e.target.files[0], 480, function (dataUrl) { app.photoDraft = dataUrl; render(); });
+    }
+  });
+
+  function resizeImageToDataUrl(file, maxW, cb) {
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, maxW / img.width);
+        var canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        cb(canvas.toDataURL("image/jpeg", 0.8));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
