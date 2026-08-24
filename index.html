@@ -138,12 +138,36 @@
   .cal-cell:nth-child(4n).complete .stamp { transform: rotate(5deg); }
   .cal-cell:nth-child(3n+1).complete .stamp { transform: rotate(-3deg); }
   .cal-cell.partial .num::after { content: ""; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background: var(--warn); }
-  .cal-legend { display: flex; gap: 14px; padding: 10px 2px 4px; font-size: 11px; color: var(--ink-soft); }
+  .cal-cell.exam::before {
+    content: ""; position: absolute; top: 0; right: 0; z-index: 2;
+    border-style: solid; border-width: 0 8px 8px 0; border-color: transparent var(--accent) transparent transparent;
+  }
+  .cal-legend { display: flex; gap: 14px; padding: 10px 2px 4px; font-size: 11px; color: var(--ink-soft); flex-wrap: wrap; }
   .cal-legend span { display: inline-flex; align-items: center; gap: 4px; }
   .legend-mark { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--danger); display: inline-block; }
   .legend-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); display: inline-block; }
+  .legend-flag { width: 0; height: 0; border-style: solid; border-width: 0 7px 7px 0; border-color: transparent var(--accent) transparent transparent; display: inline-block; }
   .streak-line { font-size: 12px; color: var(--ink-soft); padding: 2px 2px 12px; }
   .streak-line b { color: var(--warn); font-family: var(--font-display); font-size: 14px; }
+
+  /* ===== Exam countdown ===== */
+  .countdown-card {
+    background: var(--accent); color: var(--accent-ink); border-radius: var(--radius);
+    padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: baseline;
+    justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  }
+  .countdown-label { font-size: 14px; font-weight: 700; }
+  .countdown-num { font-family: var(--font-display); font-size: 15px; font-weight: 700; white-space: nowrap; }
+  .countdown-num b { font-size: 30px; font-variant-numeric: tabular-nums; margin: 0 2px; }
+  .countdown-today { font-family: var(--font-display); font-size: 18px; font-weight: 700; margin: 0; line-height: 1.4; }
+
+  /* ===== Exam banner + add form inside the day card ===== */
+  .exam-banner {
+    display: flex; align-items: center; gap: 8px; background: var(--accent-soft); color: var(--accent);
+    border-radius: var(--radius-sm); padding: 9px 11px; margin-bottom: 8px; font-size: 13px; font-weight: 700;
+  }
+  .exam-flag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); flex: none; }
+  .exam-name { flex: 1; }
 
   /* ===== Day page ===== */
   .day-card { border-left: 5px solid var(--accent); padding: 16px 16px 14px; }
@@ -491,14 +515,23 @@
         { id: uid(), date: t, subject: "算数", label: "予習シリーズ算数", page: 15, groupId: mathGroupId, done: false, source: "manual" },
         { id: uid(), date: addDays(t, 1), subject: "算数", label: "過去問A校 大問1〜2", done: false, source: "manual" },
         { id: uid(), date: addDays(t, 4), subject: "理科", label: "理科『てこのはたらき』の復習", done: false, source: "review", mistakeId: m2Id }
-      ]
+      ],
+      exams: []
     };
+  }
+
+  // Fills in fields that may be missing from data saved before a given feature existed
+  // (either an older localStorage copy, or a cloud document written by the other device
+  // before it picked up the update).
+  function normalizeState(s) {
+    if (!s.exams) s.exams = [];
+    return s;
   }
 
   function loadState() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) return normalizeState(JSON.parse(raw));
     } catch (e) {}
     var s = seedState();
     saveState(s);
@@ -516,10 +549,10 @@
   // once, to seed the cloud the very first time no shared document exists yet.
   window.__getLocalState = function () { return state; };
   window.__applyCloudState = function (cloudState) {
-    state = cloudState;
+    state = normalizeState(cloudState);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
     // Don't yank the rug out from under a form the user is mid-typing in.
-    if (!app.openTaskForm && !app.openMistakeForm) render();
+    if (!app.openTaskForm && !app.openMistakeForm && !app.openExamForm) render();
   };
 
   /* ================= Domain logic: mistakes & review scheduling ================= */
@@ -609,6 +642,22 @@
     return streak;
   }
 
+  /* ---- exams (模試・公開テスト) ---- */
+  function examsOnDate(dateStr) { return state.exams.filter(function (e) { return e.date === dateStr; }); }
+
+  function daysUntil(dateStr) {
+    var a = new Date(todayISO() + "T00:00:00");
+    var b = new Date(dateStr + "T00:00:00");
+    return Math.round((b - a) / 86400000);
+  }
+
+  function nextExam() {
+    var t = todayISO();
+    var upcoming = state.exams.filter(function (e) { return e.date >= t; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    return upcoming.length ? upcoming[0] : null;
+  }
+
   function buildMonthGrid(monthStr) {
     var parts = monthStr.split("-"); var y = Number(parts[0]), mo = Number(parts[1]);
     var startWeekday = new Date(y, mo - 1, 1).getDay();
@@ -630,6 +679,7 @@
     calMonth: monthOf(todayISO()),
     selectedDate: todayISO(),
     openTaskForm: false,
+    openExamForm: false,
     openReviewMistakeId: null,   // expanded review panel on the day page
     openMistakeFormReviewId: null, // expanded review panel on the mistakes tab
     openMistakeForm: false,
@@ -894,7 +944,8 @@
       if (c.date === t) cls += " today";
       if (c.date === app.selectedDate) cls += " selected";
       if (status === "complete") cls += " complete";
-      if (status === "partial") cls += " partial";
+      else if (status === "partial" || status === "pending") cls += " partial";
+      if (examsOnDate(c.date).length) cls += " exam";
       var day = Number(c.date.slice(8, 10));
       return '<button class="' + cls + '" data-action="select-day" data-date="' + c.date + '">' +
         '<span class="stamp"></span><span class="num">' + day + '</span></button>';
@@ -903,6 +954,7 @@
     var streak = computeStreak();
 
     return '' +
+      renderCountdownBanner() +
       '<div class="card cal-card">' +
         '<div class="cal-head"><span class="cal-title">' + titleText + '</span>' +
           '<span class="cal-nav">' +
@@ -911,10 +963,23 @@
           '</span></div>' +
         '<div class="cal-dow-row">' + dowHtml + '</div>' +
         '<div class="cal-grid">' + cellsHtml + '</div>' +
-        '<div class="cal-legend"><span><i class="legend-mark"></i>ぜんぶ終わった</span><span><i class="legend-dot"></i>とちゅう</span></div>' +
+        '<div class="cal-legend"><span><i class="legend-mark"></i>ぜんぶ終わった</span><span><i class="legend-dot"></i>とちゅう</span><span><i class="legend-flag"></i>模試・テスト</span></div>' +
       '</div>' +
       '<p class="streak-line">花丸コンプリート、つづけて <b>' + streak + '日</b></p>' +
       renderDayCard();
+  }
+
+  function renderCountdownBanner() {
+    var ex = nextExam();
+    if (!ex) return "";
+    var days = daysUntil(ex.date);
+    if (days === 0) {
+      return '<div class="countdown-card"><p class="countdown-today">今日は「' + escapeHtml(ex.name) + '」の日！</p></div>';
+    }
+    return '<div class="countdown-card">' +
+      '<span class="countdown-label">' + escapeHtml(ex.name) + 'まで</span>' +
+      '<span class="countdown-num">あと<b>' + days + '</b>日</span>' +
+    '</div>';
   }
 
   function renderDayCard() {
@@ -926,6 +991,14 @@
 
     var subLabel = d === t ? "今日のページ" : (d < t ? formatJP(d) + " の記録" : formatJP(d) + " の よてい");
 
+    var examsToday = examsOnDate(d);
+    var examBannerHtml = examsToday.map(function (e) {
+      return '<div class="exam-banner"><span class="exam-flag">模試・テスト</span><span class="exam-name">' + escapeHtml(e.name) + '</span>' +
+        '<button class="task-del" data-action="delete-exam" data-id="' + e.id + '" title="削除">×</button></div>';
+    }).join("");
+    var examToggleLabel = app.openExamForm ? "閉じる" : "＋ 模試・公開テストを登録";
+    var examFormHtml = app.openExamForm ? renderExamForm() : "";
+
     var taskListHtml = renderTaskListHtml(tasks);
 
     var toggleLabel = app.openTaskForm ? "閉じる" : "＋ やることを追加";
@@ -935,10 +1008,22 @@
       '<div class="day-head"><span class="day-title">' + formatJP(d) + '</span>' +
       '<span class="day-progress">' + doneCount + '/' + tasks.length + '</span></div>' +
       '<p class="day-sub">' + escapeHtml(subLabel) + '</p>' +
+      examBannerHtml +
+      '<div class="add-task-toggle"><button class="btn btn-sm btn-ghost" data-action="toggle-exam-form">' + examToggleLabel + '</button></div>' +
+      examFormHtml +
       taskListHtml +
       '<div class="add-task-toggle"><button class="btn btn-sm btn-ghost" data-action="toggle-task-form">' + toggleLabel + '</button></div>' +
       formHtml +
       '</div>';
+  }
+
+  function renderExamForm() {
+    return '<form class="card" id="examForm" style="margin:10px 0 14px;box-shadow:none;background:var(--paper-sunken)">' +
+      '<label class="field"><span class="field-label">テスト名</span>' +
+        '<input type="text" name="examName" placeholder="例：第3回 志望校別公開模試" required>' +
+      '</label>' +
+      '<button type="submit" class="btn btn-sm">この日に登録</button>' +
+    '</form>';
   }
 
   // Splits a day's flat task list into single items (review reminders, plain to-dos)
@@ -1149,6 +1234,16 @@
 
     if (action === "toggle-task-form") { app.openTaskForm = !app.openTaskForm; render(); return; }
 
+    if (action === "toggle-exam-form") { app.openExamForm = !app.openExamForm; render(); return; }
+
+    if (action === "delete-exam") {
+      var eid = actionEl.getAttribute("data-id");
+      state.exams = state.exams.filter(function (x) { return x.id !== eid; });
+      saveState(state);
+      render();
+      return;
+    }
+
     if (action === "toggle-manual-task") {
       var tid = actionEl.getAttribute("data-id");
       var task = state.plannerTasks.find(function (x) { return x.id === tid; });
@@ -1279,6 +1374,19 @@
       saveState(state);
       app.openTaskForm = false;
       toast(pages.length ? "ページを" + pages.length + "件追加しました" : "カレンダーに追加しました");
+      render();
+      return;
+    }
+
+    if (e.target && e.target.id === "examForm") {
+      e.preventDefault();
+      var ef = e.target;
+      var examName = ef.examName.value.trim();
+      if (!examName) return;
+      state.exams.push({ id: uid(), date: app.selectedDate, name: examName });
+      saveState(state);
+      app.openExamForm = false;
+      toast("テストを登録しました");
       render();
       return;
     }
