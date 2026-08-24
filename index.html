@@ -146,7 +146,11 @@
   .cal-legend span { display: inline-flex; align-items: center; gap: 4px; }
   .legend-mark { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--danger); display: inline-block; }
   .legend-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); display: inline-block; }
-  .legend-flag { width: 0; height: 0; border-style: solid; border-width: 0 7px 7px 0; border-color: transparent var(--accent) transparent transparent; display: inline-block; }
+  .legend-flag { width: 0; height: 0; border-style: solid; border-width: 0 7px 7px 0; border-color: transparent var(--accent) transparent transparent; display: inline-block; flex: none; }
+  .exam-list { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 7px; }
+  .exam-list-row { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+  .exam-list-date { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
+  .exam-list-name { color: var(--ink); font-weight: 500; }
   .streak-line { font-size: 12px; color: var(--ink-soft); padding: 2px 2px 12px; }
   .streak-line b { color: var(--warn); font-family: var(--font-display); font-size: 14px; }
 
@@ -356,6 +360,13 @@
     * { transition: none !important; animation: none !important; }
     .stamp-check { stroke-dashoffset: 0; }
   }
+
+  /* ===== Delete confirmation ===== */
+  .confirm-overlay { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); padding: 20px; }
+  .confirm-overlay[hidden] { display: none; }
+  .confirm-modal { background: var(--paper-raised); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; max-width: 280px; text-align: center; }
+  .confirm-modal p { font-size: 14px; margin: 0 0 16px; color: var(--ink); }
+  .confirm-actions { display: flex; gap: 8px; justify-content: center; }
 </style>
 </head>
 <body>
@@ -380,6 +391,15 @@
       <p class="celebrate-title" id="celebrateTitle"></p>
       <p class="celebrate-sub" id="celebrateSub"></p>
       <button class="celebrate-close" data-action="close-celebrate">とじる</button>
+    </div>
+  </div>
+  <div class="confirm-overlay" id="confirmOverlay" hidden>
+    <div class="confirm-modal">
+      <p id="confirmMessage"></p>
+      <div class="confirm-actions">
+        <button class="btn btn-sm btn-ghost" data-action="confirm-cancel">キャンセル</button>
+        <button class="btn btn-sm btn-danger" data-action="confirm-ok">削除</button>
+      </div>
     </div>
   </div>
 </div>
@@ -702,6 +722,18 @@
     toast._t = setTimeout(function () { el.classList.remove("show"); }, 1800);
   }
 
+  /* ================= Delete confirmation ================= */
+  var pendingConfirmAction = null;
+  function showConfirm(message, onConfirm) {
+    document.getElementById("confirmMessage").textContent = message;
+    document.getElementById("confirmOverlay").hidden = false;
+    pendingConfirmAction = onConfirm;
+  }
+  function hideConfirm() {
+    document.getElementById("confirmOverlay").hidden = true;
+    pendingConfirmAction = null;
+  }
+
   /* ================= Celebration overlay (day fully complete) ================= */
   var celebrateOpen = false, celebrateTimer = null, confettiRAF = null;
 
@@ -945,9 +977,11 @@
       if (c.date === app.selectedDate) cls += " selected";
       if (status === "complete") cls += " complete";
       else if (status === "partial" || status === "pending") cls += " partial";
-      if (examsOnDate(c.date).length) cls += " exam";
+      var examNames = examsOnDate(c.date).map(function (e) { return e.name; });
+      if (examNames.length) cls += " exam";
+      var titleAttr = examNames.length ? ' title="' + escapeHtml(examNames.join("、")) + '"' : "";
       var day = Number(c.date.slice(8, 10));
-      return '<button class="' + cls + '" data-action="select-day" data-date="' + c.date + '">' +
+      return '<button class="' + cls + '" data-action="select-day" data-date="' + c.date + '"' + titleAttr + '>' +
         '<span class="stamp"></span><span class="num">' + day + '</span></button>';
     }).join("");
 
@@ -964,6 +998,7 @@
         '<div class="cal-dow-row">' + dowHtml + '</div>' +
         '<div class="cal-grid">' + cellsHtml + '</div>' +
         '<div class="cal-legend"><span><i class="legend-mark"></i>ぜんぶ終わった</span><span><i class="legend-dot"></i>とちゅう</span><span><i class="legend-flag"></i>模試・テスト</span></div>' +
+        renderExamListForMonth() +
       '</div>' +
       '<p class="streak-line">花丸コンプリート、つづけて <b>' + streak + '日</b></p>' +
       renderDayCard();
@@ -980,6 +1015,21 @@
       '<span class="countdown-label">' + escapeHtml(ex.name) + 'まで</span>' +
       '<span class="countdown-num">あと<b>' + days + '</b>日</span>' +
     '</div>';
+  }
+
+  // Lists every registered exam/test that falls within the currently displayed month,
+  // so their names are visible on the calendar itself (the grid cells are too small to
+  // fit text, so this sits right under it, tied to the flag marker on each date).
+  function renderExamListForMonth() {
+    var monthExams = state.exams.filter(function (e) { return monthOf(e.date) === app.calMonth; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    if (!monthExams.length) return "";
+    var rows = monthExams.map(function (e) {
+      return '<div class="exam-list-row"><i class="legend-flag"></i>' +
+        '<span class="exam-list-date">' + formatJP(e.date) + '</span>' +
+        '<span class="exam-list-name">' + escapeHtml(e.name) + '</span></div>';
+    }).join("");
+    return '<div class="exam-list">' + rows + '</div>';
   }
 
   function renderDayCard() {
@@ -1238,9 +1288,19 @@
 
     if (action === "delete-exam") {
       var eid = actionEl.getAttribute("data-id");
-      state.exams = state.exams.filter(function (x) { return x.id !== eid; });
-      saveState(state);
-      render();
+      showConfirm("このテストの登録を削除しますか？", function () {
+        state.exams = state.exams.filter(function (x) { return x.id !== eid; });
+        saveState(state);
+        render();
+      });
+      return;
+    }
+
+    if (action === "confirm-cancel") { hideConfirm(); return; }
+    if (action === "confirm-ok") {
+      var fn = pendingConfirmAction;
+      hideConfirm();
+      if (fn) fn();
       return;
     }
 
@@ -1256,26 +1316,32 @@
 
     if (action === "delete-task") {
       var did = actionEl.getAttribute("data-id");
-      state.plannerTasks = state.plannerTasks.filter(function (x) { return x.id !== did; });
-      saveState(state);
-      render();
+      showConfirm("このやることを削除しますか？", function () {
+        state.plannerTasks = state.plannerTasks.filter(function (x) { return x.id !== did; });
+        saveState(state);
+        render();
+      });
       return;
     }
 
     if (action === "delete-task-group") {
       var gid = actionEl.getAttribute("data-group-id");
-      state.plannerTasks = state.plannerTasks.filter(function (x) { return x.groupId !== gid; });
-      saveState(state);
-      render();
+      showConfirm("このやること（複数ページ）をまとめて削除しますか？", function () {
+        state.plannerTasks = state.plannerTasks.filter(function (x) { return x.groupId !== gid; });
+        saveState(state);
+        render();
+      });
       return;
     }
 
     if (action === "delete-mistake") {
       var mid2 = actionEl.getAttribute("data-mistake-id");
-      state.mistakes = state.mistakes.filter(function (x) { return x.id !== mid2; });
-      state.plannerTasks = state.plannerTasks.filter(function (x) { return x.mistakeId !== mid2; });
-      saveState(state);
-      render();
+      showConfirm("このまちがいを削除しますか？", function () {
+        state.mistakes = state.mistakes.filter(function (x) { return x.id !== mid2; });
+        state.plannerTasks = state.plannerTasks.filter(function (x) { return x.mistakeId !== mid2; });
+        saveState(state);
+        render();
+      });
       return;
     }
 
