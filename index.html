@@ -352,6 +352,45 @@
   </div>
 </div>
 
+<!-- Cloud sync: keeps one shared study record in a Firestore document so the iPad and
+     the PC see the same data. Runs as an ES module (Firebase's SDK ships as one), which
+     is why it's a separate <script type="module"> from the main app script below. -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  var firebaseConfig = {
+    apiKey: "AIzaSyDkW4YD3l6TDineUFq6zjD59cs6rz8njdY",
+    authDomain: "maru-tsuke-note.firebaseapp.com",
+    projectId: "maru-tsuke-note",
+    storageBucket: "maru-tsuke-note.firebasestorage.app",
+    messagingSenderId: "335358054006",
+    appId: "1:335358054006:web:93984697eeaea5d6771957"
+  };
+
+  var app = initializeApp(firebaseConfig);
+  var db = getFirestore(app);
+  // Everything lives in one shared document — this app has exactly one "family".
+  var docRef = doc(db, "families", "maru-tsuke-note-shared");
+
+  window.__cloudPush = function (state) {
+    setDoc(docRef, state).catch(function (err) {
+      console.warn("cloud sync (push) failed:", err);
+    });
+  };
+
+  onSnapshot(docRef, function (snap) {
+    if (snap.exists()) {
+      if (window.__applyCloudState) window.__applyCloudState(snap.data());
+    } else if (window.__getLocalState) {
+      // First device to ever connect: seed the shared document with what it has locally.
+      window.__cloudPush(window.__getLocalState());
+    }
+  }, function (err) {
+    console.warn("cloud sync (listen) failed — falling back to this device's saved copy:", err);
+  });
+</script>
+
 <script>
 (function () {
   "use strict";
@@ -457,9 +496,23 @@
     saveState(s);
     return s;
   }
-  function saveState(s) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {} }
+  function saveState(s) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+    if (window.__cloudPush) window.__cloudPush(s);
+  }
 
   var state = loadState();
+
+  // Bridge to the Firebase module script below: it calls __applyCloudState whenever the
+  // shared document changes (from this device or the other one), and reads __getLocalState
+  // once, to seed the cloud the very first time no shared document exists yet.
+  window.__getLocalState = function () { return state; };
+  window.__applyCloudState = function (cloudState) {
+    state = cloudState;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+    // Don't yank the rug out from under a form the user is mid-typing in.
+    if (!app.openTaskForm && !app.openMistakeForm) render();
+  };
 
   /* ================= Domain logic: mistakes & review scheduling ================= */
   function findOpenReviewTask(mistakeId) {
