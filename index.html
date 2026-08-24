@@ -290,10 +290,18 @@
   .weak-bar-fill.mid { background: var(--warn); }
   .weak-bar-fill.low { background: var(--good); }
 
+  /* ===== Record overview (finished items, merged by name) ===== */
+  .record-row { padding: 12px 0; border-top: 1px dashed var(--line); }
+  .record-row:first-child { border-top: none; }
+  .record-row-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .record-name { font-weight: 700; font-size: 14px; }
+  .record-pages { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .record-meta { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+
   .empty-note { color: var(--ink-soft); font-size: 13px; padding: 4px 0; }
 
   /* ===== Tab bar ===== */
-  .tabbar { position: sticky; bottom: 0; z-index: 10; background: var(--paper-raised); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(2, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+  .tabbar { position: sticky; bottom: 0; z-index: 10; background: var(--paper-raised); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
   .tab-btn { background: none; border: none; cursor: pointer; color: var(--ink-faint); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); }
   .tab-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
   .tab-btn.active { color: var(--accent); }
@@ -656,6 +664,29 @@
     return tasks.length > 0 && tasks.every(function (t) { return t.done; });
   }
 
+  // Groups every finished calendar task by its name, so "算数ステージII" done as pages
+  // 1-3 on one day and 4-6 on another shows up as one merged row: 1,2,3,4,5,6.
+  function completedTaskGroups() {
+    var map = {}; var order = [];
+    state.plannerTasks.filter(function (t) { return t.done; }).forEach(function (t) {
+      if (!map[t.label]) { map[t.label] = { label: t.label, subject: t.subject, pages: [], count: 0, lastDate: t.date }; order.push(t.label); }
+      var g = map[t.label];
+      g.count++;
+      if (t.page != null) g.pages.push(t.page);
+      if (!g.subject && t.subject) g.subject = t.subject;
+      if (t.date > g.lastDate) g.lastDate = t.date;
+    });
+    var arr = order.map(function (label) {
+      var g = map[label];
+      var seen = {};
+      g.pages = g.pages.filter(function (p) { if (seen[p]) return false; seen[p] = true; return true; })
+        .sort(function (a, b) { return a - b; });
+      return g;
+    });
+    arr.sort(function (a, b) { return a.lastDate < b.lastDate ? 1 : -1; });
+    return arr;
+  }
+
   function computeStreak() {
     var t = todayISO();
     var cursor = dayStatus(t) === "complete" ? t : addDays(t, -1);
@@ -714,7 +745,8 @@
   // all still here; add a row back in below to bring one back.
   var VIEWS = [
     { id: "calendar", label: "カレンダー" },
-    { id: "prep", label: "準備" }
+    { id: "prep", label: "準備" },
+    { id: "record", label: "記録" }
   ];
 
   function goto(view) { app.view = view; render(); }
@@ -957,6 +989,7 @@
     else if (app.view === "mistakes") view.innerHTML = renderMistakes();
     else if (app.view === "weakness") view.innerHTML = renderWeakness();
     else if (app.view === "prep") view.innerHTML = renderExamPrep();
+    else if (app.view === "record") view.innerHTML = renderRecordOverview();
   }
 
   function renderTabbar() {
@@ -1233,6 +1266,24 @@
       '</label>' +
       '<button type="submit" class="btn btn-sm">追加</button>' +
     '</form>';
+  }
+
+  /* ================= Render: record overview (finished items, merged) ================= */
+  function renderRecordOverview() {
+    var groups = completedTaskGroups();
+    var rows = groups.length ? groups.map(function (g) {
+      var pagesText = g.pages.length ? g.pages.join(",") : "完了 " + g.count + "回";
+      return '<div class="record-row">' +
+        '<div class="record-row-top"><span class="record-name">' + escapeHtml(g.label) + '</span>' +
+        (g.subject ? '<span class="badge">' + escapeHtml(g.subject) + '</span>' : '') + '</div>' +
+        '<div class="record-pages">' + escapeHtml(pagesText) + '</div>' +
+        '<div class="record-meta">最後に完了：' + formatJP(g.lastDate) + '</div>' +
+      '</div>';
+    }).join("") : '<p class="empty-note">まだ完了したやることがありません。カレンダーでチェックを入れると、ここに集まってきます。</p>';
+
+    return '' +
+      '<div class="page-head"><h2>実施記録</h2></div>' +
+      '<div class="card">' + rows + '</div>';
   }
 
   /* ================= Render: mistakes ================= */
