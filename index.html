@@ -293,7 +293,7 @@
   .empty-note { color: var(--ink-soft); font-size: 13px; padding: 4px 0; }
 
   /* ===== Tab bar ===== */
-  .tabbar { position: sticky; bottom: 0; z-index: 10; background: var(--paper-raised); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+  .tabbar { position: sticky; bottom: 0; z-index: 10; background: var(--paper-raised); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(2, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
   .tab-btn { background: none; border: none; cursor: pointer; color: var(--ink-faint); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); }
   .tab-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
   .tab-btn.active { color: var(--accent); }
@@ -536,7 +536,8 @@
         { id: uid(), date: addDays(t, 1), subject: "算数", label: "過去問A校 大問1〜2", done: false, source: "manual" },
         { id: uid(), date: addDays(t, 4), subject: "理科", label: "理科『てこのはたらき』の復習", done: false, source: "review", mistakeId: m2Id }
       ],
-      exams: []
+      exams: [],
+      examPrep: []
     };
   }
 
@@ -545,6 +546,7 @@
   // before it picked up the update).
   function normalizeState(s) {
     if (!s.exams) s.exams = [];
+    if (!s.examPrep) s.examPrep = [];
     return s;
   }
 
@@ -572,7 +574,7 @@
     state = normalizeState(cloudState);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
     // Don't yank the rug out from under a form the user is mid-typing in.
-    if (!app.openTaskForm && !app.openMistakeForm && !app.openExamForm) render();
+    if (!app.openTaskForm && !app.openMistakeForm && !app.openExamForm && !app.openPrepForm) render();
   };
 
   /* ================= Domain logic: mistakes & review scheduling ================= */
@@ -700,18 +702,19 @@
     selectedDate: todayISO(),
     openTaskForm: false,
     openExamForm: false,
+    openPrepForm: false,
     openReviewMistakeId: null,   // expanded review panel on the day page
     openMistakeFormReviewId: null, // expanded review panel on the mistakes tab
     openMistakeForm: false,
     photoDraft: null
   };
 
-  // "log" (学習記録) is intentionally left out of the tab bar — not deleted, just hidden
-  // for now. Its view/data/handlers are all still here; add its row back in to bring it back.
+  // "log" (学習記録), "mistakes" (まちがいノート), and "weakness" (弱点分析) are intentionally
+  // left out of the tab bar — not deleted, just hidden for now. Their views/data/handlers are
+  // all still here; add a row back in below to bring one back.
   var VIEWS = [
     { id: "calendar", label: "カレンダー" },
-    { id: "mistakes", label: "ノート" },
-    { id: "weakness", label: "弱点" }
+    { id: "prep", label: "準備" }
   ];
 
   function goto(view) { app.view = view; render(); }
@@ -953,6 +956,7 @@
     else if (app.view === "log") view.innerHTML = renderLog();
     else if (app.view === "mistakes") view.innerHTML = renderMistakes();
     else if (app.view === "weakness") view.innerHTML = renderWeakness();
+    else if (app.view === "prep") view.innerHTML = renderExamPrep();
   }
 
   function renderTabbar() {
@@ -1196,6 +1200,41 @@
       '<div class="card"><p class="section-label">最近の記録</p>' + rows + '</div>';
   }
 
+  /* ================= Render: exam prep checklist ================= */
+  function renderExamPrep() {
+    var items = state.examPrep;
+    var done = items.filter(function (x) { return x.done; }).length;
+
+    var listHtml = items.length ? '<ul class="task-list">' + items.map(function (item) {
+      return '<li class="task-item' + (item.done ? " done" : "") + '">' +
+        '<button class="ring-btn" data-action="toggle-prep-item" data-id="' + item.id + '"><span class="ring"></span></button>' +
+        '<span class="txt"><span class="label">' + escapeHtml(item.label) + '</span></span>' +
+        '<button class="task-del" data-action="delete-prep-item" data-id="' + item.id + '" title="削除">×</button>' +
+      '</li>';
+    }).join("") + '</ul>' : '<p class="task-empty">まだ何もありません。試験本番までにやることを追加しましょう。</p>';
+
+    var toggleLabel = app.openPrepForm ? "閉じる" : "＋ やることを追加";
+    var formHtml = app.openPrepForm ? renderPrepForm() : "";
+
+    return '' +
+      '<div class="page-head"><h2>試験本番までにやること</h2></div>' +
+      '<div class="card">' +
+        '<p class="section-label">' + done + '/' + items.length + ' 完了</p>' +
+        listHtml +
+        '<div class="add-task-toggle"><button class="btn btn-sm btn-ghost" data-action="toggle-prep-form">' + toggleLabel + '</button></div>' +
+        formHtml +
+      '</div>';
+  }
+
+  function renderPrepForm() {
+    return '<form class="card" id="prepForm" style="margin:10px 0 0;box-shadow:none;background:var(--paper-sunken)">' +
+      '<label class="field"><span class="field-label">やること</span>' +
+        '<input type="text" name="label" placeholder="例：過去問を3年分解く" required>' +
+      '</label>' +
+      '<button type="submit" class="btn btn-sm">追加</button>' +
+    '</form>';
+  }
+
   /* ================= Render: mistakes ================= */
   function renderMistakes() {
     var list = state.mistakes.slice().sort(function (a, b) {
@@ -1286,6 +1325,26 @@
     if (action === "toggle-task-form") { app.openTaskForm = !app.openTaskForm; render(); return; }
 
     if (action === "toggle-exam-form") { app.openExamForm = !app.openExamForm; render(); return; }
+
+    if (action === "toggle-prep-form") { app.openPrepForm = !app.openPrepForm; render(); return; }
+
+    if (action === "toggle-prep-item") {
+      var pid = actionEl.getAttribute("data-id");
+      var prepItem = state.examPrep.find(function (x) { return x.id === pid; });
+      if (prepItem) { prepItem.done = !prepItem.done; saveState(state); }
+      render();
+      return;
+    }
+
+    if (action === "delete-prep-item") {
+      var pdid = actionEl.getAttribute("data-id");
+      showConfirm("このやることを削除しますか？", function () {
+        state.examPrep = state.examPrep.filter(function (x) { return x.id !== pdid; });
+        saveState(state);
+        render();
+      });
+      return;
+    }
 
     if (action === "delete-exam") {
       var eid = actionEl.getAttribute("data-id");
@@ -1454,6 +1513,19 @@
       saveState(state);
       app.openExamForm = false;
       toast("テストを登録しました");
+      render();
+      return;
+    }
+
+    if (e.target && e.target.id === "prepForm") {
+      e.preventDefault();
+      var pf = e.target;
+      var prepLabel = pf.label.value.trim();
+      if (!prepLabel) return;
+      state.examPrep.push({ id: uid(), label: prepLabel, done: false });
+      saveState(state);
+      app.openPrepForm = false;
+      toast("追加しました");
       render();
       return;
     }
