@@ -738,7 +738,7 @@
     var cls = "sticker-badge tier-" + sticker.tier + (owned ? " owned" : "");
     var countHtml = (owned && count > 1) ? '<span class="count">×' + count + '</span>' : "";
     var inner = owned
-      ? '<img class="sticker-img" src="img/stickers/' + sticker.key + '.png" alt="' + escapeHtml(sticker.name) + '" width="' + size + '" height="' + size + '">'
+      ? '<img class="sticker-img" src="img/sticker/' + sticker.key + '.jpg" alt="' + escapeHtml(sticker.name) + '" width="' + size + '" height="' + size + '">'
       : "";
     return '<div class="' + cls + '" style="width:' + size + 'px;height:' + size + 'px">' + inner + countHtml + '</div>';
   }
