@@ -298,6 +298,14 @@
   .record-pages { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
   .record-meta { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
 
+  /* ===== Talk board (お話し場所) ===== */
+  .talk-post { padding: 12px 0; border-top: 1px dashed var(--line); }
+  .talk-post:first-child { border-top: none; }
+  .talk-post-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .talk-post-name { font-weight: 700; font-size: 14px; color: var(--accent); }
+  .talk-post-time { font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; flex: 1; }
+  .talk-post-text { font-size: 14px; color: var(--ink); white-space: pre-wrap; line-height: 1.5; overflow-wrap: anywhere; }
+
   .empty-note { color: var(--ink-soft); font-size: 13px; padding: 4px 0; }
 
   /* ===== Tab bar ===== */
@@ -525,6 +533,7 @@
 
   /* ================= Data layer ================= */
   var STORAGE_KEY = "maruTsukeNote:v3";
+  var TALK_NAME_KEY = "maruTsukeNote:lastCommenterName";
   var REVIEW_INTERVALS = [1, 3, 7, 14, 30];
   var SUBJECTS = ["算数", "国語", "理科", "社会"];
   var REASONS = ["計算ミス", "知識不足", "読み間違い", "時間切れ", "その他"];
@@ -614,7 +623,8 @@
       ],
       exams: [],
       examPrep: [],
-      stickers: []
+      stickers: [],
+      comments: []
     };
   }
 
@@ -624,6 +634,7 @@
   function normalizeState(s) {
     if (!s.exams) s.exams = [];
     if (!s.examPrep) s.examPrep = [];
+    if (!s.comments) s.comments = [];
     if (!s.stickers) s.stickers = [];
     return s;
   }
@@ -853,12 +864,13 @@
     photoDraft: null
   };
 
-  // "log" (学習記録), "mistakes" (まちがいノート), and "weakness" (弱点分析) are intentionally
-  // left out of the tab bar — not deleted, just hidden for now. Their views/data/handlers are
-  // all still here; add a row back in below to bring one back.
+  // "log" (学習記録), "mistakes" (まちがいノート), "weakness" (弱点分析), and now "prep"
+  // (the old 試験本番までにやること checklist, replaced below by "talk") are intentionally
+  // left out of the tab bar — not deleted, just hidden. Their views/data/handlers are all
+  // still here; add a row back in below to bring one back.
   var VIEWS = [
     { id: "calendar", label: "カレンダー" },
-    { id: "prep", label: "準備" },
+    { id: "talk", label: "お話し場所" },
     { id: "record", label: "記録" },
     { id: "collection", label: "コレクション" }
   ];
@@ -1170,6 +1182,7 @@
     else if (app.view === "mistakes") view.innerHTML = renderMistakes();
     else if (app.view === "weakness") view.innerHTML = renderWeakness();
     else if (app.view === "prep") view.innerHTML = renderExamPrep();
+    else if (app.view === "talk") view.innerHTML = renderTalkBoard();
     else if (app.view === "record") view.innerHTML = renderRecordOverview();
     else if (app.view === "collection") view.innerHTML = renderCollectionView();
   }
@@ -1490,6 +1503,40 @@
     '</form>';
   }
 
+  /* ================= Render: talk board (お話し場所) ================= */
+  function renderTalkBoard() {
+    var posts = state.comments.slice().sort(function (a, b) {
+      var ak = a.date + " " + a.time, bk = b.date + " " + b.time;
+      return ak < bk ? 1 : -1; // newest first
+    });
+    var listHtml = posts.length ? posts.map(function (p) {
+      return '<div class="talk-post">' +
+        '<div class="talk-post-head">' +
+          '<span class="talk-post-name">' + escapeHtml(p.name) + '</span>' +
+          '<span class="talk-post-time">' + formatJP(p.date) + ' ' + escapeHtml(p.time) + '</span>' +
+          '<button class="task-del" data-action="delete-comment" data-id="' + p.id + '" title="削除">×</button>' +
+        '</div>' +
+        '<p class="talk-post-text">' + escapeHtml(p.text) + '</p>' +
+      '</div>';
+    }).join("") : '<p class="empty-note">まだ書き込みがありません。最初のひとことをどうぞ。</p>';
+
+    var lastName = "";
+    try { lastName = localStorage.getItem(TALK_NAME_KEY) || ""; } catch (e) {}
+
+    return '' +
+      '<div class="page-head"><h2>お話し場所</h2></div>' +
+      '<form class="card" id="talkForm">' +
+        '<label class="field"><span class="field-label">おなまえ</span>' +
+          '<input type="text" name="name" placeholder="なまえ" value="' + escapeHtml(lastName) + '" required>' +
+        '</label>' +
+        '<label class="field"><span class="field-label">ひとこと</span>' +
+          '<textarea name="text" placeholder="伝えたいことを書いてね" required></textarea>' +
+        '</label>' +
+        '<button type="submit" class="btn btn-block">書き込む</button>' +
+      '</form>' +
+      '<div class="card">' + listHtml + '</div>';
+  }
+
   /* ================= Render: record overview (finished items, merged) ================= */
   function renderRecordOverview() {
     var groups = completedTaskGroups();
@@ -1613,6 +1660,16 @@
       var pdid = actionEl.getAttribute("data-id");
       showConfirm("このやることを削除しますか？", function () {
         state.examPrep = state.examPrep.filter(function (x) { return x.id !== pdid; });
+        saveState(state);
+        render();
+      });
+      return;
+    }
+
+    if (action === "delete-comment") {
+      var cid = actionEl.getAttribute("data-id");
+      showConfirm("この書き込みを削除しますか？", function () {
+        state.comments = state.comments.filter(function (x) { return x.id !== cid; });
         saveState(state);
         render();
       });
@@ -1804,6 +1861,24 @@
       saveState(state);
       app.openPrepForm = false;
       toast("追加しました");
+      render();
+      return;
+    }
+
+    if (e.target && e.target.id === "talkForm") {
+      e.preventDefault();
+      var tkf = e.target;
+      var commenterName = tkf.name.value.trim();
+      var commentText = tkf.text.value.trim();
+      if (!commenterName || !commentText) return;
+      var now = new Date();
+      state.comments.push({
+        id: uid(), name: commenterName, text: commentText,
+        date: todayISO(), time: pad(now.getHours()) + ":" + pad(now.getMinutes())
+      });
+      saveState(state);
+      try { localStorage.setItem(TALK_NAME_KEY, commenterName); } catch (e2) {}
+      toast("書き込みました");
       render();
       return;
     }
