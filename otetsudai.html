@@ -258,10 +258,26 @@
   @keyframes capsuleShake { 0%, 100% { transform: rotate(-7deg) translateX(-3px); } 50% { transform: rotate(7deg) translateX(3px); } }
   .gacha-hint { font-size: 13px; color: #fff; opacity: .85; margin: 0 0 16px; }
 
-  /* Sticker reveal */
-  .gacha-reveal-badge { width: 96px; height: 96px; margin: 0 auto 12px; animation: modalPop .5s cubic-bezier(.34,1.56,.64,1); }
+  /* Sticker reveal — the modal widens for this stage so the photo can genuinely fill
+     most of the screen, and size/glow/shake escalate with rarity. */
+  .celebrate-modal.reveal-mode { max-width: 92vw; }
+  .gacha-reveal { position: relative; }
+  .gacha-reveal-photo {
+    display: block; margin: 0 auto 14px; border-radius: 22px; object-fit: cover;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5); position: relative; z-index: 1;
+    animation: modalPop .5s cubic-bezier(.34,1.56,.64,1);
+  }
+  .gacha-reveal.tier-common .gacha-reveal-photo { width: min(58vw, 230px); height: min(58vw, 230px); }
+  .gacha-reveal.tier-rare .gacha-reveal-photo { width: min(70vw, 280px); height: min(70vw, 280px); box-shadow: 0 0 0 4px #9BC0E3, 0 10px 40px rgba(0,0,0,.55); }
+  .gacha-reveal.tier-super .gacha-reveal-photo { width: min(84vw, 340px); height: min(84vw, 340px); box-shadow: 0 0 0 5px #FFD400, 0 10px 50px rgba(0,0,0,.6); }
+  .gacha-reveal-glow { position: absolute; left: 50%; top: 90px; width: 60vw; max-width: 300px; aspect-ratio: 1/1; transform: translate(-50%, -50%); border-radius: 50%; z-index: 0; opacity: 0; pointer-events: none; }
+  .gacha-reveal.tier-rare .gacha-reveal-glow { background: radial-gradient(circle, rgba(155,192,227,.55), transparent 70%); opacity: 1; animation: glowPulse 1.6s ease-in-out infinite; }
+  .gacha-reveal.tier-super .gacha-reveal-glow { background: radial-gradient(circle, rgba(255,212,0,.6), transparent 70%); opacity: 1; animation: glowPulse 1.1s ease-in-out infinite; }
+  @keyframes glowPulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: .7; } 50% { transform: translate(-50%, -50%) scale(1.18); opacity: 1; } }
+  .gacha-reveal.tier-super { animation: superShake .5s ease; }
+  @keyframes superShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px) rotate(-1deg); } 40% { transform: translateX(6px) rotate(1deg); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
   .gacha-reveal-name { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: #fff; margin: 0 0 4px; }
-  .gacha-reveal-tier { font-size: 12px; font-weight: 700; letter-spacing: .06em; margin: 0 0 16px; }
+  .gacha-reveal-tier { position: relative; z-index: 1; font-size: 12px; font-weight: 700; letter-spacing: .06em; margin: 0 0 16px; }
   .gacha-reveal-tier.tier-common { color: rgba(255,255,255,.7); }
   .gacha-reveal-tier.tier-rare { color: #9BC0E3; }
   .gacha-reveal-tier.tier-super { color: #FFD400; }
@@ -372,7 +388,7 @@
     { key: "korien_shoujo", name: "香里園の少女", tier: "common" },
     { key: "kayashima_gaki", name: "萱島のガキ", tier: "common" },
     { key: "hirakata_tenshi", name: "枚方の天使", tier: "common" },
-    { key: "senbayashi_oban", name: "千林のおば●ん", tier: "common" },
+    { key: "senbayashi_oban", name: "千林のおばはん", tier: "common" },
     { key: "noeuchindai_madam", name: "野江内代のマダム", tier: "common" },
     { key: "noe_ojiisan", name: "野江のおじいさん", tier: "rare" },
     { key: "uchindai_obaasan", name: "内代のおばあさん", tier: "rare" },
@@ -682,9 +698,18 @@
     render();
   }
 
+  function flashScreen() {
+    var el = document.querySelector(".celebrate-flash");
+    if (!el) return;
+    el.style.animation = "none";
+    void el.offsetWidth; // force reflow so the animation restarts
+    el.style.animation = "";
+  }
+
   function renderCelebrateModal(dateStr, stage, extra) {
     var modal = document.getElementById("celebrateModal");
     var streak = computeStreak();
+    modal.classList.toggle("reveal-mode", stage === "reveal");
 
     if (stage === "celebrate") {
       var isToday = dateStr === todayISO();
@@ -708,11 +733,25 @@
     } else if (stage === "reveal") {
       var sticker = extra;
       modal.innerHTML =
-        '<div class="gacha-reveal-badge">' + stickerBadgeHtml(sticker, 96, true, 0) + '</div>' +
-        '<p class="celebrate-title" style="font-size:22px">' + escapeHtml(sticker.name) + '</p>' +
-        '<p class="gacha-reveal-tier tier-' + sticker.tier + '">' + TIER_LABEL[sticker.tier] + '</p>' +
-        '<button class="celebrate-close" data-action="close-celebrate">とじる</button>' +
-        '<button class="celebrate-close" data-action="goto-collection">コレクションを見る</button>';
+        '<div class="gacha-reveal tier-' + sticker.tier + '">' +
+          '<div class="gacha-reveal-glow"></div>' +
+          '<img class="gacha-reveal-photo" src="img/sticker/' + sticker.key + '.jpg" alt="' + escapeHtml(sticker.name) + '">' +
+          '<p class="celebrate-title" style="font-size:24px">' + escapeHtml(sticker.name) + '</p>' +
+          '<p class="gacha-reveal-tier tier-' + sticker.tier + '">' + TIER_LABEL[sticker.tier] + '</p>' +
+          '<button class="celebrate-close" data-action="close-celebrate">とじる</button>' +
+          '<button class="celebrate-close" data-action="goto-collection">コレクションを見る</button>' +
+        '</div>';
+      // Escalate the payoff by rarity: common gets just the pop-in, rare adds a light re-flash,
+      // super rare adds the flash plus a fresh confetti/balloon/plane/bird burst.
+      if (sticker.tier === "rare") {
+        flashScreen();
+      } else if (sticker.tier === "super") {
+        flashScreen();
+        if (!prefersReducedMotion()) {
+          var canvas = document.getElementById("confettiCanvas");
+          startCelebrationFX(canvas);
+        }
+      }
     }
   }
 
