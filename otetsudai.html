@@ -168,28 +168,21 @@
     background: var(--paper-sunken); border: 1px solid var(--line); color: var(--sticker-color, var(--ink-faint));
     position: relative; overflow: hidden;
   }
-  /* "ぷっくりシール" — a glossy, puffed-up vinyl-sticker look: a domed gradient for the
-     3D bubble, a bright highlight blob for the shine, and inset+drop shadows for the lift. */
+  /* "ぷっくりシール" — a glossy, puffed-up vinyl-sticker look around each character
+     photo: a bright highlight blob for the shine, and inset+drop shadows for the lift. */
+  .sticker-img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .sticker-badge.owned {
     border: none;
-    background: radial-gradient(circle at 32% 26%,
-      color-mix(in srgb, var(--sticker-color) 30%, white) 0%,
-      var(--sticker-color) 52%,
-      color-mix(in srgb, var(--sticker-color) 60%, black) 100%);
-    box-shadow:
-      inset -4px -6px 9px color-mix(in srgb, var(--sticker-color) 65%, black),
-      inset 3px 4px 7px rgba(255,255,255,.6),
-      0 4px 10px rgba(0,0,0,.28);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 4px 10px rgba(0,0,0,.3);
   }
   .sticker-badge.owned::before {
-    content: ""; position: absolute; top: 13%; left: 17%; width: 36%; height: 24%;
-    background: rgba(255,255,255,.8); border-radius: 50%; filter: blur(2px); transform: rotate(-25deg);
+    content: ""; position: absolute; top: 10%; left: 15%; width: 34%; height: 20%; z-index: 2;
+    background: rgba(255,255,255,.6); border-radius: 50%; filter: blur(2px); transform: rotate(-25deg);
     pointer-events: none;
   }
-  .sticker-badge.owned svg { position: relative; z-index: 1; color: #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
-  .sticker-badge.tier-rare.owned { box-shadow: inset -4px -6px 9px color-mix(in srgb, var(--sticker-color) 65%, black), inset 3px 4px 7px rgba(255,255,255,.6), 0 0 0 2px color-mix(in srgb, var(--sticker-color) 45%, transparent), 0 4px 10px rgba(0,0,0,.28); }
-  .sticker-badge.tier-super.owned { box-shadow: inset -4px -6px 9px color-mix(in srgb, var(--sticker-color) 65%, black), inset 3px 4px 7px rgba(255,255,255,.6), 0 0 0 3px color-mix(in srgb, var(--sticker-color) 60%, transparent), 0 4px 10px rgba(0,0,0,.28); }
-  .sticker-badge .count { position: absolute; bottom: -4px; right: -4px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 6px; z-index: 2; }
+  .sticker-badge.tier-rare.owned { box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 0 0 3px #9BC0E3, 0 4px 10px rgba(0,0,0,.3); }
+  .sticker-badge.tier-super.owned { box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 0 0 3px #FFD400, 0 4px 10px rgba(0,0,0,.3); }
+  .sticker-badge .count { position: absolute; bottom: -4px; right: -4px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 6px; z-index: 3; }
   .sticker-cell { display: flex; flex-direction: column; align-items: center; gap: 5px; }
   .sticker-cell-name { font-size: 10px; color: var(--ink-soft); text-align: center; line-height: 1.3; }
   .sticker-cell.unowned .sticker-cell-name { color: var(--ink-faint); }
@@ -372,19 +365,26 @@
   }
 
   /* ================= Sticker catalog & gacha ================= */
+  // キャラシール — hand-drawn character cards, one per Keihan-line station/area.
   var STICKER_CATALOG = [
-    { key: "star", name: "きらきらスター", tier: "common", color: "#FFB020", icon: "star" },
-    { key: "flower", name: "はなまる", tier: "common", color: "#FF3B6E", icon: "leaf" },
-    { key: "heart", name: "ハート", tier: "common", color: "#FF6B8A", icon: "heart" },
-    { key: "cloud", name: "もこもこ雲", tier: "common", color: "#3B82F6", icon: "cloud" },
-    { key: "sun", name: "おひさま", tier: "common", color: "#FFB020", icon: "sun" },
-    { key: "clover", name: "よつばのクローバー", tier: "common", color: "#3B7A5E", icon: "clover" },
-    { key: "balloon", name: "ふうせん", tier: "common", color: "#B14BFF", icon: "balloon" },
-    { key: "ribbon", name: "リボン", tier: "common", color: "#38D9A9", icon: "ribbon" },
-    { key: "rainbow", name: "にじ", tier: "rare", color: "#3B82F6", icon: "rainbow" },
-    { key: "crown", name: "かんむり", tier: "rare", color: "#C9962C", icon: "crown" },
-    { key: "diamond", name: "ダイヤ", tier: "rare", color: "#38D9A9", icon: "diamond" },
-    { key: "goldcrown", name: "きんのかんむり", tier: "super", color: "#E0C165", icon: "crown" }
+    { key: "sekime_otaku", name: "関目のオタク", tier: "common" },
+    { key: "dainichi_mama", name: "大日の子連れママ", tier: "common" },
+    { key: "korien_shoujo", name: "香里園の少女", tier: "common" },
+    { key: "kayashima_gaki", name: "萱島のガキ", tier: "common" },
+    { key: "hirakata_tenshi", name: "枚方の天使", tier: "common" },
+    { key: "senbayashi_oban", name: "千林のおば●ん", tier: "common" },
+    { key: "noeuchindai_madam", name: "野江内代のマダム", tier: "common" },
+    { key: "noe_ojiisan", name: "野江のおじいさん", tier: "rare" },
+    { key: "uchindai_obaasan", name: "内代のおばあさん", tier: "rare" },
+    { key: "oomiya_couple", name: "大宮のカップル", tier: "rare" },
+    { key: "kadoma_ossan", name: "門真のおっさん", tier: "rare" },
+    { key: "neyagawa_bijo", name: "寝屋川の美女", tier: "rare" },
+    { key: "moriguchi_ikemen", name: "守口のイケメン", tier: "rare" },
+    { key: "joto_akachan", name: "城東のあかちゃん", tier: "super" },
+    { key: "minoh_saru", name: "箕面のサル", tier: "super" },
+    { key: "morishoji_shogakusei", name: "森小路の森の小学生", tier: "super" },
+    { key: "tenshi_gabriel", name: "天使ガブリエル", tier: "super" },
+    { key: "akuma_lucifer", name: "悪魔ルシファー", tier: "super" }
   ];
   var TIER_LABEL = { common: "ふつう", rare: "レア！", super: "★超レア★" };
   var TIER_WEIGHT = { super: 5, rare: 25 }; // remainder goes to common
@@ -396,31 +396,13 @@
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  function stickerGlyph(icon) {
-    switch (icon) {
-      case "star": return '<path d="M12 2.5l2.6 6.1 6.6.6-5 4.4 1.5 6.5L12 16.8 6.3 20.1l1.5-6.5-5-4.4 6.6-.6z"/>';
-      case "heart": return '<path d="M12 20.5s-7.3-4.4-9.6-9C.7 7.7 2.6 4.2 6 4.2c2 0 3.4 1.1 4 2.2.6-1.1 2-2.2 4-2.2 3.4 0 5.3 3.5 3.6 7.3-2.3 4.6-9.6 9-9.6 9z"/>';
-      case "cloud": return '<path d="M6.5 17.5a4 4 0 01.3-8 5.5 5.5 0 0110.6-1.6A4.5 4.5 0 0117 17.5H6.5z"/>';
-      case "sun": return '<circle cx="12" cy="12" r="4.2"/><g stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3v2.4M12 18.6V21M21 12h-2.4M5.4 12H3M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7M18.4 18.4l-1.7-1.7M7.3 7.3L5.6 5.6"/></g>';
-      case "clover": return '<circle cx="9" cy="9" r="4"/><circle cx="15" cy="9" r="4"/><circle cx="9" cy="15" r="4"/><circle cx="15" cy="15" r="4"/>';
-      case "leaf": return '<path d="M4 20C4 10 10 4 20 4 20 14 14 20 4 20z"/>';
-      case "balloon": return '<ellipse cx="12" cy="10" rx="6" ry="7.5"/><path d="M10.3 17.2h3.4L12 20z"/>';
-      case "ribbon": return '<path d="M12 12L4 7v6l8-1z"/><path d="M12 12l8-5v6l-8-1z"/><circle cx="12" cy="12" r="2"/>';
-      case "crown": return '<path d="M3 9l4 3 5-6.5L17 12l4-3-2 9.5H5z"/>';
-      case "diamond": return '<path d="M12 2.5l6.5 7L12 21.5 5.5 9.5z"/>';
-      case "rainbow": return '<path d="M4 17a8 8 0 0116 0" fill="none" stroke="#FF3B6E" stroke-width="2.2"/><path d="M6 17a6 6 0 0112 0" fill="none" stroke="#FFB020" stroke-width="2.2"/><path d="M8 17a4 4 0 018 0" fill="none" stroke="#38D9A9" stroke-width="2.2"/><path d="M10 17a2 2 0 014 0" fill="none" stroke="#3B82F6" stroke-width="2.2"/>';
-      default: return '<circle cx="12" cy="12" r="6"/>';
-    }
-  }
-
   function stickerBadgeHtml(sticker, size, owned, count) {
-    var glyph = stickerGlyph(sticker.icon);
     var cls = "sticker-badge tier-" + sticker.tier + (owned ? " owned" : "");
     var countHtml = (owned && count > 1) ? '<span class="count">×' + count + '</span>' : "";
-    return '<div class="' + cls + '" style="--sticker-color:' + sticker.color + '">' +
-      '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="currentColor">' + glyph + '</svg>' +
-      countHtml +
-    '</div>';
+    var inner = owned
+      ? '<img class="sticker-img" src="img/stickers/' + sticker.key + '.png" alt="' + escapeHtml(sticker.name) + '" width="' + size + '" height="' + size + '">'
+      : "";
+    return '<div class="' + cls + '" style="width:' + size + 'px;height:' + size + 'px">' + inner + countHtml + '</div>';
   }
 
   function seedState() {
@@ -726,7 +708,7 @@
     } else if (stage === "reveal") {
       var sticker = extra;
       modal.innerHTML =
-        '<div class="gacha-reveal-badge">' + stickerBadgeHtml(sticker, 64, true, 0) + '</div>' +
+        '<div class="gacha-reveal-badge">' + stickerBadgeHtml(sticker, 96, true, 0) + '</div>' +
         '<p class="celebrate-title" style="font-size:22px">' + escapeHtml(sticker.name) + '</p>' +
         '<p class="gacha-reveal-tier tier-' + sticker.tier + '">' + TIER_LABEL[sticker.tier] + '</p>' +
         '<button class="celebrate-close" data-action="close-celebrate">とじる</button>' +
