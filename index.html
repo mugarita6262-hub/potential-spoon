@@ -534,6 +534,7 @@
   /* ================= Data layer ================= */
   var STORAGE_KEY = "maruTsukeNote:v3";
   var TALK_NAME_KEY = "maruTsukeNote:lastCommenterName";
+  var TALK_NAMES = ["ふたば", "わか", "にこう", "ともえちゃん", "とーちゃん"];
   var REVIEW_INTERVALS = [1, 3, 7, 14, 30];
   var SUBJECTS = ["算数", "国語", "理科", "社会"];
   var REASONS = ["計算ミス", "知識不足", "読み間違い", "時間切れ", "その他"];
@@ -1527,7 +1528,9 @@
       '<div class="page-head"><h2>お話し場所</h2></div>' +
       '<form class="card" id="talkForm">' +
         '<label class="field"><span class="field-label">おなまえ</span>' +
-          '<input type="text" name="name" placeholder="なまえ" value="' + escapeHtml(lastName) + '" required>' +
+          '<select name="name">' + TALK_NAMES.map(function (n) {
+            return '<option' + (n === lastName ? " selected" : "") + '>' + escapeHtml(n) + '</option>';
+          }).join("") + '</select>' +
         '</label>' +
         '<label class="field"><span class="field-label">ひとこと</span>' +
           '<textarea name="text" placeholder="伝えたいことを書いてね" required></textarea>' +
