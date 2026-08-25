@@ -295,7 +295,7 @@
   .record-row:first-child { border-top: none; }
   .record-row-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
   .record-name { font-weight: 700; font-size: 14px; }
-  .record-pages { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .record-pages { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
   .record-meta { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
 
   .empty-note { color: var(--ink-soft); font-size: 13px; padding: 4px 0; }
@@ -1494,7 +1494,7 @@
   function renderRecordOverview() {
     var groups = completedTaskGroups();
     var rows = groups.length ? groups.map(function (g) {
-      var pagesText = g.pages.length ? g.pages.join(",") : "完了 " + g.count + "回";
+      var pagesText = g.pages.length ? g.pages.join(", ") : "完了 " + g.count + "回";
       return '<div class="record-row">' +
         '<div class="record-row-top"><span class="record-name">' + escapeHtml(g.label) + '</span>' +
         (g.subject ? '<span class="badge">' + escapeHtml(g.subject) + '</span>' : '') + '</div>' +
