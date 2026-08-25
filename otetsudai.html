@@ -380,16 +380,18 @@
     { key: "sun", name: "おひさま", tier: "common", color: "#FFB020", icon: "sun" },
     { key: "clover", name: "よつばのクローバー", tier: "common", color: "#3B7A5E", icon: "clover" },
     { key: "balloon", name: "ふうせん", tier: "common", color: "#B14BFF", icon: "balloon" },
+    { key: "ribbon", name: "リボン", tier: "common", color: "#38D9A9", icon: "ribbon" },
     { key: "rainbow", name: "にじ", tier: "rare", color: "#3B82F6", icon: "rainbow" },
     { key: "crown", name: "かんむり", tier: "rare", color: "#C9962C", icon: "crown" },
-    { key: "diamond", name: "ダイヤ", tier: "rare", color: "#38D9A9", icon: "diamond" }
+    { key: "diamond", name: "ダイヤ", tier: "rare", color: "#38D9A9", icon: "diamond" },
+    { key: "goldcrown", name: "きんのかんむり", tier: "super", color: "#E0C165", icon: "crown" }
   ];
   var TIER_LABEL = { common: "ふつう", rare: "レア！", super: "★超レア★" };
-  var TIER_WEIGHT = { rare: 30 }; // remainder goes to common — no "super" tier left, see STICKER_CATALOG
+  var TIER_WEIGHT = { super: 5, rare: 25 }; // remainder goes to common
 
   function drawSticker() {
     var roll = Math.random() * 100;
-    var tier = roll < TIER_WEIGHT.rare ? "rare" : "common";
+    var tier = roll < TIER_WEIGHT.super ? "super" : (roll < TIER_WEIGHT.super + TIER_WEIGHT.rare ? "rare" : "common");
     var pool = STICKER_CATALOG.filter(function (s) { return s.tier === tier; });
     return pool[Math.floor(Math.random() * pool.length)];
   }
