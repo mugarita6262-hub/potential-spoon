@@ -301,7 +301,7 @@
   .empty-note { color: var(--ink-soft); font-size: 13px; padding: 4px 0; }
 
   /* ===== Tab bar ===== */
-  .tabbar { position: sticky; bottom: 0; z-index: 10; background: var(--paper-raised); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+  .tabbar { position: sticky; bottom: 0; z-index: 10; background: var(--paper-raised); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
   .tab-btn { background: none; border: none; cursor: pointer; color: var(--ink-faint); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); }
   .tab-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
   .tab-btn.active { color: var(--accent); }
@@ -363,6 +363,51 @@
     border-radius: 999px; padding: 9px 22px; font-size: 13px; font-weight: 700; cursor: pointer;
   }
   .celebrate-close:hover, .celebrate-close:active { background: rgba(255,255,255,.28); }
+  .celebrate-gacha-btn {
+    background: #C9962C; border: 1.5px solid #C9962C; color: #fff;
+    border-radius: 999px; padding: 10px 24px; font-size: 14px; font-weight: 700; cursor: pointer; margin: 4px;
+  }
+  .celebrate-gacha-btn:hover { filter: brightness(1.1); }
+
+  /* Gacha capsule (shake stage) */
+  .gacha-capsule { width: 110px; height: 110px; margin: 0 auto 16px; position: relative; }
+  .gacha-capsule .half { position: absolute; left: 0; width: 100%; height: 52%; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+  .gacha-capsule .half.top { top: 0; border-radius: 55px 55px 6px 6px; background: linear-gradient(160deg, #FF6B8A, #FF3B6E); }
+  .gacha-capsule .half.bottom { bottom: 0; border-radius: 6px 6px 55px 55px; background: #fff; }
+  .gacha-capsule.shaking { animation: capsuleShake .45s ease-in-out infinite; }
+  @keyframes capsuleShake { 0%, 100% { transform: rotate(-7deg) translateX(-3px); } 50% { transform: rotate(7deg) translateX(3px); } }
+  .gacha-hint { font-size: 13px; color: #fff; opacity: .85; margin: 0 0 16px; }
+
+  .gacha-reveal-badge { width: 96px; height: 96px; margin: 0 auto 12px; animation: modalPop .5s cubic-bezier(.34,1.56,.64,1); }
+  .gacha-reveal-tier { font-size: 12px; font-weight: 700; letter-spacing: .06em; margin: 0 0 16px; }
+  .gacha-reveal-tier.tier-common { color: rgba(255,255,255,.7); }
+  .gacha-reveal-tier.tier-rare { color: #9BC0E3; }
+  .gacha-reveal-tier.tier-super { color: #FFD400; }
+
+  /* ===== Sticker collection (ぷっくりシール) ===== */
+  .sticker-progress { font-size: 13px; color: var(--ink-soft); margin: 0 0 14px; }
+  .sticker-progress b { color: var(--ink); font-family: var(--font-display); font-size: 16px; }
+  .sticker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .sticker-badge {
+    aspect-ratio: 1/1; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: var(--paper-sunken); border: 1px solid var(--line); position: relative; overflow: hidden;
+  }
+  .sticker-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sticker-badge.owned {
+    border: none;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 4px 10px rgba(0,0,0,.3);
+  }
+  .sticker-badge.owned::before {
+    content: ""; position: absolute; top: 10%; left: 15%; width: 34%; height: 20%; z-index: 2;
+    background: rgba(255,255,255,.6); border-radius: 50%; filter: blur(2px); transform: rotate(-25deg);
+    pointer-events: none;
+  }
+  .sticker-badge.tier-rare.owned { box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 0 0 3px #9BC0E3, 0 4px 10px rgba(0,0,0,.3); }
+  .sticker-badge.tier-super.owned { box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 0 0 3px #FFD400, 0 4px 10px rgba(0,0,0,.3); }
+  .sticker-badge .count { position: absolute; bottom: -4px; right: -4px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 6px; z-index: 3; }
+  .sticker-cell { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .sticker-cell-name { font-size: 10px; color: var(--ink-soft); text-align: center; line-height: 1.3; }
+  .sticker-cell.unowned .sticker-cell-name { color: var(--ink-faint); }
 
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
@@ -391,15 +436,7 @@
   <div class="celebrate-overlay" id="celebrateOverlay" data-action="close-celebrate" hidden>
     <div class="celebrate-flash"></div>
     <canvas id="confettiCanvas"></canvas>
-    <div class="celebrate-modal">
-      <svg class="celebrate-stamp" viewBox="0 0 48 48" width="60" height="60" style="color:#FFD400">
-        <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="4"></circle>
-        <path class="stamp-check" d="M14 25 L21 32 L34 17" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
-      </svg>
-      <p class="celebrate-title" id="celebrateTitle"></p>
-      <p class="celebrate-sub" id="celebrateSub"></p>
-      <button class="celebrate-close" data-action="close-celebrate">とじる</button>
-    </div>
+    <div class="celebrate-modal" id="celebrateModal"></div>
   </div>
   <div class="confirm-overlay" id="confirmOverlay" hidden>
     <div class="confirm-modal">
@@ -545,7 +582,8 @@
         { id: uid(), date: addDays(t, 4), subject: "理科", label: "理科『てこのはたらき』の復習", done: false, source: "review", mistakeId: m2Id }
       ],
       exams: [],
-      examPrep: []
+      examPrep: [],
+      stickers: []
     };
   }
 
@@ -555,6 +593,7 @@
   function normalizeState(s) {
     if (!s.exams) s.exams = [];
     if (!s.examPrep) s.examPrep = [];
+    if (!s.stickers) s.stickers = [];
     return s;
   }
 
@@ -582,7 +621,7 @@
     state = normalizeState(cloudState);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
     // Don't yank the rug out from under a form the user is mid-typing in.
-    if (!app.openTaskForm && !app.openMistakeForm && !app.openExamForm && !app.openPrepForm) render();
+    if (!app.openTaskForm && !app.openMistakeForm && !app.openExamForm && !app.openPrepForm && !celebrateOpen) render();
   };
 
   /* ================= Domain logic: mistakes & review scheduling ================= */
@@ -663,6 +702,48 @@
     var tasks = getTasksForDay(dateStr);
     return tasks.length > 0 && tasks.every(function (t) { return t.done; });
   }
+
+  /* ---- gacha: same キャラシール set as お手伝いノート ---- */
+  var STICKER_CATALOG = [
+    { key: "sekime_otaku", name: "関目のオタク", tier: "common" },
+    { key: "dainichi_mama", name: "大日の子連れママ", tier: "common" },
+    { key: "korien_shoujo", name: "香里園の少女", tier: "common" },
+    { key: "kayashima_gaki", name: "萱島のガキ", tier: "common" },
+    { key: "hirakata_tenshi", name: "枚方の天使", tier: "common" },
+    { key: "senbayashi_oban", name: "千林のおば●ん", tier: "common" },
+    { key: "noeuchindai_madam", name: "野江内代のマダム", tier: "common" },
+    { key: "noe_ojiisan", name: "野江のおじいさん", tier: "rare" },
+    { key: "uchindai_obaasan", name: "内代のおばあさん", tier: "rare" },
+    { key: "oomiya_couple", name: "大宮のカップル", tier: "rare" },
+    { key: "kadoma_ossan", name: "門真のおっさん", tier: "rare" },
+    { key: "neyagawa_bijo", name: "寝屋川の美女", tier: "rare" },
+    { key: "moriguchi_ikemen", name: "守口のイケメン", tier: "rare" },
+    { key: "joto_akachan", name: "城東のあかちゃん", tier: "super" },
+    { key: "minoh_saru", name: "箕面のサル", tier: "super" },
+    { key: "morishoji_shogakusei", name: "森小路の森の小学生", tier: "super" },
+    { key: "tenshi_gabriel", name: "天使ガブリエル", tier: "super" },
+    { key: "akuma_lucifer", name: "悪魔ルシファー", tier: "super" }
+  ];
+  var TIER_LABEL = { common: "ふつう", rare: "レア！", super: "★超レア★" };
+  var TIER_WEIGHT = { super: 5, rare: 25 }; // remainder goes to common
+
+  function drawSticker() {
+    var roll = Math.random() * 100;
+    var tier = roll < TIER_WEIGHT.super ? "super" : (roll < TIER_WEIGHT.super + TIER_WEIGHT.rare ? "rare" : "common");
+    var pool = STICKER_CATALOG.filter(function (s) { return s.tier === tier; });
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function stickerBadgeHtml(sticker, size, owned, count) {
+    var cls = "sticker-badge tier-" + sticker.tier + (owned ? " owned" : "");
+    var countHtml = (owned && count > 1) ? '<span class="count">×' + count + '</span>' : "";
+    var inner = owned
+      ? '<img class="sticker-img" src="img/stickers/' + sticker.key + '.png" alt="' + escapeHtml(sticker.name) + '" width="' + size + '" height="' + size + '">'
+      : "";
+    return '<div class="' + cls + '" style="width:' + size + 'px;height:' + size + 'px">' + inner + countHtml + '</div>';
+  }
+
+  function hasPulledToday(dateStr) { return state.stickers.some(function (s) { return s.date === dateStr; }); }
 
   // Groups every finished calendar task by its name, so "算数ステージII" done as pages
   // 1-3 on one day and 4-6 on another shows up as one merged row: 1,2,3,4,5,6.
@@ -746,7 +827,8 @@
   var VIEWS = [
     { id: "calendar", label: "カレンダー" },
     { id: "prep", label: "準備" },
-    { id: "record", label: "記録" }
+    { id: "record", label: "記録" },
+    { id: "collection", label: "コレクション" }
   ];
 
   function goto(view) { app.view = view; render(); }
@@ -780,10 +862,7 @@
   function showCelebration(dateStr) {
     if (celebrateOpen) return;
     celebrateOpen = true;
-    var isToday = dateStr === todayISO();
-    var streak = computeStreak();
-    document.getElementById("celebrateTitle").innerHTML = (isToday ? "きょうのページ" : escapeHtml(formatJP(dateStr))) + "<br>コンプリート！";
-    document.getElementById("celebrateSub").textContent = (isToday && streak > 1) ? "これで " + streak + " 日連続！花丸コンプリート" : "よくがんばりました！";
+    renderCelebrateModal(dateStr, "celebrate");
 
     var overlay = document.getElementById("celebrateOverlay");
     overlay.hidden = false;
@@ -795,7 +874,8 @@
       startCelebrationFX(canvas);
     }
     clearTimeout(celebrateTimer);
-    celebrateTimer = setTimeout(closeCelebration, 5200);
+    // Only auto-close if there's nothing left to do here (already pulled today's gacha).
+    if (hasPulledToday(dateStr)) celebrateTimer = setTimeout(closeCelebration, 5200);
   }
 
   // Bright, saturated palette used only inside the celebration overlay — deliberately
@@ -808,6 +888,52 @@
     document.getElementById("celebrateOverlay").hidden = true;
     clearTimeout(celebrateTimer);
     stopCelebrationFX();
+    render();
+  }
+
+  function renderCelebrateModal(dateStr, stage, extra) {
+    var modal = document.getElementById("celebrateModal");
+    var streak = computeStreak();
+
+    if (stage === "celebrate") {
+      var isToday = dateStr === todayISO();
+      var titleHtml = (isToday ? "きょうのページ" : escapeHtml(formatJP(dateStr))) + "<br>コンプリート！";
+      var subText = (isToday && streak > 1) ? "これで " + streak + " 日連続！花丸コンプリート" : "よくがんばりました！";
+      var actionHtml = hasPulledToday(dateStr)
+        ? '<button class="celebrate-close" data-action="close-celebrate">とじる</button>'
+        : '<button class="celebrate-gacha-btn" data-action="pull-gacha" data-date="' + dateStr + '">ガチャをひく！</button>';
+      modal.innerHTML =
+        '<svg class="celebrate-stamp" viewBox="0 0 48 48" width="60" height="60" style="color:#FFD400">' +
+          '<circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="4"></circle>' +
+          '<path class="stamp-check" d="M14 25 L21 32 L34 17" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>' +
+        '</svg>' +
+        '<p class="celebrate-title">' + titleHtml + '</p>' +
+        '<p class="celebrate-sub">' + subText + '</p>' +
+        actionHtml;
+    } else if (stage === "shaking") {
+      modal.innerHTML =
+        '<div class="gacha-capsule shaking"><div class="half top"></div><div class="half bottom"></div></div>' +
+        '<p class="gacha-hint">なにが出るかな…？</p>';
+    } else if (stage === "reveal") {
+      var sticker = extra;
+      modal.innerHTML =
+        '<div class="gacha-reveal-badge">' + stickerBadgeHtml(sticker, 96, true, 0) + '</div>' +
+        '<p class="celebrate-title" style="font-size:22px">' + escapeHtml(sticker.name) + '</p>' +
+        '<p class="gacha-reveal-tier tier-' + sticker.tier + '">' + TIER_LABEL[sticker.tier] + '</p>' +
+        '<button class="celebrate-close" data-action="close-celebrate">とじる</button>' +
+        '<button class="celebrate-close" data-action="goto-collection">コレクションを見る</button>';
+    }
+  }
+
+  function pullGacha(dateStr) {
+    clearTimeout(celebrateTimer);
+    renderCelebrateModal(dateStr, "shaking");
+    setTimeout(function () {
+      var sticker = drawSticker();
+      state.stickers.push({ id: uid(), key: sticker.key, date: dateStr });
+      saveState(state);
+      renderCelebrateModal(dateStr, "reveal", sticker);
+    }, 900);
   }
 
   /* ---- particle factories ---- */
@@ -965,7 +1091,7 @@
       drawFlock(ctx, flock, elapsed);
       drawPlane(ctx, plane);
       confetti.forEach(function (p) { drawConfettiPiece(ctx, p); });
-      if (elapsed < duration) confettiRAF = requestAnimationFrame(frame);
+      if (elapsed < duration || celebrateOpen) confettiRAF = requestAnimationFrame(frame);
       else ctx.clearRect(0, 0, w, h);
     }
     confettiRAF = requestAnimationFrame(frame);
@@ -990,6 +1116,28 @@
     else if (app.view === "weakness") view.innerHTML = renderWeakness();
     else if (app.view === "prep") view.innerHTML = renderExamPrep();
     else if (app.view === "record") view.innerHTML = renderRecordOverview();
+    else if (app.view === "collection") view.innerHTML = renderCollectionView();
+  }
+
+  function renderCollectionView() {
+    var counts = {};
+    state.stickers.forEach(function (s) { counts[s.key] = (counts[s.key] || 0) + 1; });
+    var ownedCount = Object.keys(counts).length;
+
+    var cellsHtml = STICKER_CATALOG.map(function (sticker) {
+      var owned = !!counts[sticker.key];
+      return '<div class="sticker-cell' + (owned ? "" : " unowned") + '">' +
+        stickerBadgeHtml(sticker, 64, owned, counts[sticker.key] || 0) +
+        '<span class="sticker-cell-name">' + (owned ? escapeHtml(sticker.name) : "？？？") + '</span>' +
+      '</div>';
+    }).join("");
+
+    return '' +
+      '<div class="page-head"><h2>シールコレクション</h2></div>' +
+      '<div class="card">' +
+        '<p class="sticker-progress"><b>' + ownedCount + '</b> / ' + STICKER_CATALOG.length + ' しゅるい あつめた</p>' +
+        '<div class="sticker-grid">' + cellsHtml + '</div>' +
+      '</div>';
   }
 
   function renderTabbar() {
@@ -1490,6 +1638,8 @@
     }
 
     if (action === "close-celebrate") { closeCelebration(); return; }
+    if (action === "pull-gacha") { pullGacha(actionEl.getAttribute("data-date")); return; }
+    if (action === "goto-collection") { closeCelebration(); goto("collection"); return; }
 
   });
 
