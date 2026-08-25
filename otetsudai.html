@@ -166,12 +166,30 @@
   .sticker-badge {
     aspect-ratio: 1/1; border-radius: 50%; display: flex; align-items: center; justify-content: center;
     background: var(--paper-sunken); border: 1px solid var(--line); color: var(--sticker-color, var(--ink-faint));
-    position: relative;
+    position: relative; overflow: hidden;
   }
-  .sticker-badge.owned { background: color-mix(in srgb, var(--sticker-color) 14%, var(--paper-raised)); border-color: var(--sticker-color); }
-  .sticker-badge.tier-rare.owned { box-shadow: 0 0 0 2px color-mix(in srgb, var(--sticker-color) 40%, transparent); }
-  .sticker-badge.tier-super.owned { box-shadow: 0 0 0 3px color-mix(in srgb, var(--sticker-color) 55%, transparent); }
-  .sticker-badge .count { position: absolute; bottom: -4px; right: -4px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 6px; }
+  /* "ぷっくりシール" — a glossy, puffed-up vinyl-sticker look: a domed gradient for the
+     3D bubble, a bright highlight blob for the shine, and inset+drop shadows for the lift. */
+  .sticker-badge.owned {
+    border: none;
+    background: radial-gradient(circle at 32% 26%,
+      color-mix(in srgb, var(--sticker-color) 30%, white) 0%,
+      var(--sticker-color) 52%,
+      color-mix(in srgb, var(--sticker-color) 60%, black) 100%);
+    box-shadow:
+      inset -4px -6px 9px color-mix(in srgb, var(--sticker-color) 65%, black),
+      inset 3px 4px 7px rgba(255,255,255,.6),
+      0 4px 10px rgba(0,0,0,.28);
+  }
+  .sticker-badge.owned::before {
+    content: ""; position: absolute; top: 13%; left: 17%; width: 36%; height: 24%;
+    background: rgba(255,255,255,.8); border-radius: 50%; filter: blur(2px); transform: rotate(-25deg);
+    pointer-events: none;
+  }
+  .sticker-badge.owned svg { position: relative; z-index: 1; color: #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
+  .sticker-badge.tier-rare.owned { box-shadow: inset -4px -6px 9px color-mix(in srgb, var(--sticker-color) 65%, black), inset 3px 4px 7px rgba(255,255,255,.6), 0 0 0 2px color-mix(in srgb, var(--sticker-color) 45%, transparent), 0 4px 10px rgba(0,0,0,.28); }
+  .sticker-badge.tier-super.owned { box-shadow: inset -4px -6px 9px color-mix(in srgb, var(--sticker-color) 65%, black), inset 3px 4px 7px rgba(255,255,255,.6), 0 0 0 3px color-mix(in srgb, var(--sticker-color) 60%, transparent), 0 4px 10px rgba(0,0,0,.28); }
+  .sticker-badge .count { position: absolute; bottom: -4px; right: -4px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 6px; z-index: 2; }
   .sticker-cell { display: flex; flex-direction: column; align-items: center; gap: 5px; }
   .sticker-cell-name { font-size: 10px; color: var(--ink-soft); text-align: center; line-height: 1.3; }
   .sticker-cell.unowned .sticker-cell-name { color: var(--ink-faint); }
