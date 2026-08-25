@@ -1,0 +1,940 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ワカちゃん専用おてつだいノート</title>
+<link rel="icon" href="otetsudai-icon.png">
+<link rel="apple-touch-icon" href="otetsudai-icon.png">
+<meta name="apple-mobile-web-app-title" content="ワカちゃん専用おてつだいノート">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#2C4A6E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  /* ===== Design tokens (same family as まるつけノート) ===== */
+  :root {
+    --paper: #EFF3EE;
+    --paper-raised: #FFFFFF;
+    --paper-sunken: #E4EAE3;
+    --ink: #22302B;
+    --ink-soft: #5B6B62;
+    --ink-faint: #93A199;
+    --line: #C9D4CC;
+    --accent: #2C4A6E;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #E1E8EF;
+    --good: #3B7A5E;
+    --good-soft: #E1EEE7;
+    --warn: #9C7A22;
+    --warn-soft: #F3EAD3;
+    --danger: #A8402C;
+    --danger-soft: #F3E0DB;
+    --shadow: 0 1px 2px rgba(34,48,43,.07), 0 6px 16px rgba(34,48,43,.08);
+    --radius: 10px;
+    --radius-sm: 6px;
+    --font-display: 'Shippori Mincho', serif;
+    --font-body: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #171F1B; --paper-raised: #202B25; --paper-sunken: #131A16;
+      --ink: #EAF0EA; --ink-soft: #A3B3A9; --ink-faint: #6B7A70; --line: #35443D;
+      --accent: #9BC0E3; --accent-ink: #12212F; --accent-soft: #223244;
+      --good: #7BC6A2; --good-soft: #1D3A2C; --warn: #E0C165; --warn-soft: #3B331A;
+      --danger: #E5947E; --danger-soft: #3E241E;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #171F1B; --paper-raised: #202B25; --paper-sunken: #131A16;
+    --ink: #EAF0EA; --ink-soft: #A3B3A9; --ink-faint: #6B7A70; --line: #35443D;
+    --accent: #9BC0E3; --accent-ink: #12212F; --accent-soft: #223244;
+    --good: #7BC6A2; --good-soft: #1D3A2C; --warn: #E0C165; --warn-soft: #3B331A;
+    --danger: #E5947E; --danger-soft: #3E241E;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.4);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 22px 22px; background-attachment: local;
+    color: var(--ink); font-family: var(--font-body); -webkit-font-smoothing: antialiased; min-height: 100vh;
+  }
+  h1, h2, h3, .brand-mark { font-family: var(--font-display); text-wrap: balance; }
+  button { font-family: inherit; }
+  ::selection { background: var(--accent-soft); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  #app { max-width: 560px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+  .topbar { position: sticky; top: 0; z-index: 10; background: var(--paper-raised); border-bottom: 1px solid var(--line); }
+  .topbar-inner { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: calc(14px + env(safe-area-inset-top)) 18px 14px; }
+  .brand-mark { font-size: 18px; font-weight: 700; letter-spacing: .02em; display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
+  .brand-mark .maru { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid #C98A2C; transform: translateY(1px); flex: none; }
+  .brand-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .date-chip { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; flex: none; }
+
+  .view { flex: 1; padding: 18px 18px 100px; }
+  .section-label { font-size: 12px; font-weight: 700; color: var(--ink-soft); letter-spacing: .08em; margin: 0 0 10px; text-transform: uppercase; }
+  .page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .page-head h2 { margin: 0; font-size: 19px; font-weight: 700; }
+
+  .card { background: var(--paper-raised); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
+
+  /* ===== Calendar ===== */
+  .cal-card { padding: 14px 14px 8px; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .cal-title { font-size: 16px; font-weight: 700; }
+  .cal-nav { display: flex; gap: 4px; }
+  .cal-nav-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); background: var(--paper-raised); color: var(--ink-soft); cursor: pointer; font-size: 14px; line-height: 1; }
+  .cal-nav-btn:hover { background: var(--paper-sunken); }
+  .cal-dow-row, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal-dow { text-align: center; font-size: 10px; font-weight: 700; color: var(--ink-faint); padding-bottom: 5px; }
+  .cal-cell { position: relative; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: var(--radius-sm); border: 1.5px solid transparent; background: none; padding: 0; }
+  .cal-cell:hover { background: var(--paper-sunken); }
+  .cal-cell.other-month .num { opacity: .3; }
+  .cal-cell.today { border-color: var(--accent); }
+  .cal-cell.selected { background: var(--accent-soft); }
+  .cal-cell .num { position: relative; z-index: 1; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .cal-cell .stamp { position: absolute; inset: 8%; border-radius: 50%; border: 2px solid #C98A2C; opacity: 0; }
+  .cal-cell.complete .stamp { opacity: .9; transform: rotate(-6deg); }
+  .cal-cell.complete .num { color: #C98A2C; font-weight: 700; }
+  .cal-cell:nth-child(4n).complete .stamp { transform: rotate(5deg); }
+  .cal-cell:nth-child(3n+1).complete .stamp { transform: rotate(-3deg); }
+  .cal-cell.partial .num::after { content: ""; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background: var(--warn); }
+  .cal-legend { display: flex; gap: 14px; padding: 10px 2px 4px; font-size: 11px; color: var(--ink-soft); flex-wrap: wrap; }
+  .cal-legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .legend-mark { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #C98A2C; display: inline-block; }
+  .legend-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); display: inline-block; }
+  .streak-line { font-size: 12px; color: var(--ink-soft); padding: 2px 2px 12px; }
+  .streak-line b { color: #C98A2C; font-family: var(--font-display); font-size: 14px; }
+
+  .day-card { border-left: 5px solid var(--accent); padding: 16px 16px 14px; }
+  .day-card.day-complete { border-left-color: #C98A2C; }
+  .day-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+  .day-title { font-family: var(--font-display); font-size: 19px; font-weight: 700; }
+  .day-progress { font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; flex: none; }
+  .day-sub { font-size: 12px; color: var(--ink-soft); margin: 0 0 12px; }
+
+  .task-list { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .task-item { display: flex; align-items: flex-start; gap: 10px; background: var(--paper-sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 10px; }
+  .ring-btn { background: none; border: none; padding: 0; cursor: pointer; flex: none; margin-top: 1px; }
+  .ring { display: block; width: 24px; height: 24px; border-radius: 50%; border: 2.5px solid var(--ink-faint); position: relative; }
+  .task-item.done .ring { border-color: #C98A2C; }
+  .task-item.done .ring::after { content: ""; position: absolute; left: 1px; top: 1px; right: 1px; bottom: 1px; border-radius: 50%; border: 2.5px solid #C98A2C; }
+  @media (prefers-reduced-motion: no-preference) { .task-item.done .ring::after { animation: stampPop .3s ease-out; } }
+  @keyframes stampPop { 0% { transform: scale(.25); opacity: 0; } 65% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+  .task-item .txt { flex: 1; min-width: 0; }
+  .task-item .label { font-weight: 500; line-height: 1.4; font-size: 14px; }
+  .task-item.done .label { color: var(--ink-soft); text-decoration: line-through; text-decoration-color: var(--ink-faint); }
+  .task-del { background: none; border: none; color: var(--ink-faint); font-size: 16px; cursor: pointer; padding: 0 2px; line-height: 1; flex: none; }
+  .task-del:hover { color: var(--danger); }
+  .task-empty { color: var(--ink-soft); font-size: 13px; padding: 8px 2px; }
+  .add-task-toggle { margin: 10px 0; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--accent); color: var(--accent-ink); border: none; border-radius: var(--radius-sm); padding: 11px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .btn:active { opacity: .85; }
+  .btn-ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+  .btn-block { width: 100%; }
+  .btn-sm { padding: 7px 12px; font-size: 13px; }
+  .btn-gold { background: #C9962C; }
+  .btn-danger { background: var(--danger); }
+
+  label.field { display: block; margin-bottom: 12px; }
+  .field-label { display: block; font-size: 12px; font-weight: 700; color: var(--ink-soft); margin-bottom: 5px; }
+  input[type="text"] { width: 100%; font-family: inherit; font-size: 15px; color: var(--ink); background: var(--paper-sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 11px; }
+
+  .empty-note { color: var(--ink-soft); font-size: 13px; padding: 4px 0; }
+
+  /* ===== Record overview (finished chores, merged by name) ===== */
+  .record-row { padding: 12px 0; border-top: 1px dashed var(--line); }
+  .record-row:first-child { border-top: none; }
+  .record-row-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .record-name { font-weight: 700; font-size: 14px; }
+  .record-pages { font-size: 13px; color: var(--ink-soft); }
+  .record-meta { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+
+  /* ===== Sticker collection ===== */
+  .sticker-progress { font-size: 13px; color: var(--ink-soft); margin: 0 0 14px; }
+  .sticker-progress b { color: var(--ink); font-family: var(--font-display); font-size: 16px; }
+  .sticker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .sticker-badge {
+    aspect-ratio: 1/1; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: var(--paper-sunken); border: 1px solid var(--line); color: var(--sticker-color, var(--ink-faint));
+    position: relative;
+  }
+  .sticker-badge.owned { background: color-mix(in srgb, var(--sticker-color) 14%, var(--paper-raised)); border-color: var(--sticker-color); }
+  .sticker-badge.tier-rare.owned { box-shadow: 0 0 0 2px color-mix(in srgb, var(--sticker-color) 40%, transparent); }
+  .sticker-badge.tier-super.owned { box-shadow: 0 0 0 3px color-mix(in srgb, var(--sticker-color) 55%, transparent); }
+  .sticker-badge .count { position: absolute; bottom: -4px; right: -4px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 6px; }
+  .sticker-cell { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .sticker-cell-name { font-size: 10px; color: var(--ink-soft); text-align: center; line-height: 1.3; }
+  .sticker-cell.unowned .sticker-cell-name { color: var(--ink-faint); }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%) translateY(8px);
+    background: var(--ink); color: var(--paper); font-size: 13px; font-weight: 500;
+    padding: 10px 16px; border-radius: 999px; box-shadow: var(--shadow);
+    opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; z-index: 50; max-width: 90%; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ===== Tab bar ===== */
+  .tabbar { position: sticky; bottom: 0; z-index: 10; background: var(--paper-raised); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+  .tab-btn { background: none; border: none; cursor: pointer; color: var(--ink-faint); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); }
+  .tab-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+  .tab-btn.active { color: var(--accent); }
+  .tab-btn.active .dot { background: var(--accent); }
+
+  /* ===== Delete confirmation ===== */
+  .confirm-overlay { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); padding: 20px; }
+  .confirm-overlay[hidden] { display: none; }
+  .confirm-modal { background: var(--paper-raised); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; max-width: 280px; text-align: center; }
+  .confirm-modal p { font-size: 14px; margin: 0 0 16px; color: var(--ink); }
+  .confirm-actions { display: flex; gap: 8px; justify-content: center; }
+
+  /* ===== Celebration + gacha overlay ===== */
+  .celebrate-overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(8,8,12,.74); cursor: pointer; overflow: hidden; }
+  .celebrate-overlay[hidden] { display: none; }
+  #confettiCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .celebrate-modal {
+    position: relative; z-index: 2; text-align: center; max-width: 320px; margin: 0 16px;
+    padding: 20px; cursor: default; isolation: isolate; animation: modalPop .55s cubic-bezier(.34,1.56,.64,1);
+  }
+  .celebrate-modal::before {
+    content: ""; position: absolute; z-index: -1; inset: -50px; border-radius: 50%;
+    background: conic-gradient(from 0deg, #FF3B6E, #FFD400, #38D9A9, #3B82F6, #B14BFF, #FF8A00, #FF3B6E);
+    opacity: .65; filter: blur(20px); animation: burstSpin 5s linear infinite;
+  }
+  @keyframes burstSpin { to { transform: rotate(360deg); } }
+  @keyframes modalPop {
+    0% { transform: scale(.35) rotate(-10deg); opacity: 0; }
+    55% { transform: scale(1.15) rotate(5deg); opacity: 1; }
+    75% { transform: scale(.95) rotate(-3deg); }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+  .celebrate-flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; animation: flashPulse .6s ease-out; background: radial-gradient(circle at 50% 45%, #ffffff, #FFD400 35%, transparent 72%); }
+  @keyframes flashPulse { 0% { opacity: 0; } 12% { opacity: .85; } 100% { opacity: 0; } }
+  .celebrate-stamp { margin: 0 auto 10px; width: 60px; height: 60px; filter: drop-shadow(0 3px 10px rgba(0,0,0,.5)); }
+  .stamp-check { stroke-dasharray: 40; stroke-dashoffset: 40; animation: drawCheck .5s ease .2s forwards; }
+  @keyframes drawCheck { to { stroke-dashoffset: 0; } }
+  .celebrate-title {
+    font-family: var(--font-body); font-weight: 900; font-size: 30px; line-height: 1.25; margin: 0 0 8px; letter-spacing: .01em;
+    background: linear-gradient(90deg, #FF3B6E, #FF8A00, #FFD400, #38D9A9, #3B82F6, #B14BFF);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    -webkit-text-stroke: 1.5px rgba(0,0,0,.4); filter: drop-shadow(0 3px 10px rgba(0,0,0,.4));
+  }
+  .celebrate-sub { font-size: 14px; font-weight: 700; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.55); margin: 0 0 18px; }
+  .celebrate-close, .celebrate-gacha-btn {
+    background: rgba(255,255,255,.14); border: 1.5px solid rgba(255,255,255,.6); color: #fff;
+    border-radius: 999px; padding: 10px 24px; font-size: 14px; font-weight: 700; cursor: pointer; margin: 4px;
+  }
+  .celebrate-gacha-btn { background: #C9962C; border-color: #C9962C; }
+  .celebrate-close:hover, .celebrate-gacha-btn:hover { filter: brightness(1.1); }
+
+  /* Gacha capsule (shake stage) */
+  .gacha-capsule { width: 110px; height: 110px; margin: 0 auto 16px; position: relative; }
+  .gacha-capsule .half { position: absolute; left: 0; width: 100%; height: 52%; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+  .gacha-capsule .half.top { top: 0; border-radius: 55px 55px 6px 6px; background: linear-gradient(160deg, #FF6B8A, #FF3B6E); }
+  .gacha-capsule .half.bottom { bottom: 0; border-radius: 6px 6px 55px 55px; background: #fff; }
+  .gacha-capsule.shaking { animation: capsuleShake .45s ease-in-out infinite; }
+  @keyframes capsuleShake { 0%, 100% { transform: rotate(-7deg) translateX(-3px); } 50% { transform: rotate(7deg) translateX(3px); } }
+  .gacha-hint { font-size: 13px; color: #fff; opacity: .85; margin: 0 0 16px; }
+
+  /* Sticker reveal */
+  .gacha-reveal-badge { width: 96px; height: 96px; margin: 0 auto 12px; animation: modalPop .5s cubic-bezier(.34,1.56,.64,1); }
+  .gacha-reveal-name { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: #fff; margin: 0 0 4px; }
+  .gacha-reveal-tier { font-size: 12px; font-weight: 700; letter-spacing: .06em; margin: 0 0 16px; }
+  .gacha-reveal-tier.tier-common { color: rgba(255,255,255,.7); }
+  .gacha-reveal-tier.tier-rare { color: #9BC0E3; }
+  .gacha-reveal-tier.tier-super { color: #FFD400; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+    .stamp-check { stroke-dashoffset: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="brand-mark"><span class="maru"></span><span class="brand-text">ワカちゃん専用おてつだいノート</span></span>
+      <span class="date-chip" id="dateChip"></span>
+    </div>
+  </header>
+  <main class="view" id="view"></main>
+  <nav class="tabbar" id="tabbar"></nav>
+  <div class="toast" id="toast"></div>
+
+  <div class="celebrate-overlay" id="celebrateOverlay" data-action="close-celebrate" hidden>
+    <div class="celebrate-flash"></div>
+    <canvas id="confettiCanvas"></canvas>
+    <div class="celebrate-modal" id="celebrateModal"></div>
+  </div>
+
+  <div class="confirm-overlay" id="confirmOverlay" hidden>
+    <div class="confirm-modal">
+      <p id="confirmMessage"></p>
+      <div class="confirm-actions">
+        <button class="btn btn-sm btn-ghost" data-action="confirm-cancel">キャンセル</button>
+        <button class="btn btn-sm btn-danger" data-action="confirm-ok">削除</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cloud sync: same Firebase project as まるつけノート, a separate document so the two
+     apps' data never collide. -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  var firebaseConfig = {
+    apiKey: "AIzaSyDkW4YD3l6TDineUFq6zjD59cs6rz8njdY",
+    authDomain: "maru-tsuke-note.firebaseapp.com",
+    projectId: "maru-tsuke-note",
+    storageBucket: "maru-tsuke-note.firebasestorage.app",
+    messagingSenderId: "335358054006",
+    appId: "1:335358054006:web:93984697eeaea5d6771957"
+  };
+
+  var app = initializeApp(firebaseConfig);
+  var db = getFirestore(app);
+  // Reuses the existing "families" collection (already covered by the open Firestore rule
+  // set up for まるつけノート) with a different document id, instead of a new top-level
+  // collection that would need its own security rule.
+  var docRef = doc(db, "families", "otetsudai-waka-shared");
+
+  window.__cloudPush = function (state) {
+    setDoc(docRef, state).catch(function (err) { console.warn("cloud sync (push) failed:", err); });
+  };
+
+  onSnapshot(docRef, function (snap) {
+    if (snap.exists()) {
+      if (window.__applyCloudState) window.__applyCloudState(snap.data());
+    } else if (window.__getLocalState) {
+      window.__cloudPush(window.__getLocalState());
+    }
+  }, function (err) {
+    console.warn("cloud sync (listen) failed — falling back to this device's saved copy:", err);
+  });
+</script>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ================= Data layer ================= */
+  var STORAGE_KEY = "otetsudaiNote:v1";
+  var WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function isoOf(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function todayISO() { return isoOf(new Date()); }
+  function addDays(iso, n) { var d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return isoOf(d); }
+  function monthOf(iso) { return iso.slice(0, 7); }
+  function addMonths(monthStr, n) {
+    var parts = monthStr.split("-"); var y = Number(parts[0]), mo = Number(parts[1]);
+    var d = new Date(y, mo - 1 + n, 1);
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1);
+  }
+  function formatJP(iso) { var d = new Date(iso + "T00:00:00"); return (d.getMonth() + 1) + "月" + d.getDate() + "日(" + WEEKDAYS[d.getDay()] + ")"; }
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  /* ================= Sticker catalog & gacha ================= */
+  var STICKER_CATALOG = [
+    { key: "star", name: "きらきらスター", tier: "common", color: "#FFB020", icon: "star" },
+    { key: "flower", name: "はなまる", tier: "common", color: "#FF3B6E", icon: "leaf" },
+    { key: "heart", name: "ハート", tier: "common", color: "#FF6B8A", icon: "heart" },
+    { key: "cloud", name: "もこもこ雲", tier: "common", color: "#3B82F6", icon: "cloud" },
+    { key: "sun", name: "おひさま", tier: "common", color: "#FFB020", icon: "sun" },
+    { key: "clover", name: "よつばのクローバー", tier: "common", color: "#3B7A5E", icon: "clover" },
+    { key: "balloon", name: "ふうせん", tier: "common", color: "#B14BFF", icon: "balloon" },
+    { key: "ribbon", name: "リボン", tier: "common", color: "#38D9A9", icon: "ribbon" },
+    { key: "rainbow", name: "にじ", tier: "rare", color: "#3B82F6", icon: "rainbow" },
+    { key: "crown", name: "かんむり", tier: "rare", color: "#C9962C", icon: "crown" },
+    { key: "diamond", name: "ダイヤ", tier: "rare", color: "#38D9A9", icon: "diamond" },
+    { key: "goldcrown", name: "きんのかんむり", tier: "super", color: "#E0C165", icon: "crown" }
+  ];
+  var TIER_LABEL = { common: "ふつう", rare: "レア！", super: "★超レア★" };
+  var TIER_WEIGHT = { super: 5, rare: 25 }; // remainder goes to common
+
+  function drawSticker() {
+    var roll = Math.random() * 100;
+    var tier = roll < TIER_WEIGHT.super ? "super" : (roll < TIER_WEIGHT.super + TIER_WEIGHT.rare ? "rare" : "common");
+    var pool = STICKER_CATALOG.filter(function (s) { return s.tier === tier; });
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function stickerGlyph(icon) {
+    switch (icon) {
+      case "star": return '<path d="M12 2.5l2.6 6.1 6.6.6-5 4.4 1.5 6.5L12 16.8 6.3 20.1l1.5-6.5-5-4.4 6.6-.6z"/>';
+      case "heart": return '<path d="M12 20.5s-7.3-4.4-9.6-9C.7 7.7 2.6 4.2 6 4.2c2 0 3.4 1.1 4 2.2.6-1.1 2-2.2 4-2.2 3.4 0 5.3 3.5 3.6 7.3-2.3 4.6-9.6 9-9.6 9z"/>';
+      case "cloud": return '<path d="M6.5 17.5a4 4 0 01.3-8 5.5 5.5 0 0110.6-1.6A4.5 4.5 0 0117 17.5H6.5z"/>';
+      case "sun": return '<circle cx="12" cy="12" r="4.2"/><g stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3v2.4M12 18.6V21M21 12h-2.4M5.4 12H3M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7M18.4 18.4l-1.7-1.7M7.3 7.3L5.6 5.6"/></g>';
+      case "clover": return '<circle cx="9" cy="9" r="4"/><circle cx="15" cy="9" r="4"/><circle cx="9" cy="15" r="4"/><circle cx="15" cy="15" r="4"/>';
+      case "leaf": return '<path d="M4 20C4 10 10 4 20 4 20 14 14 20 4 20z"/>';
+      case "balloon": return '<ellipse cx="12" cy="10" rx="6" ry="7.5"/><path d="M10.3 17.2h3.4L12 20z"/>';
+      case "ribbon": return '<path d="M12 12L4 7v6l8-1z"/><path d="M12 12l8-5v6l-8-1z"/><circle cx="12" cy="12" r="2"/>';
+      case "crown": return '<path d="M3 9l4 3 5-6.5L17 12l4-3-2 9.5H5z"/>';
+      case "diamond": return '<path d="M12 2.5l6.5 7L12 21.5 5.5 9.5z"/>';
+      case "rainbow": return '<path d="M4 17a8 8 0 0116 0" fill="none" stroke="#FF3B6E" stroke-width="2.2"/><path d="M6 17a6 6 0 0112 0" fill="none" stroke="#FFB020" stroke-width="2.2"/><path d="M8 17a4 4 0 018 0" fill="none" stroke="#38D9A9" stroke-width="2.2"/><path d="M10 17a2 2 0 014 0" fill="none" stroke="#3B82F6" stroke-width="2.2"/>';
+      default: return '<circle cx="12" cy="12" r="6"/>';
+    }
+  }
+
+  function stickerBadgeHtml(sticker, size, owned, count) {
+    var glyph = stickerGlyph(sticker.icon);
+    var cls = "sticker-badge tier-" + sticker.tier + (owned ? " owned" : "");
+    var countHtml = (owned && count > 1) ? '<span class="count">×' + count + '</span>' : "";
+    return '<div class="' + cls + '" style="--sticker-color:' + sticker.color + '">' +
+      '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="currentColor">' + glyph + '</svg>' +
+      countHtml +
+    '</div>';
+  }
+
+  function seedState() {
+    return { tasks: [], stickers: [] };
+  }
+  function normalizeState(s) {
+    if (!s.tasks) s.tasks = [];
+    if (!s.stickers) s.stickers = [];
+    return s;
+  }
+
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return normalizeState(JSON.parse(raw));
+    } catch (e) {}
+    var s = seedState();
+    saveState(s);
+    return s;
+  }
+  function saveState(s) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+    if (window.__cloudPush) window.__cloudPush(s);
+  }
+
+  var state = loadState();
+
+  window.__getLocalState = function () { return state; };
+  window.__applyCloudState = function (cloudState) {
+    state = normalizeState(cloudState);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+    if (!app.openTaskForm && !celebrateOpen) render();
+  };
+
+  /* ================= Domain logic ================= */
+  function tasksOnDate(dateStr) { return state.tasks.filter(function (t) { return t.date === dateStr; }); }
+
+  function dayStatus(dateStr) {
+    var list = tasksOnDate(dateStr);
+    if (!list.length) return "none";
+    var done = list.filter(function (t) { return t.done; }).length;
+    if (done === list.length) return "complete";
+    if (done > 0) return "partial";
+    return "pending";
+  }
+
+  function dayCardComplete(dateStr) {
+    var tasks = tasksOnDate(dateStr);
+    return tasks.length > 0 && tasks.every(function (t) { return t.done; });
+  }
+
+  function computeStreak() {
+    var t = todayISO();
+    var cursor = dayStatus(t) === "complete" ? t : addDays(t, -1);
+    var streak = 0;
+    while (dayStatus(cursor) === "complete") { streak++; cursor = addDays(cursor, -1); }
+    return streak;
+  }
+
+  function buildMonthGrid(monthStr) {
+    var parts = monthStr.split("-"); var y = Number(parts[0]), mo = Number(parts[1]);
+    var startWeekday = new Date(y, mo - 1, 1).getDay();
+    var daysInMonth = new Date(y, mo, 0).getDate();
+    var cells = [];
+    for (var i = 0; i < startWeekday; i++) cells.push({ date: isoOf(new Date(y, mo - 1, 1 - (startWeekday - i))), inMonth: false });
+    for (var day = 1; day <= daysInMonth; day++) cells.push({ date: isoOf(new Date(y, mo - 1, day)), inMonth: true });
+    while (cells.length % 7 !== 0) {
+      var lastD = new Date(cells[cells.length - 1].date + "T00:00:00");
+      lastD.setDate(lastD.getDate() + 1);
+      cells.push({ date: isoOf(lastD), inMonth: false });
+    }
+    return cells;
+  }
+
+  function hasPulledToday(dateStr) { return state.stickers.some(function (s) { return s.date === dateStr; }); }
+
+  // Groups every finished chore by its name, so "お皿洗い" done on several different days
+  // shows up as one merged row with a total count.
+  function completedTaskGroups() {
+    var map = {}; var order = [];
+    state.tasks.filter(function (t) { return t.done; }).forEach(function (t) {
+      if (!map[t.label]) { map[t.label] = { label: t.label, count: 0, lastDate: t.date }; order.push(t.label); }
+      var g = map[t.label];
+      g.count++;
+      if (t.date > g.lastDate) g.lastDate = t.date;
+    });
+    var arr = order.map(function (label) { return map[label]; });
+    arr.sort(function (a, b) { return a.lastDate < b.lastDate ? 1 : -1; });
+    return arr;
+  }
+
+  /* ================= App / view state ================= */
+  var app = { view: "calendar", calMonth: monthOf(todayISO()), selectedDate: todayISO(), openTaskForm: false };
+
+  var VIEWS = [
+    { id: "calendar", label: "カレンダー" },
+    { id: "collection", label: "コレクション" },
+    { id: "record", label: "記録" }
+  ];
+
+  function goto(view) { app.view = view; render(); }
+  function toast(msg) {
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { el.classList.remove("show"); }, 1800);
+  }
+
+  /* ================= Delete confirmation ================= */
+  var pendingConfirmAction = null;
+  function showConfirm(message, onConfirm) {
+    document.getElementById("confirmMessage").textContent = message;
+    document.getElementById("confirmOverlay").hidden = false;
+    pendingConfirmAction = onConfirm;
+  }
+  function hideConfirm() {
+    document.getElementById("confirmOverlay").hidden = true;
+    pendingConfirmAction = null;
+  }
+
+  /* ================= Render: shell ================= */
+  function render() {
+    document.getElementById("dateChip").textContent = formatJP(todayISO());
+    renderTabbar();
+    var view = document.getElementById("view");
+    if (app.view === "calendar") view.innerHTML = renderCalendarView();
+    else if (app.view === "collection") view.innerHTML = renderCollectionView();
+    else if (app.view === "record") view.innerHTML = renderRecordOverview();
+  }
+
+  function renderTabbar() {
+    document.getElementById("tabbar").innerHTML = VIEWS.map(function (v) {
+      var active = v.id === app.view ? " active" : "";
+      return '<button class="tab-btn' + active + '" data-action="goto" data-view="' + v.id + '"><span class="dot"></span>' + escapeHtml(v.label) + '</button>';
+    }).join("");
+  }
+
+  /* ================= Render: calendar ================= */
+  function renderCalendarView() {
+    var cells = buildMonthGrid(app.calMonth);
+    var t = todayISO();
+    var parts = app.calMonth.split("-");
+    var titleText = parts[0] + "年" + Number(parts[1]) + "月";
+
+    var dowHtml = WEEKDAYS.map(function (w) { return '<div class="cal-dow">' + w + '</div>'; }).join("");
+    var cellsHtml = cells.map(function (c) {
+      var status = dayStatus(c.date);
+      var cls = "cal-cell";
+      if (!c.inMonth) cls += " other-month";
+      if (c.date === t) cls += " today";
+      if (c.date === app.selectedDate) cls += " selected";
+      if (status === "complete") cls += " complete";
+      else if (status === "partial" || status === "pending") cls += " partial";
+      var day = Number(c.date.slice(8, 10));
+      return '<button class="' + cls + '" data-action="select-day" data-date="' + c.date + '">' +
+        '<span class="stamp"></span><span class="num">' + day + '</span></button>';
+    }).join("");
+
+    var streak = computeStreak();
+
+    return '' +
+      '<div class="card cal-card">' +
+        '<div class="cal-head"><span class="cal-title">' + titleText + '</span>' +
+          '<span class="cal-nav"><button class="cal-nav-btn" data-action="cal-prev">‹</button><button class="cal-nav-btn" data-action="cal-next">›</button></span></div>' +
+        '<div class="cal-dow-row">' + dowHtml + '</div>' +
+        '<div class="cal-grid">' + cellsHtml + '</div>' +
+        '<div class="cal-legend"><span><i class="legend-mark"></i>ぜんぶ終わった</span><span><i class="legend-dot"></i>とちゅう</span></div>' +
+      '</div>' +
+      '<p class="streak-line">おてつだいコンプリート、つづけて <b>' + streak + '日</b></p>' +
+      renderDayCard();
+  }
+
+  function renderDayCard() {
+    var d = app.selectedDate;
+    var t = todayISO();
+    var tasks = tasksOnDate(d);
+    var doneCount = tasks.filter(function (x) { return x.done; }).length;
+    var allDone = tasks.length > 0 && doneCount === tasks.length;
+    var subLabel = d === t ? "今日のページ" : (d < t ? formatJP(d) + " の記録" : formatJP(d) + " の よてい");
+
+    var listHtml = tasks.length ? '<ul class="task-list">' + tasks.map(function (task) {
+      return '<li class="task-item' + (task.done ? " done" : "") + '">' +
+        '<button class="ring-btn" data-action="toggle-task" data-id="' + task.id + '"><span class="ring"></span></button>' +
+        '<span class="txt"><span class="label">' + escapeHtml(task.label) + '</span></span>' +
+        '<button class="task-del" data-action="delete-task" data-id="' + task.id + '" title="削除">×</button>' +
+      '</li>';
+    }).join("") + '</ul>' : '<p class="task-empty">この日はまだ何もありません。「＋ おてつだいを追加」で入れてみましょう。</p>';
+
+    var toggleLabel = app.openTaskForm ? "閉じる" : "＋ おてつだいを追加";
+    var formHtml = app.openTaskForm ? renderTaskForm() : "";
+
+    return '<div class="card day-card' + (allDone ? " day-complete" : "") + '">' +
+      '<div class="day-head"><span class="day-title">' + formatJP(d) + '</span><span class="day-progress">' + doneCount + '/' + tasks.length + '</span></div>' +
+      '<p class="day-sub">' + escapeHtml(subLabel) + '</p>' +
+      listHtml +
+      '<div class="add-task-toggle"><button class="btn btn-sm btn-ghost" data-action="toggle-task-form">' + toggleLabel + '</button></div>' +
+      formHtml +
+    '</div>';
+  }
+
+  function renderTaskForm() {
+    return '<form class="card" id="taskForm" style="margin:10px 0 0;box-shadow:none;background:var(--paper-sunken)">' +
+      '<label class="field"><span class="field-label">おてつだい</span>' +
+        '<input type="text" name="label" placeholder="例：お皿あらい" required>' +
+      '</label>' +
+      '<button type="submit" class="btn btn-sm">この日に追加</button>' +
+    '</form>';
+  }
+
+  /* ================= Render: collection ================= */
+  function renderCollectionView() {
+    var counts = {};
+    state.stickers.forEach(function (s) { counts[s.key] = (counts[s.key] || 0) + 1; });
+    var ownedCount = Object.keys(counts).length;
+
+    var cellsHtml = STICKER_CATALOG.map(function (sticker) {
+      var owned = !!counts[sticker.key];
+      return '<div class="sticker-cell' + (owned ? "" : " unowned") + '">' +
+        stickerBadgeHtml(sticker, 34, owned, counts[sticker.key] || 0) +
+        '<span class="sticker-cell-name">' + (owned ? escapeHtml(sticker.name) : "？？？") + '</span>' +
+      '</div>';
+    }).join("");
+
+    return '' +
+      '<div class="page-head"><h2>シールコレクション</h2></div>' +
+      '<div class="card">' +
+        '<p class="sticker-progress"><b>' + ownedCount + '</b> / ' + STICKER_CATALOG.length + ' しゅるい あつめた</p>' +
+        '<div class="sticker-grid">' + cellsHtml + '</div>' +
+      '</div>';
+  }
+
+  /* ================= Render: record overview ================= */
+  function renderRecordOverview() {
+    var groups = completedTaskGroups();
+    var rows = groups.length ? groups.map(function (g) {
+      return '<div class="record-row">' +
+        '<div class="record-row-top"><span class="record-name">' + escapeHtml(g.label) + '</span></div>' +
+        '<div class="record-pages">完了 ' + g.count + '回</div>' +
+        '<div class="record-meta">最後にやったのは：' + formatJP(g.lastDate) + '</div>' +
+      '</div>';
+    }).join("") : '<p class="empty-note">まだ完了したおてつだいがありません。カレンダーでチェックを入れると、ここに集まってきます。</p>';
+
+    return '<div class="page-head"><h2>やった記録</h2></div><div class="card">' + rows + '</div>';
+  }
+
+  /* ================= Celebration + gacha ================= */
+  var celebrateOpen = false, celebrateTimer = null, confettiRAF = null;
+
+  function prefersReducedMotion() { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
+
+  function showCelebration(dateStr) {
+    if (celebrateOpen) return;
+    celebrateOpen = true;
+    renderCelebrateModal(dateStr, "celebrate");
+
+    var overlay = document.getElementById("celebrateOverlay");
+    overlay.hidden = false;
+
+    if (!prefersReducedMotion()) {
+      var canvas = document.getElementById("confettiCanvas");
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+      startCelebrationFX(canvas);
+    }
+    clearTimeout(celebrateTimer);
+    // Only auto-close if there's nothing left to do here (already pulled today's gacha).
+    if (hasPulledToday(dateStr)) celebrateTimer = setTimeout(closeCelebration, 4600);
+  }
+
+  function closeCelebration() {
+    if (!celebrateOpen) return;
+    celebrateOpen = false;
+    document.getElementById("celebrateOverlay").hidden = true;
+    clearTimeout(celebrateTimer);
+    stopCelebrationFX();
+    render();
+  }
+
+  function renderCelebrateModal(dateStr, stage, extra) {
+    var modal = document.getElementById("celebrateModal");
+    var streak = computeStreak();
+
+    if (stage === "celebrate") {
+      var isToday = dateStr === todayISO();
+      var titleHtml = (isToday ? "きょうのページ" : escapeHtml(formatJP(dateStr))) + "<br>コンプリート！";
+      var subText = (isToday && streak > 1) ? "これで " + streak + " 日連続！" : "よくがんばりました！";
+      var actionHtml = hasPulledToday(dateStr)
+        ? '<button class="celebrate-close" data-action="close-celebrate">とじる</button>'
+        : '<button class="celebrate-gacha-btn" data-action="pull-gacha" data-date="' + dateStr + '">ガチャをひく！</button>';
+      modal.innerHTML =
+        '<svg class="celebrate-stamp" viewBox="0 0 48 48" width="60" height="60" style="color:#FFD400">' +
+          '<circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="4"></circle>' +
+          '<path class="stamp-check" d="M14 25 L21 32 L34 17" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>' +
+        '</svg>' +
+        '<p class="celebrate-title">' + titleHtml + '</p>' +
+        '<p class="celebrate-sub">' + subText + '</p>' +
+        actionHtml;
+    } else if (stage === "shaking") {
+      modal.innerHTML =
+        '<div class="gacha-capsule shaking"><div class="half top"></div><div class="half bottom"></div></div>' +
+        '<p class="gacha-hint">なにが出るかな…？</p>';
+    } else if (stage === "reveal") {
+      var sticker = extra;
+      modal.innerHTML =
+        '<div class="gacha-reveal-badge">' + stickerBadgeHtml(sticker, 64, true, 0) + '</div>' +
+        '<p class="celebrate-title" style="font-size:22px">' + escapeHtml(sticker.name) + '</p>' +
+        '<p class="gacha-reveal-tier tier-' + sticker.tier + '">' + TIER_LABEL[sticker.tier] + '</p>' +
+        '<button class="celebrate-close" data-action="close-celebrate">とじる</button>' +
+        '<button class="celebrate-close" data-action="goto-collection">コレクションを見る</button>';
+    }
+  }
+
+  function pullGacha(dateStr) {
+    clearTimeout(celebrateTimer);
+    renderCelebrateModal(dateStr, "shaking");
+    setTimeout(function () {
+      var sticker = drawSticker();
+      state.stickers.push({ id: uid(), key: sticker.key, date: dateStr });
+      saveState(state);
+      renderCelebrateModal(dateStr, "reveal", sticker);
+    }, 900);
+  }
+
+  /* ---- celebration particle FX (confetti + balloons + plane + gull flock) ---- */
+  var PARTY_COLORS = ["#FF3B6E", "#FF8A00", "#FFD400", "#38D9A9", "#3B82F6", "#B14BFF", "#FF4D4D", "#00E0C6"];
+
+  function makeConfettiRain(w, h, colors) {
+    var count = Math.min(140, Math.round((w * h) / 6500));
+    var arr = [];
+    for (var i = 0; i < count; i++) arr.push(makeConfettiPiece(colors, Math.random() * w, -30 - Math.random() * h * 0.7, -2 + Math.random() * 4, 3 + Math.random() * 3.5));
+    return arr;
+  }
+  function makeConfettiBurst(x, y, colors, count) {
+    var arr = [];
+    for (var i = 0; i < count; i++) {
+      var angle = -Math.PI / 2 + (Math.random() * 1.9 - 0.95);
+      var speed = 8 + Math.random() * 11;
+      arr.push(makeConfettiPiece(colors, x, y, Math.cos(angle) * speed, Math.sin(angle) * speed));
+    }
+    return arr;
+  }
+  function makeConfettiPiece(colors, x, y, vx, vy) {
+    return { x: x, y: y, w: 6 + Math.random() * 8, h: 10 + Math.random() * 26, color: colors[Math.floor(Math.random() * colors.length)], vx: vx, vy: vy, rot: Math.random() * Math.PI * 2, vr: -0.32 + Math.random() * 0.64, round: Math.random() < 0.4 };
+  }
+  function drawConfettiPiece(ctx, p) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.rot += p.vr;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.color;
+    if (p.round) { ctx.beginPath(); ctx.arc(0, 0, p.w / 2 + 1, 0, Math.PI * 2); ctx.fill(); }
+    else { ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); }
+    ctx.restore();
+  }
+
+  function makeBalloons(w, h, colors) {
+    var count = 8 + Math.floor(Math.random() * 4);
+    var arr = [];
+    for (var i = 0; i < count; i++) {
+      arr.push({ x: (w / (count + 1)) * (i + 1) + (Math.random() * 80 - 40), y: h + 60 + Math.random() * h * 0.9, size: 34 + Math.random() * 26, color: colors[Math.floor(Math.random() * colors.length)], vy: -(0.9 + Math.random() * 0.9), phase: Math.random() * Math.PI * 2, swayAmp: 16 + Math.random() * 24, swaySpeed: 0.0012 + Math.random() * 0.0009 });
+    }
+    return arr;
+  }
+  function drawBalloon(ctx, b, elapsed) {
+    b.y += b.vy;
+    var sway = Math.sin(elapsed * b.swaySpeed + b.phase) * b.swayAmp;
+    ctx.save(); ctx.translate(b.x + sway, b.y);
+    ctx.strokeStyle = "rgba(0,0,0,.3)"; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(-b.size * 0.22, b.size * 0.82); ctx.lineTo(-b.size * 0.1, b.size * 1.22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(b.size * 0.22, b.size * 0.82); ctx.lineTo(b.size * 0.1, b.size * 1.22); ctx.stroke();
+    ctx.fillStyle = "rgba(92,68,46,.9)"; ctx.fillRect(-b.size * 0.16, b.size * 1.18, b.size * 0.32, b.size * 0.22);
+    ctx.shadowColor = b.color; ctx.shadowBlur = 18;
+    ctx.beginPath(); ctx.ellipse(0, 0, b.size * 0.66, b.size * 0.84, 0, 0, Math.PI * 2); ctx.fillStyle = b.color; ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.moveTo(-b.size * 0.16, b.size * 0.74); ctx.lineTo(b.size * 0.16, b.size * 0.74); ctx.lineTo(0, b.size * 0.92); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-b.size * 0.22, -b.size * 0.3, b.size * 0.16, b.size * 0.24, -0.4, 0, Math.PI * 2); ctx.fillStyle = "rgba(255,255,255,.4)"; ctx.fill();
+    ctx.restore();
+  }
+
+  function makePlane(w, h, color) {
+    var dir = Math.random() < 0.5 ? 1 : -1;
+    return { x: dir === 1 ? -60 : w + 60, y: h * 0.14 + Math.random() * h * 0.16, vx: dir * (3.4 + Math.random() * 1.2), vy: -0.15, color: color, trail: [] };
+  }
+  function drawPlane(ctx, p) {
+    p.x += p.vx; p.y += p.vy;
+    p.trail.push({ x: p.x, y: p.y });
+    if (p.trail.length > 14) p.trail.shift();
+    p.trail.forEach(function (pt, i) {
+      var t = i / p.trail.length;
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, 4 * t + 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = p.color; ctx.globalAlpha = t * 0.4; ctx.fill(); ctx.globalAlpha = 1;
+    });
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.vy, p.vx));
+    ctx.shadowColor = p.color; ctx.shadowBlur = 14; ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(-21, -14); ctx.lineTo(-9, 0); ctx.lineTo(-21, 14); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  function makeFlock(w, h, colors) {
+    var dir = Math.random() < 0.5 ? 1 : -1;
+    var offsets = [[0, 0], [-24, 13], [24, 13], [-46, 24], [46, 24], [-66, 37], [66, 37], [-84, 48], [-100, 58], [100, 58]];
+    var birds = offsets.map(function (o, i) { return { dx: o[0] * dir, dy: o[1], size: 15 + Math.random() * 6, phase: i * 0.5, color: colors[i % colors.length] }; });
+    return { leaderX: dir === 1 ? -130 : w + 130, leaderY: h * 0.08 + Math.random() * h * 0.14, vx: dir * (2.4 + Math.random() * 0.8), birds: birds };
+  }
+  function drawFlock(ctx, flock, elapsed) {
+    flock.leaderX += flock.vx;
+    flock.birds.forEach(function (bd) {
+      var x = flock.leaderX + bd.dx;
+      var y = flock.leaderY + bd.dy + Math.sin(elapsed * 0.004 + bd.phase) * 5;
+      var wing = Math.abs(Math.sin(elapsed * 0.022 + bd.phase)) * bd.size * 0.95 + bd.size * 0.3;
+      ctx.save(); ctx.translate(x, y);
+      ctx.strokeStyle = bd.color; ctx.lineWidth = Math.max(2, bd.size * 0.2); ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-bd.size, 0); ctx.quadraticCurveTo(-bd.size * 0.4, -wing, 0, 0); ctx.quadraticCurveTo(bd.size * 0.4, -wing, bd.size, 0); ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  function startCelebrationFX(canvas) {
+    var ctx = canvas.getContext("2d");
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+
+    var confetti = makeConfettiRain(w, h, PARTY_COLORS);
+    var balloons = makeBalloons(w, h, PARTY_COLORS);
+    var plane = makePlane(w, h, PARTY_COLORS[Math.floor(Math.random() * PARTY_COLORS.length)]);
+    var flock = makeFlock(w, h, PARTY_COLORS);
+
+    var bursts = [
+      { t: 0, x: w * 0.06, y: h * 0.98 }, { t: 0, x: w * 0.94, y: h * 0.98 },
+      { t: 550, x: w * 0.5, y: h * 1.02 },
+      { t: 1300, x: w * 0.15, y: h * 0.98 }, { t: 1300, x: w * 0.85, y: h * 0.98 },
+      { t: 2200, x: w * 0.5, y: h * 1.02 }
+    ];
+    var fired = bursts.map(function () { return false; });
+
+    var start = performance.now();
+    var duration = 4800;
+    function frame(now) {
+      var elapsed = now - start;
+      bursts.forEach(function (b, i) {
+        if (!fired[i] && elapsed >= b.t) { fired[i] = true; confetti = confetti.concat(makeConfettiBurst(b.x, b.y, PARTY_COLORS, 46)); }
+      });
+      confetti = confetti.filter(function (p) { return p.y < h + 80 && p.y > -h * 1.2; });
+
+      ctx.clearRect(0, 0, w, h);
+      balloons.forEach(function (b) { drawBalloon(ctx, b, elapsed); });
+      drawFlock(ctx, flock, elapsed);
+      drawPlane(ctx, plane);
+      confetti.forEach(function (p) { drawConfettiPiece(ctx, p); });
+      if (elapsed < duration || celebrateOpen) confettiRAF = requestAnimationFrame(frame);
+      else ctx.clearRect(0, 0, w, h);
+    }
+    confettiRAF = requestAnimationFrame(frame);
+  }
+
+  function stopCelebrationFX() {
+    if (confettiRAF) cancelAnimationFrame(confettiRAF);
+    confettiRAF = null;
+    var canvas = document.getElementById("confettiCanvas");
+    var ctx = canvas && canvas.getContext("2d");
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  /* ================= Events ================= */
+  var appEl = document.getElementById("app");
+
+  appEl.addEventListener("click", function (e) {
+    var actionEl = e.target.closest("[data-action]");
+    if (!actionEl) return;
+    var action = actionEl.getAttribute("data-action");
+
+    if (action === "goto") { goto(actionEl.getAttribute("data-view")); return; }
+    if (action === "goto-collection") { closeCelebration(); goto("collection"); return; }
+
+    if (action === "cal-prev") { app.calMonth = addMonths(app.calMonth, -1); render(); return; }
+    if (action === "cal-next") { app.calMonth = addMonths(app.calMonth, 1); render(); return; }
+
+    if (action === "select-day") {
+      app.selectedDate = actionEl.getAttribute("data-date");
+      app.calMonth = monthOf(app.selectedDate);
+      app.openTaskForm = false;
+      render();
+      return;
+    }
+
+    if (action === "toggle-task-form") { app.openTaskForm = !app.openTaskForm; render(); return; }
+
+    if (action === "toggle-task") {
+      var tid = actionEl.getAttribute("data-id");
+      var task = state.tasks.find(function (x) { return x.id === tid; });
+      var wasComplete = dayCardComplete(app.selectedDate);
+      if (task) { task.done = !task.done; saveState(state); }
+      render();
+      if (!wasComplete && dayCardComplete(app.selectedDate)) showCelebration(app.selectedDate);
+      return;
+    }
+
+    if (action === "delete-task") {
+      var did = actionEl.getAttribute("data-id");
+      showConfirm("このおてつだいを削除しますか？", function () {
+        state.tasks = state.tasks.filter(function (x) { return x.id !== did; });
+        saveState(state);
+        render();
+      });
+      return;
+    }
+
+    if (action === "confirm-cancel") { hideConfirm(); return; }
+    if (action === "confirm-ok") {
+      var fn = pendingConfirmAction;
+      hideConfirm();
+      if (fn) fn();
+      return;
+    }
+
+    if (action === "close-celebrate") { closeCelebration(); return; }
+    if (action === "pull-gacha") { pullGacha(actionEl.getAttribute("data-date")); return; }
+  });
+
+  appEl.addEventListener("submit", function (e) {
+    if (e.target && e.target.id === "taskForm") {
+      e.preventDefault();
+      var label = e.target.label.value.trim();
+      if (!label) return;
+      state.tasks.push({ id: uid(), date: app.selectedDate, label: label, done: false });
+      saveState(state);
+      app.openTaskForm = false;
+      toast("追加しました");
+      render();
+      return;
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
