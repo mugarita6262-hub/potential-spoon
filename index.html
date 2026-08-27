@@ -640,7 +640,18 @@
     if (m) return m[1] + "-" + pad(+m[2]) + "-" + pad(+m[3]);
     m = s.match(/^(\d{1,2})[-\/](\d{1,2})$/);
     if (m) return new Date().getFullYear() + "-" + pad(+m[1]) + "-" + pad(+m[2]);
+    m = s.match(/^(\d{1,2})月(\d{1,2})日$/);
+    if (m) return new Date().getFullYear() + "-" + pad(+m[1]) + "-" + pad(+m[2]);
     return null;
+  }
+
+  // Splits a "科目：単元" header like "算数：ステージII" into { subject:"算数", label:"算数ステージII" }
+  // — matching how manually-added tasks already name themselves (subject folded into the label).
+  // Headers with no colon just become the label as-is, with no subject.
+  function splitSubjectLabel(text) {
+    var m = text.match(/^([^:：]+)[:：](.+)$/);
+    if (m) { var subj = m[1].trim(); return { subject: subj, label: subj + m[2].trim() }; }
+    return { subject: null, label: text };
   }
 
   function seedState() {
@@ -1930,32 +1941,71 @@
       var raw = e.target.importText.value;
       var lines = raw.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
       var addedTasks = 0, addedRows = 0, skipped = 0;
-      lines.forEach(function (line, idx) {
+
+      var splitCols = function (line) {
         var sep = line.indexOf("\t") !== -1 ? "\t" : ",";
-        var cols = line.split(sep).map(function (c) { return c.trim(); });
-        var date = parseFlexibleDate(cols[0]);
-        if (!date) {
-          if (idx === 0) return; // likely a header row — skip silently
-          skipped++;
-          return;
+        return line.split(sep).map(function (c) { return c.trim(); });
+      };
+      var isDoneFlag = function (s) { return /^(完|済|done|true|1|○|ok)$/i.test((s || "").trim()); };
+
+      var firstCols = lines.length ? splitCols(lines[0]) : [];
+      // "Wide" layout: a header row with a blank first cell, then one column per material
+      // (e.g. blank, 算数：ステージII, 算数：筋トレI, blank), and each data row is one date
+      // with that date's page numbers under each material, plus a 完/未完 status at the end.
+      var isWide = firstCols.length >= 3 && firstCols[0] === "";
+
+      if (isWide) {
+        var materials = firstCols.slice(1);
+        for (var li = 1; li < lines.length; li++) {
+          var wcols = splitCols(lines[li]);
+          var wdate = parseFlexibleDate(wcols[0]);
+          if (!wdate) { skipped++; continue; }
+          var rowDone = isDoneFlag(wcols[wcols.length - 1]);
+          var rowHadAny = false;
+          for (var mi = 0; mi < materials.length; mi++) {
+            var materialName = materials[mi];
+            var cellVal = wcols[mi + 1] || "";
+            if (!materialName || !cellVal) continue;
+            var wpages = parsePageNumbers(cellVal);
+            if (!wpages.length) continue;
+            var sl = splitSubjectLabel(materialName);
+            var wGroupId = uid();
+            wpages.forEach(function (p) {
+              state.plannerTasks.push({ id: uid(), date: wdate, subject: sl.subject, label: sl.label, page: p, groupId: wGroupId, done: rowDone, source: "manual" });
+              addedTasks++;
+            });
+            rowHadAny = true;
+          }
+          if (rowHadAny) addedRows++;
         }
-        var subject = cols[1] || null;
-        var label = cols[2] || "";
-        if (!label) { skipped++; return; }
-        var pages = parsePageNumbers(cols[3] || "");
-        var isDone = /^(済|done|true|1|○|ok)$/i.test((cols[4] || "").trim());
-        if (pages.length === 0) {
-          state.plannerTasks.push({ id: uid(), date: date, subject: subject, label: label, done: isDone, source: "manual" });
-          addedTasks++;
-        } else {
-          var groupId = uid();
-          pages.forEach(function (p) {
-            state.plannerTasks.push({ id: uid(), date: date, subject: subject, label: label, page: p, groupId: groupId, done: isDone, source: "manual" });
+      } else {
+        lines.forEach(function (line, idx) {
+          var cols = splitCols(line);
+          var date = parseFlexibleDate(cols[0]);
+          if (!date) {
+            if (idx === 0) return; // likely a header row — skip silently
+            skipped++;
+            return;
+          }
+          var subject = cols[1] || null;
+          var label = cols[2] || "";
+          if (!label) { skipped++; return; }
+          var pages = parsePageNumbers(cols[3] || "");
+          var isDone = isDoneFlag(cols[4]);
+          if (pages.length === 0) {
+            state.plannerTasks.push({ id: uid(), date: date, subject: subject, label: label, done: isDone, source: "manual" });
             addedTasks++;
-          });
-        }
-        addedRows++;
-      });
+          } else {
+            var groupId = uid();
+            pages.forEach(function (p) {
+              state.plannerTasks.push({ id: uid(), date: date, subject: subject, label: label, page: p, groupId: groupId, done: isDone, source: "manual" });
+              addedTasks++;
+            });
+          }
+          addedRows++;
+        });
+      }
+
       if (addedTasks > 0) saveState(state);
       app.openImportForm = false;
       toast(addedTasks > 0
