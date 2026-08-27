@@ -631,6 +631,18 @@
     return out;
   }
 
+  // Accepts the kind of date text that comes out of Excel/CSV: "2026-8-1", "2026/08/01",
+  // or just "8/1" (assumes the current year). Returns "YYYY-MM-DD" or null if unparseable.
+  function parseFlexibleDate(s) {
+    if (!s) return null;
+    s = s.trim();
+    var m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+    if (m) return m[1] + "-" + pad(+m[2]) + "-" + pad(+m[3]);
+    m = s.match(/^(\d{1,2})[-\/](\d{1,2})$/);
+    if (m) return new Date().getFullYear() + "-" + pad(+m[1]) + "-" + pad(+m[2]);
+    return null;
+  }
+
   function seedState() {
     var t = todayISO();
     var m1Id = uid(), m2Id = uid();
@@ -908,6 +920,7 @@
     openTaskForm: false,
     openExamForm: false,
     openPrepForm: false,
+    openImportForm: false,
     openReviewMistakeId: null,   // expanded review panel on the day page
     openMistakeFormReviewId: null, // expanded review panel on the mistakes tab
     openMistakeForm: false,
@@ -1324,7 +1337,26 @@
         renderExamListForMonth() +
       '</div>' +
       '<p class="streak-line">花丸コンプリート、つづけて <b>' + streak + '日</b></p>' +
-      renderDayCard();
+      renderDayCard() +
+      renderImportSection();
+  }
+
+  function renderImportSection() {
+    var toggleLabel = app.openImportForm ? "閉じる" : "＋ エクセルからまとめて追加";
+    var formHtml = app.openImportForm ? renderImportForm() : "";
+    return '<div class="add-task-toggle"><button class="btn btn-sm btn-ghost" data-action="toggle-import-form">' + toggleLabel + '</button></div>' + formHtml;
+  }
+
+  function renderImportForm() {
+    return '<form class="card" id="importForm">' +
+      '<p class="section-label">Excel/CSVから一括で追加</p>' +
+      '<p class="field-hint" style="margin-top:0">列の並びは「日付・科目・やること・ページ番号・完了」です。科目とページ番号と完了は空欄でもOK。Excelで行を選んでコピーし、下にそのまま貼り付けてください。</p>' +
+      '<label class="field"><span class="field-label">貼り付け欄</span>' +
+        '<textarea name="importText" style="min-height:140px" placeholder="' +
+        '2026-08-01\t算数\t予習シリーズ算数\t12,13,15\t済\n2026-08-02\t国語\t漢字ドリルP12\t\t"></textarea>' +
+      '</label>' +
+      '<button type="submit" class="btn btn-sm">まとめて追加</button>' +
+    '</form>';
   }
 
   function renderCountdownBanner() {
@@ -1700,6 +1732,8 @@
 
     if (action === "toggle-prep-form") { app.openPrepForm = !app.openPrepForm; render(); return; }
 
+    if (action === "toggle-import-form") { app.openImportForm = !app.openImportForm; render(); return; }
+
     if (action === "toggle-prep-item") {
       var pid = actionEl.getAttribute("data-id");
       var prepItem = state.examPrep.find(function (x) { return x.id === pid; });
@@ -1887,6 +1921,46 @@
       saveState(state);
       app.openTaskForm = false;
       toast(pages.length ? "ページを" + pages.length + "件追加しました" : "カレンダーに追加しました");
+      render();
+      return;
+    }
+
+    if (e.target && e.target.id === "importForm") {
+      e.preventDefault();
+      var raw = e.target.importText.value;
+      var lines = raw.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+      var addedTasks = 0, addedRows = 0, skipped = 0;
+      lines.forEach(function (line, idx) {
+        var sep = line.indexOf("\t") !== -1 ? "\t" : ",";
+        var cols = line.split(sep).map(function (c) { return c.trim(); });
+        var date = parseFlexibleDate(cols[0]);
+        if (!date) {
+          if (idx === 0) return; // likely a header row — skip silently
+          skipped++;
+          return;
+        }
+        var subject = cols[1] || null;
+        var label = cols[2] || "";
+        if (!label) { skipped++; return; }
+        var pages = parsePageNumbers(cols[3] || "");
+        var isDone = /^(済|done|true|1|○|ok)$/i.test((cols[4] || "").trim());
+        if (pages.length === 0) {
+          state.plannerTasks.push({ id: uid(), date: date, subject: subject, label: label, done: isDone, source: "manual" });
+          addedTasks++;
+        } else {
+          var groupId = uid();
+          pages.forEach(function (p) {
+            state.plannerTasks.push({ id: uid(), date: date, subject: subject, label: label, page: p, groupId: groupId, done: isDone, source: "manual" });
+            addedTasks++;
+          });
+        }
+        addedRows++;
+      });
+      if (addedTasks > 0) saveState(state);
+      app.openImportForm = false;
+      toast(addedTasks > 0
+        ? addedRows + "行・" + addedTasks + "件を追加しました" + (skipped ? "（" + skipped + "行はスキップ）" : "")
+        : "追加できる行がありませんでした");
       render();
       return;
     }
