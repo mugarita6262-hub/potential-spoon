@@ -147,7 +147,8 @@
 
   label.field { display: block; margin-bottom: 12px; }
   .field-label { display: block; font-size: 12px; font-weight: 700; color: var(--ink-soft); margin-bottom: 5px; }
-  input[type="text"] { width: 100%; font-family: inherit; font-size: 15px; color: var(--ink); background: var(--paper-sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 11px; }
+  input[type="text"], select, textarea { width: 100%; font-family: inherit; font-size: 15px; color: var(--ink); background: var(--paper-sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 11px; }
+  textarea { resize: vertical; min-height: 64px; }
 
   .empty-note { color: var(--ink-soft); font-size: 13px; padding: 4px 0; }
 
@@ -158,6 +159,14 @@
   .record-name { font-weight: 700; font-size: 14px; }
   .record-pages { font-size: 13px; color: var(--ink-soft); }
   .record-meta { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+
+  /* ===== Talk board (お話し場所) ===== */
+  .talk-post { padding: 12px 0; border-top: 1px dashed var(--line); }
+  .talk-post:first-child { border-top: none; }
+  .talk-post-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .talk-post-name { font-weight: 700; font-size: 14px; color: var(--accent); }
+  .talk-post-time { font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; flex: 1; }
+  .talk-post-text { font-size: 14px; color: var(--ink); white-space: pre-wrap; line-height: 1.5; overflow-wrap: anywhere; }
 
   /* ===== Sticker collection ===== */
   .sticker-progress { font-size: 13px; color: var(--ink-soft); margin: 0 0 14px; }
@@ -202,7 +211,7 @@
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   /* ===== Tab bar ===== */
-  .tabbar { position: sticky; bottom: 0; z-index: 10; background: var(--paper-raised); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+  .tabbar { position: sticky; bottom: 0; z-index: 10; background: var(--paper-raised); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
   .tab-btn { background: none; border: none; cursor: pointer; color: var(--ink-faint); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); }
   .tab-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
   .tab-btn.active { color: var(--accent); }
@@ -425,6 +434,8 @@
   /* ================= Data layer ================= */
   var STORAGE_KEY = "otetsudaiNote:v1";
   var CHORE_OPTIONS = ["おせんたくをはこぶ", "おせんたくをたたむ", "ごはんを盛る", "おそうじをする", "お米をあらう", "しょっきをはこぶ"];
+  var TALK_NAME_KEY = "otetsudaiNote:lastCommenterName";
+  var TALK_NAMES = ["ふたば", "わか", "にこう", "ともえちゃん", "とーちゃん"];
   var WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -488,11 +499,12 @@
   }
 
   function seedState() {
-    return { tasks: [], stickers: [] };
+    return { tasks: [], stickers: [], comments: [] };
   }
   function normalizeState(s) {
     if (!s.tasks) s.tasks = [];
     if (!s.stickers) s.stickers = [];
+    if (!s.comments) s.comments = [];
     return s;
   }
 
@@ -585,6 +597,7 @@
 
   var VIEWS = [
     { id: "calendar", label: "カレンダー" },
+    { id: "talk", label: "お話し場所" },
     { id: "collection", label: "コレクション" },
     { id: "record", label: "記録" }
   ];
@@ -623,6 +636,7 @@
     var view = document.getElementById("view");
     if (app.view === "calendar") view.innerHTML = renderCalendarView();
     else if (app.view === "collection") view.innerHTML = renderCollectionView();
+    else if (app.view === "talk") view.innerHTML = renderTalkBoard();
     else if (app.view === "record") view.innerHTML = renderRecordOverview();
   }
 
@@ -708,6 +722,42 @@
       '</label>' +
       '<button type="submit" class="btn btn-sm">この日に追加</button>' +
     '</form>';
+  }
+
+  /* ================= Render: talk board (お話し場所) ================= */
+  function renderTalkBoard() {
+    var posts = state.comments.slice().sort(function (a, b) {
+      var ak = a.date + " " + a.time, bk = b.date + " " + b.time;
+      return ak < bk ? 1 : -1; // newest first
+    });
+    var listHtml = posts.length ? posts.map(function (p) {
+      return '<div class="talk-post">' +
+        '<div class="talk-post-head">' +
+          '<span class="talk-post-name">' + escapeHtml(p.name) + '</span>' +
+          '<span class="talk-post-time">' + formatJP(p.date) + ' ' + escapeHtml(p.time) + '</span>' +
+          '<button class="task-del" data-action="delete-comment" data-id="' + p.id + '" title="削除">×</button>' +
+        '</div>' +
+        '<p class="talk-post-text">' + escapeHtml(p.text) + '</p>' +
+      '</div>';
+    }).join("") : '<p class="empty-note">まだ書き込みがありません。最初のひとことをどうぞ。</p>';
+
+    var lastName = "";
+    try { lastName = localStorage.getItem(TALK_NAME_KEY) || ""; } catch (e) {}
+
+    return '' +
+      '<div class="page-head"><h2>お話し場所</h2></div>' +
+      '<form class="card" id="talkForm">' +
+        '<label class="field"><span class="field-label">おなまえ</span>' +
+          '<select name="name">' + TALK_NAMES.map(function (n) {
+            return '<option' + (n === lastName ? " selected" : "") + '>' + escapeHtml(n) + '</option>';
+          }).join("") + '</select>' +
+        '</label>' +
+        '<label class="field"><span class="field-label">ひとこと</span>' +
+          '<textarea name="text" placeholder="伝えたいことを書いてね" required></textarea>' +
+        '</label>' +
+        '<button type="submit" class="btn btn-block">書き込む</button>' +
+      '</form>' +
+      '<div class="card">' + listHtml + '</div>';
   }
 
   /* ================= Render: collection ================= */
@@ -1073,6 +1123,16 @@
 
     if (action === "close-celebrate") { closeCelebration(); return; }
     if (action === "pull-gacha") { pullGacha(actionEl.getAttribute("data-date")); return; }
+
+    if (action === "delete-comment") {
+      var cid = actionEl.getAttribute("data-id");
+      showConfirm("この書き込みを削除しますか？", function () {
+        state.comments = state.comments.filter(function (x) { return x.id !== cid; });
+        saveState(state);
+        render();
+      });
+      return;
+    }
   });
 
   appEl.addEventListener("submit", function (e) {
@@ -1085,6 +1145,24 @@
       saveState(state);
       app.openTaskForm = false;
       toast("追加しました");
+      render();
+      return;
+    }
+
+    if (e.target && e.target.id === "talkForm") {
+      e.preventDefault();
+      var tkf = e.target;
+      var commenterName = tkf.name.value.trim();
+      var commentText = tkf.text.value.trim();
+      if (!commenterName || !commentText) return;
+      var now = new Date();
+      state.comments.push({
+        id: uid(), name: commenterName, text: commentText,
+        date: todayISO(), time: pad(now.getHours()) + ":" + pad(now.getMinutes())
+      });
+      saveState(state);
+      try { localStorage.setItem(TALK_NAME_KEY, commenterName); } catch (e2) {}
+      toast("書き込みました");
       render();
       return;
     }
