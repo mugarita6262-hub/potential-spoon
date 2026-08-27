@@ -540,7 +540,10 @@
     if (!lastKnownCloudState) {
       // No confirmed baseline yet — this should only happen for the very first device
       // that ever seeds the document (see onSnapshot below), so a full write is safe.
-      setDoc(docRef, state).catch(function (err) { console.warn("cloud sync (push) failed:", err); });
+      setDoc(docRef, state).catch(function (err) {
+        console.warn("cloud sync (push) failed:", err);
+        if (window.__cloudPushFailed) window.__cloudPushFailed();
+      });
       return;
     }
     var payload = {};
@@ -553,10 +556,14 @@
     });
     if (!changed) return;
     updateDoc(docRef, payload).then(function () {
-      Object.keys(payload).forEach(function (k) { lastKnownCloudState[k] = payload[k]; });
+      // Clone here too — payload[k] is a direct reference into the app's live `state`,
+      // so assigning it as-is would re-alias lastKnownCloudState to state and bring the
+      // same silent-skip bug right back for the next edit made before the echo snapshot.
+      Object.keys(payload).forEach(function (k) { lastKnownCloudState[k] = JSON.parse(JSON.stringify(payload[k])); });
       backupSnapshot();
     }).catch(function (err) {
       console.warn("cloud sync (push) failed:", err);
+      if (window.__cloudPushFailed) window.__cloudPushFailed();
     });
   };
 
@@ -733,7 +740,12 @@
   // once, to seed the cloud the very first time no shared document exists yet.
   window.__getLocalState = function () { return state; };
   window.__applyCloudState = function (cloudState) {
-    state = normalizeState(cloudState);
+    // Deep-clone: `state` must never share array/object references with the
+    // module script's `lastKnownCloudState`. If it did, a local mutation like
+    // `task.done = true` would silently mutate lastKnownCloudState too (same
+    // object), making __cloudPush's diff see "no change" and skip the write
+    // entirely — the exact bug that made completed tasks quietly revert.
+    state = normalizeState(JSON.parse(JSON.stringify(cloudState)));
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
     // Don't yank the rug out from under a form the user is mid-typing in.
     if (!app.openTaskForm && !app.openMistakeForm && !app.openExamForm && !app.openPrepForm && !celebrateOpen) render();
@@ -957,6 +969,12 @@
     clearTimeout(toast._t);
     toast._t = setTimeout(function () { el.classList.remove("show"); }, 1800);
   }
+
+  // Called by the module script when a cloud write genuinely fails (network error etc.),
+  // so that doesn't fail silently — the change is still saved locally on this device.
+  window.__cloudPushFailed = function () {
+    toast("通信エラーで同期できませんでした（この端末には保存されています）");
+  };
 
   /* ================= Delete confirmation ================= */
   var pendingConfirmAction = null;
