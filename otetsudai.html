@@ -335,7 +335,7 @@
      apps' data never collide. -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
   var firebaseConfig = {
     apiKey: "AIzaSyDkW4YD3l6TDineUFq6zjD59cs6rz8njdY",
@@ -353,15 +353,39 @@
   // collection that would need its own security rule.
   var docRef = doc(db, "families", "otetsudai-waka-shared");
 
+  // The last document contents this tab actually received from (or confirmed writing
+  // to) Firestore. __cloudPush diffs against this and writes ONLY the top-level fields
+  // that differ, via updateDoc — never a full setDoc overwrite, so an unrelated change
+  // can't roll back a field this tab happens to be lagging behind on.
+  var lastKnownCloudState = null;
+
   window.__cloudPush = function (state) {
-    setDoc(docRef, state).catch(function (err) { console.warn("cloud sync (push) failed:", err); });
+    if (!lastKnownCloudState) {
+      setDoc(docRef, state).catch(function (err) { console.warn("cloud sync (push) failed:", err); });
+      return;
+    }
+    var payload = {};
+    var changed = false;
+    Object.keys(state).forEach(function (key) {
+      if (JSON.stringify(state[key]) !== JSON.stringify(lastKnownCloudState[key])) {
+        payload[key] = state[key];
+        changed = true;
+      }
+    });
+    if (!changed) return;
+    updateDoc(docRef, payload).then(function () {
+      Object.keys(payload).forEach(function (k) { lastKnownCloudState[k] = payload[k]; });
+    }).catch(function (err) { console.warn("cloud sync (push) failed:", err); });
   };
 
   onSnapshot(docRef, function (snap) {
     if (snap.exists()) {
-      if (window.__applyCloudState) window.__applyCloudState(snap.data());
+      lastKnownCloudState = snap.data();
+      if (window.__applyCloudState) window.__applyCloudState(lastKnownCloudState);
     } else if (window.__getLocalState) {
-      window.__cloudPush(window.__getLocalState());
+      var seed = window.__getLocalState();
+      lastKnownCloudState = seed;
+      window.__cloudPush(seed);
     }
   }, function (err) {
     console.warn("cloud sync (listen) failed — falling back to this device's saved copy:", err);
