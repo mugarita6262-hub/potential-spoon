@@ -351,13 +351,28 @@
   // Reuses the existing "families" collection (already covered by the open Firestore rule
   // set up for まるつけノート) with a different document id, instead of a new top-level
   // collection that would need its own security rule.
-  var docRef = doc(db, "families", "otetsudai-waka-shared");
+  var DOC_ID = "otetsudai-waka-shared";
+  var docRef = doc(db, "families", DOC_ID);
 
   // The last document contents this tab actually received from (or confirmed writing
   // to) Firestore. __cloudPush diffs against this and writes ONLY the top-level fields
   // that differ, via updateDoc — never a full setDoc overwrite, so an unrelated change
   // can't roll back a field this tab happens to be lagging behind on.
   var lastKnownCloudState = null;
+
+  // Safety net: mirror every confirmed state to a same-day backup document (a plain
+  // sibling document in "families", so no extra security rule is needed).
+  function pad2(n) { return n < 10 ? "0" + n : "" + n; }
+  function backupDocId() {
+    var d = new Date();
+    return DOC_ID + "__backup__" + d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
+  function backupSnapshot() {
+    if (!lastKnownCloudState) return;
+    setDoc(doc(db, "families", backupDocId()), lastKnownCloudState).catch(function (err) {
+      console.warn("backup failed:", err);
+    });
+  }
 
   window.__cloudPush = function (state) {
     if (!lastKnownCloudState) {
@@ -375,6 +390,7 @@
     if (!changed) return;
     updateDoc(docRef, payload).then(function () {
       Object.keys(payload).forEach(function (k) { lastKnownCloudState[k] = payload[k]; });
+      backupSnapshot();
     }).catch(function (err) { console.warn("cloud sync (push) failed:", err); });
   };
 
@@ -382,6 +398,7 @@
     if (snap.exists()) {
       lastKnownCloudState = snap.data();
       if (window.__applyCloudState) window.__applyCloudState(lastKnownCloudState);
+      backupSnapshot();
     } else if (window.__getLocalState) {
       var seed = window.__getLocalState();
       lastKnownCloudState = seed;
