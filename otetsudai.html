@@ -415,6 +415,7 @@
 
   /* ================= Data layer ================= */
   var STORAGE_KEY = "otetsudaiNote:v1";
+  var CHORE_OPTIONS = ["おせんたくをはこぶ", "おせんたくをたたむ", "ごはんを盛る", "おそうじをする", "お米をあらう", "しょっきをはこぶ"];
   var WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -677,9 +678,14 @@
   }
 
   function renderTaskForm() {
+    var optionsHtml = CHORE_OPTIONS.map(function (c) { return '<option>' + escapeHtml(c) + '</option>'; }).join("") +
+      '<option value="__other__">そのた（自由記述）</option>';
     return '<form class="card" id="taskForm" style="margin:10px 0 0;box-shadow:none;background:var(--paper-sunken)">' +
       '<label class="field"><span class="field-label">おてつだい</span>' +
-        '<input type="text" name="label" placeholder="例：お皿あらい" required>' +
+        '<select name="choreSelect">' + optionsHtml + '</select>' +
+      '</label>' +
+      '<label class="field" id="choreOtherField" style="display:none"><span class="field-label">くわしく</span>' +
+        '<input type="text" name="choreOther" placeholder="やることを入力">' +
       '</label>' +
       '<button type="submit" class="btn btn-sm">この日に追加</button>' +
     '</form>';
@@ -1039,7 +1045,8 @@
   appEl.addEventListener("submit", function (e) {
     if (e.target && e.target.id === "taskForm") {
       e.preventDefault();
-      var label = e.target.label.value.trim();
+      var chosen = e.target.choreSelect.value;
+      var label = chosen === "__other__" ? e.target.choreOther.value.trim() : chosen;
       if (!label) return;
       state.tasks.push({ id: uid(), date: app.selectedDate, label: label, done: false });
       saveState(state);
@@ -1047,6 +1054,13 @@
       toast("追加しました");
       render();
       return;
+    }
+  });
+
+  appEl.addEventListener("change", function (e) {
+    if (e.target && e.target.name === "choreSelect") {
+      var otherField = document.getElementById("choreOtherField");
+      if (otherField) otherField.style.display = e.target.value === "__other__" ? "" : "none";
     }
   });
 
