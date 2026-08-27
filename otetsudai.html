@@ -808,8 +808,15 @@
 
   function renderCelebrateModal(dateStr, stage, extra) {
     var modal = document.getElementById("celebrateModal");
+    var overlay = document.getElementById("celebrateOverlay");
     var streak = computeStreak();
     modal.classList.toggle("reveal-mode", stage === "reveal");
+    // While the capsule is shaking or the prize is being shown, an impatient tap on the
+    // backdrop shouldn't be able to dismiss it early — that made it look like the pull
+    // "cancelled" even though the sticker had already been saved. Only the plain
+    // congratulations stage (before choosing to pull) stays tap-to-close.
+    if (stage === "shaking" || stage === "reveal") overlay.removeAttribute("data-action");
+    else overlay.setAttribute("data-action", "close-celebrate");
 
     if (stage === "celebrate") {
       var isToday = dateStr === todayISO();
@@ -857,11 +864,18 @@
 
   function pullGacha(dateStr) {
     clearTimeout(celebrateTimer);
+    celebrateOpen = true;
+    document.getElementById("celebrateOverlay").hidden = false;
     renderCelebrateModal(dateStr, "shaking");
     setTimeout(function () {
       var sticker = drawSticker();
       state.stickers.push({ id: uid(), key: sticker.key, date: dateStr });
       saveState(state);
+      // Always force the overlay back open for the reveal, even if a stray tap
+      // during the shake somehow closed it — the sticker is already saved by now,
+      // so the reveal must still be shown rather than silently vanishing.
+      celebrateOpen = true;
+      document.getElementById("celebrateOverlay").hidden = false;
       renderCelebrateModal(dateStr, "reveal", sticker);
     }, 900);
   }
