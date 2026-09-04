@@ -9,16 +9,19 @@
 <title>フードロス予約(仮) - お店をさがす</title>
 <style>
   :root{
-    --bg:#f3f7f1;
-    --card:#ffffff;
-    --accent:#2e7d32;
-    --accent-dark:#1b5e20;
-    --accent-soft:#e6f2e3;
-    --warn:#e65100;
-    --danger:#c62828;
-    --muted:#6b7a6b;
-    --border:#dfe6da;
-    --text:#20301f;
+    /* アースカラー(オリーブ+テラコッタ+サンドベージュ)— 地球にやさしいフードロスをイメージした配色 */
+    --bg:#f5f0e6;
+    --card:#fffcf6;
+    --accent:#5c6b3f;
+    --accent-dark:#3f4a2c;
+    --accent-soft:#e7ead9;
+    --clay:#c1713f;
+    --clay-soft:#f3e0d1;
+    --warn:#b56a2e;
+    --danger:#a1432f;
+    --muted:#7a7263;
+    --border:#e3dcc9;
+    --text:#362f22;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -28,14 +31,27 @@
     font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;
     padding-bottom:40px;
   }
-  header{
-    background:linear-gradient(135deg,var(--accent) 0%,var(--accent-dark) 100%);
+  .hero{
+    position:relative;overflow:hidden;
+    background:linear-gradient(135deg,var(--accent-dark) 0%,var(--accent) 100%);
     color:#fff;
-    padding:20px 16px 24px;
-    border-radius:0 0 20px 20px;
+    padding:20px 20px 22px;
+    border-radius:0 0 22px 22px;
   }
-  header h1{margin:0 0 4px;font-size:20px;}
-  header p{margin:0;font-size:13px;opacity:.9;}
+  .heroDecor{
+    position:absolute;inset:0;pointer-events:none;
+    background:
+      radial-gradient(circle at 88% 15%, rgba(255,255,255,.14), transparent 42%),
+      radial-gradient(circle at 8% 100%, var(--clay) 0%, transparent 50%);
+    opacity:.6;
+  }
+  .heroContent{position:relative;z-index:1;}
+  .heroEyebrow{
+    margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.04em;opacity:.9;
+    display:flex;align-items:center;gap:5px;
+  }
+  .hero h1{margin:0;font-size:21px;line-height:1.4;font-weight:800;}
+  .hero p{margin:8px 0 0;font-size:12.5px;opacity:.9;}
   main{max-width:520px;margin:0 auto;padding:16px;}
   .notice{
     background:#fff8e1;border:1px solid #ffe0a3;color:#8a6d1a;
@@ -49,10 +65,10 @@
     padding:14px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);
   }
   .card.soldout{opacity:.55;}
-  .card.promoted{border-color:#f4c430;box-shadow:0 0 0 1px #f4c430,0 2px 6px rgba(244,196,48,.25);}
+  .card.promoted{border-color:var(--clay);box-shadow:0 0 0 1px var(--clay),0 2px 6px rgba(193,113,63,.25);}
   .prBadge{
-    display:inline-block;font-size:11px;font-weight:800;color:#5c4600;
-    background:linear-gradient(135deg,#ffe9a8,#f4c430);border-radius:999px;
+    display:inline-block;font-size:11px;font-weight:800;color:#5c3a1f;
+    background:linear-gradient(135deg,var(--clay-soft),var(--clay));border-radius:999px;
     padding:2px 10px;margin-bottom:6px;
   }
   .storeRow{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
@@ -73,7 +89,7 @@
   .discount{font-size:22px;font-weight:800;color:var(--accent-dark);}
   .offPct{font-size:11px;background:var(--danger);color:#fff;border-radius:6px;padding:2px 6px;font-weight:700;}
   .metaRow{display:flex;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--muted);margin-bottom:10px;}
-  .metaChip{background:#f1f5ef;border-radius:8px;padding:3px 8px;}
+  .metaChip{background:#efe8d8;border-radius:8px;padding:3px 8px;}
   .qtyLeft{font-weight:700;color:var(--accent-dark);}
   button{
     font-family:inherit;cursor:pointer;border:none;
@@ -82,7 +98,7 @@
     width:100%;padding:12px;border-radius:12px;background:var(--accent);
     color:#fff;font-size:15px;font-weight:700;
   }
-  .reserveBtn:disabled{background:#b9c2b6;cursor:not-allowed;}
+  .reserveBtn:disabled{background:#c9c0a6;cursor:not-allowed;}
   .soldoutLabel{
     display:inline-block;background:var(--muted);color:#fff;font-size:11px;
     border-radius:6px;padding:3px 8px;font-weight:700;
@@ -118,7 +134,7 @@
   .totalRow .label{font-size:13px;color:var(--accent-dark);}
   .totalRow .amount{font-size:20px;font-weight:800;color:var(--accent-dark);}
   .payBox{
-    border:1px dashed #c7d3c3;border-radius:12px;padding:12px;margin-top:14px;background:#fbfdfa;
+    border:1px dashed #d9cdb0;border-radius:12px;padding:12px;margin-top:14px;background:#fdfaf3;
   }
   .payBox .testTag{
     display:inline-block;font-size:11px;background:var(--warn);color:#fff;
@@ -128,9 +144,9 @@
   .payRow input{flex:1;}
   .actions{display:flex;gap:10px;margin-top:18px;}
   .actions button{flex:1;padding:13px;border-radius:12px;font-size:15px;font-weight:700;}
-  .btnGhost{background:#eef2ec;color:var(--text);}
+  .btnGhost{background:#efe8d8;color:var(--text);}
   .btnPrimary{background:var(--accent);color:#fff;}
-  .btnPrimary:disabled{background:#b9c2b6;}
+  .btnPrimary:disabled{background:#c9c0a6;}
   .err{color:var(--danger);font-size:12px;margin-top:8px;min-height:16px;}
 
   /* confirmation / voucher */
@@ -144,7 +160,7 @@
     padding:4px 12px;margin-bottom:8px;
   }
   .statusPill.pending{background:#fff3cd;color:#8a6d1a;}
-  .statusPill.ok{background:#e6f2e3;color:var(--accent-dark);}
+  .statusPill.ok{background:var(--accent-soft);color:var(--accent-dark);}
   .statusPill.bad{background:#fdeaea;color:var(--danger);}
   .voucher .hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5;}
   #myReservations{margin-top:8px;}
@@ -154,7 +170,7 @@
   .cardPhoto{width:110px;min-height:100%;object-fit:cover;border-radius:10px;flex:none;align-self:stretch;}
   .cardPhotoPlaceholder{
     width:110px;border-radius:10px;flex:none;align-self:stretch;
-    background:repeating-linear-gradient(135deg,#eef2ec,#eef2ec 8px,#e4e9e0 8px,#e4e9e0 16px);
+    background:repeating-linear-gradient(135deg,#efe8d8,#efe8d8 8px,#e3dbc7 8px,#e3dbc7 16px);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     color:var(--muted);
   }
@@ -192,9 +208,13 @@
 </head>
 <body>
 
-<header>
-  <h1>フードロス予約(仮)</h1>
-  <p>近くのお店の余った食事を、お得に受け取る。</p>
+<header class="hero">
+  <div class="heroDecor"></div>
+  <div class="heroContent">
+    <p class="heroEyebrow">🌍 地球にやさしいフードロス削減</p>
+    <h1>もったいないを、<br>おとくにかえる。</h1>
+    <p>近くのお店の余った食事を、お得に受け取る。</p>
+  </div>
 </header>
 
 <main>

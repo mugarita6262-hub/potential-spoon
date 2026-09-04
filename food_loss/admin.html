@@ -6,16 +6,19 @@
 <title>フードロス予約(仮) - 店舗管理</title>
 <style>
   :root{
-    --bg:#f3f7f1;
-    --card:#ffffff;
-    --accent:#2e7d32;
-    --accent-dark:#1b5e20;
-    --accent-soft:#e6f2e3;
-    --warn:#e65100;
-    --danger:#c62828;
-    --muted:#6b7a6b;
-    --border:#dfe6da;
-    --text:#20301f;
+    /* アースカラー — index.html(ユーザー側)と統一 */
+    --bg:#f5f0e6;
+    --card:#fffcf6;
+    --accent:#5c6b3f;
+    --accent-dark:#3f4a2c;
+    --accent-soft:#e7ead9;
+    --clay:#c1713f;
+    --clay-soft:#f3e0d1;
+    --warn:#b56a2e;
+    --danger:#a1432f;
+    --muted:#7a7263;
+    --border:#e3dcc9;
+    --text:#362f22;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -54,7 +57,7 @@
   button{font-family:inherit;cursor:pointer;border:none;}
   .btn{padding:10px 14px;border-radius:10px;font-size:13px;font-weight:700;}
   .btnPrimary{background:var(--accent);color:#fff;}
-  .btnGhost{background:#eef2ec;color:var(--text);}
+  .btnGhost{background:#efe8d8;color:var(--text);}
   .btnDanger{background:var(--danger);color:#fff;}
   .btnWarn{background:var(--warn);color:#fff;}
   .btnSmall{padding:6px 10px;font-size:12px;border-radius:8px;}
@@ -70,10 +73,10 @@
   .listingCard .meta{font-size:12px;color:var(--muted);margin-top:4px;}
   .badge{font-size:11px;border-radius:6px;padding:2px 7px;font-weight:700;}
   .badge.open{background:var(--accent-soft);color:var(--accent-dark);}
-  .badge.closed{background:#eee;color:var(--muted);}
-  .badge.promoted{background:#fff3cd;color:#8a6d1a;}
-  .btnPromo{background:#ffe9a8;color:#8a6d1a;}
-  .btnPromo.on{background:#f4c430;color:#5c4600;}
+  .badge.closed{background:#e9e2ce;color:var(--muted);}
+  .badge.promoted{background:var(--clay-soft);color:#7a4420;}
+  .btnPromo{background:var(--clay-soft);color:#7a4420;}
+  .btnPromo.on{background:var(--clay);color:#fff;}
   .resCard{border-left:4px solid var(--warn);}
   .resCard.resolved{border-left-color:var(--border);opacity:.85;}
   .resTop{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);}
@@ -566,7 +569,7 @@ function renderListingSection(){
         '<div class="top">' +
           (l.photo
             ? '<img src="' + l.photo + '" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex:none;">'
-            : '<div style="width:56px;height:56px;border-radius:8px;flex:none;background:#eef2ec;display:flex;align-items:center;justify-content:center;font-size:20px;opacity:.6;">📷</div>') +
+            : '<div style="width:56px;height:56px;border-radius:8px;flex:none;background:#efe8d8;display:flex;align-items:center;justify-content:center;font-size:20px;opacity:.6;">📷</div>') +
           '<div>' +
             '<div class="title">' + escapeHtml(l.title) + (l.promoted ? ' <span class="badge promoted">PR中</span>' : '') + '</div>' +
             '<div class="meta">' + l.date + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' / ' +
