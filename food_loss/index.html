@@ -176,6 +176,7 @@
   <div class="sectionTitle">出品中のお店</div>
   <div class="areaChips" id="areaChips"></div>
   <div class="areaChips" id="radiusChips"></div>
+  <div class="areaChips" id="sortChips"></div>
   <div class="geoStatus" id="geoStatus"></div>
   <div id="listings"></div>
 </main>
@@ -406,6 +407,41 @@ function renderAreaChips(){
   });
 }
 
+var sortMode = "recommended";
+var SORT_OPTIONS = [
+  { id:"recommended", label:"おすすめ順" },
+  { id:"distance", label:"近い順" },
+  { id:"pickupSoon", label:"引き取り時間が近い順" },
+  { id:"discountPct", label:"割引率が高い順" },
+  { id:"priceAsc", label:"価格が安い順" }
+];
+
+function discountPct(l){
+  return l.originalPrice > 0 ? (1 - l.discountPrice / l.originalPrice) : 0;
+}
+
+function renderSortChips(){
+  var wrap = document.getElementById("sortChips");
+  wrap.innerHTML = SORT_OPTIONS.map(function(opt){
+    return '<span class="areaChip' + (sortMode === opt.id ? ' active' : '') + '" data-sort="' + opt.id + '">' + opt.label + '</span>';
+  }).join("");
+  wrap.querySelectorAll(".areaChip").forEach(function(chip){
+    chip.addEventListener("click", function(){
+      var mode = chip.getAttribute("data-sort");
+      if (mode === "distance" && !myLocation){
+        var statusEl = document.getElementById("geoStatus");
+        statusEl.textContent = "現在地を取得中…";
+        requestLocation(function(loc){
+          myLocation = loc; sortMode = mode; statusEl.textContent = ""; render();
+        }, function(msg){ statusEl.textContent = msg; render(); });
+        return;
+      }
+      sortMode = mode;
+      render();
+    });
+  });
+}
+
 var RADIUS_OPTIONS = [500, 1000, 3000, 5000];
 
 function renderRadiusChips(){
@@ -439,6 +475,7 @@ function renderRadiusChips(){
 function renderListings(){
   renderAreaChips();
   renderRadiusChips();
+  renderSortChips();
   var wrap = document.getElementById("listings");
   var storesById = {};
   (state.stores||[]).forEach(function(s){ storesById[s.id] = s; });
@@ -453,9 +490,16 @@ function renderListings(){
     }
     return true;
   }).sort(function(a,b){
-    // PRされている出品は絞り込み条件を満たす中で常に先頭 — 新しくPRした方が上
+    // PRされている出品はどの並び替えを選んでも常に先頭 — 新しくPRした方が上
     if (!!a.promoted !== !!b.promoted) return a.promoted ? -1 : 1;
     if (a.promoted && b.promoted) return (b.promotedAt||"").localeCompare(a.promotedAt||"");
+
+    if (sortMode === "discountPct") return discountPct(b) - discountPct(a);
+    if (sortMode === "priceAsc") return a.discountPrice - b.discountPrice;
+    if (sortMode === "pickupSoon") return (a.date+a.pickupStart).localeCompare(b.date+b.pickupStart);
+
+    // "distance" と "recommended"(デフォルト)は距離が分かっていれば近い順、
+    // 分からなければ引き取り時間順にフォールバックする点は共通
     if (myLocation){
       var da = storeDistance(storesById[a.storeId]);
       var db = storeDistance(storesById[b.storeId]);
