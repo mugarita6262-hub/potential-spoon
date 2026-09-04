@@ -35,14 +35,16 @@
      ここがステータスバー直下のヘッダーになる想定で、上に安全領域の余白を確保) */
   .topBar{
     position:sticky;top:0;z-index:20;
-    background:var(--accent-dark);color:#fff;
+    background:var(--card);color:var(--accent-dark);
     padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
     display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid var(--border);
+    box-shadow:0 2px 6px rgba(0,0,0,.06);
   }
   .topBar .brand{display:flex;align-items:center;}
-  .logoMark{width:30px;height:30px;color:#fff;}
+  .logoMark{width:30px;height:30px;color:var(--accent-dark);}
   .topBar .avatar{
-    width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.18);
+    width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-dark);
     display:flex;align-items:center;justify-content:center;font-size:13px;
   }
   /* バナー枠 — 実際のバナー画像が入るまでのダミー(濃いグレー)。ネイティブの
