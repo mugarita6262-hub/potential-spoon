@@ -31,27 +31,36 @@
     font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;
     padding-bottom:40px;
   }
+  /* ネイティブアプリの薄いナビゲーションバーを想定(将来ネイティブ化したとき
+     ここがステータスバー直下のヘッダーになる想定で、上に安全領域の余白を確保) */
+  .topBar{
+    position:sticky;top:0;z-index:20;
+    background:var(--accent-dark);color:#fff;
+    padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .topBar .brand{font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px;}
+  .topBar .avatar{
+    width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.18);
+    display:flex;align-items:center;justify-content:center;font-size:13px;
+  }
+  /* バナー枠 — 実際のバナー画像が入るまでのダミー(濃いグレー)。ネイティブの
+     バナーカルーセルらしく、ナビゲーションバーの下に角丸なしで全幅に置く */
   .hero{
     position:relative;overflow:hidden;
-    background:linear-gradient(135deg,var(--accent-dark) 0%,var(--accent) 100%);
+    background:#54504a;
     color:#fff;
-    padding:20px 20px 22px;
-    border-radius:0 0 22px 22px;
-  }
-  .heroDecor{
-    position:absolute;inset:0;pointer-events:none;
-    background:
-      radial-gradient(circle at 88% 15%, rgba(255,255,255,.14), transparent 42%),
-      radial-gradient(circle at 8% 100%, var(--clay) 0%, transparent 50%);
-    opacity:.6;
+    min-height:120px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:18px 20px;
   }
   .heroContent{position:relative;z-index:1;}
   .heroEyebrow{
-    margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.04em;opacity:.9;
-    display:flex;align-items:center;gap:5px;
+    margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.04em;opacity:.85;
+    display:flex;align-items:center;justify-content:center;gap:5px;
   }
-  .hero h1{margin:0;font-size:21px;line-height:1.4;font-weight:800;}
-  .hero p{margin:8px 0 0;font-size:12.5px;opacity:.9;}
+  .hero h1{margin:0;font-size:clamp(18px,6vw,23px);line-height:1.3;font-weight:800;white-space:nowrap;}
+  .hero p{margin:8px 0 0;font-size:12.5px;opacity:.85;}
   main{max-width:520px;margin:0 auto;padding:16px;}
   .notice{
     background:#fff8e1;border:1px solid #ffe0a3;color:#8a6d1a;
@@ -208,11 +217,14 @@
 </head>
 <body>
 
+<div class="topBar">
+  <span class="brand">🌱 もったいないマーケット(仮)</span>
+  <span class="avatar">👤</span>
+</div>
 <header class="hero">
-  <div class="heroDecor"></div>
   <div class="heroContent">
     <p class="heroEyebrow">🌍 地球にやさしいフードロス削減</p>
-    <h1>もったいないを、<br>おとくにかえる。</h1>
+    <h1>もったいないをおとくにかえる</h1>
     <p>近くのお店の余った食事を、お得に受け取る。</p>
   </div>
 </header>
