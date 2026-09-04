@@ -144,6 +144,12 @@
       <div class="card">
         <label>商品名</label>
         <input type="text" id="lTitle" placeholder="例: 本日の余ったパン詰め合わせ">
+        <label>写真(任意・その場で撮影できます)</label>
+        <input type="file" id="lPhotoInput" accept="image/*" capture="environment">
+        <div id="lPhotoPreviewWrap" hidden style="margin-top:8px;">
+          <img id="lPhotoPreview" style="width:100%;max-width:220px;border-radius:10px;display:block;">
+          <button type="button" class="btn btnSmall btnGhost" id="lPhotoRemove" style="margin-top:6px;">写真を削除</button>
+        </div>
         <label>説明(任意)</label>
         <textarea id="lDesc" placeholder="内容は当日のお楽しみです、など"></textarea>
         <div class="row">
@@ -243,6 +249,50 @@ function withDoc(mutator){
 
 var state = defaultState();
 var selectedStoreId = null;
+var photoDraft = null; // 撮影中/選択中の写真(base64 JPEG)。出品作成までの一時保管
+
+/* スマホのカメラで撮った写真は数MBあることも珍しくないが、この写真は
+   families/foodloss-shared という「1つの共有ドキュメント」の中に他の全出品
+   と一緒に文字列として埋め込むため(Firestoreの1ドキュメント1MB上限)、
+   幅480pxまで縮小してJPEG品質0.65で圧縮してから保存する。
+   futaba-study-appのまちがいノート写真と同じ手法。 */
+function resizeImageToDataUrl(file, maxW, cb){
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    var img = new Image();
+    img.onload = function(){
+      var scale = Math.min(1, maxW / img.width);
+      var canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      var ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      cb(canvas.toDataURL("image/jpeg", 0.65));
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function setPhotoDraft(dataUrl){
+  photoDraft = dataUrl;
+  var wrap = document.getElementById("lPhotoPreviewWrap");
+  var img = document.getElementById("lPhotoPreview");
+  if (dataUrl){
+    img.src = dataUrl;
+    wrap.hidden = false;
+  } else {
+    wrap.hidden = true;
+    document.getElementById("lPhotoInput").value = "";
+  }
+}
+
+document.getElementById("lPhotoInput").addEventListener("change", function(e){
+  var file = e.target.files && e.target.files[0];
+  if (!file) return;
+  resizeImageToDataUrl(file, 480, setPhotoDraft);
+});
+document.getElementById("lPhotoRemove").addEventListener("click", function(){ setPhotoDraft(null); });
 
 onSnapshot(docRef, function(snap){
   state = snap.exists() ? snap.data() : defaultState();
@@ -407,6 +457,7 @@ function renderListingSection(){
     return (
       '<div class="card listingCard">' +
         '<div class="top">' +
+          (l.photo ? '<img src="' + l.photo + '" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex:none;">' : '') +
           '<div>' +
             '<div class="title">' + escapeHtml(l.title) + '</div>' +
             '<div class="meta">' + l.date + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' / ' +
@@ -448,6 +499,7 @@ function duplicateListing(listingId){
   document.getElementById("lDate").value = new Date().toISOString().slice(0,10);
   document.getElementById("lStart").value = l.pickupStart;
   document.getElementById("lEnd").value = l.pickupEnd;
+  setPhotoDraft(l.photo || null); // 写真も引き継ぐ(同じ商品なら撮り直し不要、違えば削除して撮り直せる)
   document.getElementById("lTitle").scrollIntoView({ behavior:"smooth", block:"center" });
 }
 
@@ -476,7 +528,7 @@ document.getElementById("addListingBtn").addEventListener("click", function(){
     data.listings.push({
       id:newId(), storeId:selectedStoreId, title:title, description:desc,
       originalPrice:orig, discountPrice:discount, quantityTotal:qtyTotal, quantityLeft:qtyTotal,
-      date:date, pickupStart:start, pickupEnd:end, open:true
+      date:date, pickupStart:start, pickupEnd:end, open:true, photo:photoDraft || null
     });
     return { ok:true };
   }).then(function(){
@@ -485,6 +537,7 @@ document.getElementById("addListingBtn").addEventListener("click", function(){
     document.getElementById("lOrig").value = "";
     document.getElementById("lDiscount").value = "";
     document.getElementById("lQty").value = "3";
+    setPhotoDraft(null);
   }).catch(function(e){ console.warn(e); });
 });
 
