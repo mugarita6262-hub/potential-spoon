@@ -704,8 +704,11 @@ function renderMyReservations(){
       '<div class="card">' +
         '<span class="statusPill ' + st.cls + '">' + st.text + '</span>' +
         '<div class="title">' + escapeHtml(l.title || "(出品情報なし)") + '</div>' +
-        '<div class="metaRow"><span class="metaChip">予約コード ' + r.id.toUpperCase() + '</span>' +
-        '<span class="metaChip">数量 ' + r.quantity + '</span></div>' +
+        '<div class="metaRow">' +
+          (l.date ? '<span class="metaChip">' + fmtDate(l.date) + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' 引き取り</span>' : '') +
+          '<span class="metaChip">予約コード ' + r.id.toUpperCase() + '</span>' +
+          '<span class="metaChip">数量 ' + r.quantity + '</span>' +
+        '</div>' +
       '</div>'
     );
   }
