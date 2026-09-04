@@ -172,6 +172,9 @@
   .statusPill.bad{background:#fdeaea;color:var(--danger);}
   .voucher .hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5;}
   #myReservations{margin-top:8px;}
+  .myResCard{cursor:pointer;}
+  .myResCard:active{background:var(--accent-soft);}
+  .viewVoucherHint{font-size:11px;color:var(--accent-dark);font-weight:700;margin-top:8px;}
   .historyToggle{
     width:100%;background:none;border:1px dashed var(--border);border-radius:12px;
     padding:10px;font-size:12px;color:var(--muted);margin-bottom:10px;
@@ -697,11 +700,13 @@ function renderMyReservations(){
   var active = mine.filter(function(r){ return RESOLVED_STATUSES.indexOf(r.status) === -1; });
   var history = mine.filter(function(r){ return RESOLVED_STATUSES.indexOf(r.status) !== -1; });
 
+  var VOUCHER_VIEWABLE = [PENDING, CONFIRMED, AUTO_CONFIRMED];
   function cardHtml(r){
     var l = listingsById[r.listingId] || {};
     var st = statusLabel(r.status);
+    var canView = VOUCHER_VIEWABLE.indexOf(r.status) !== -1;
     return (
-      '<div class="card">' +
+      '<div class="card' + (canView ? ' myResCard' : '') + '"' + (canView ? ' data-viewvoucher="' + r.id + '"' : '') + '>' +
         '<span class="statusPill ' + st.cls + '">' + st.text + '</span>' +
         '<div class="title">' + escapeHtml(l.title || "(出品情報なし)") + '</div>' +
         '<div class="metaRow">' +
@@ -709,6 +714,7 @@ function renderMyReservations(){
           '<span class="metaChip">予約コード ' + r.id.toUpperCase() + '</span>' +
           '<span class="metaChip">数量 ' + r.quantity + '</span>' +
         '</div>' +
+        (canView ? '<div class="viewVoucherHint">🎫 タップして引き取り用のコードを表示</div>' : '') +
       '</div>'
     );
   }
@@ -733,6 +739,9 @@ function renderMyReservations(){
       render();
     });
   }
+  list.querySelectorAll("[data-viewvoucher]").forEach(function(card){
+    card.addEventListener("click", function(){ showVoucher(card.getAttribute("data-viewvoucher")); });
+  });
 }
 
 function escapeHtml(s){
