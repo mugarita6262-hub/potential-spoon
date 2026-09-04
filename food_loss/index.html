@@ -61,8 +61,13 @@
     padding:2px 8px;border-radius:999px;font-weight:600;
   }
   .storeName{font-size:12px;color:var(--muted);}
-  .title{font-size:16px;font-weight:700;margin:2px 0 4px;}
-  .desc{font-size:13px;color:var(--muted);margin:0 0 10px;line-height:1.5;}
+  .title{font-size:15px;font-weight:700;margin:2px 0 4px;}
+  .desc{
+    font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.4;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .cardRow{display:flex;gap:10px;align-items:flex-start;}
+  .cardMain{flex:1;min-width:0;}
   .priceRow{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;}
   .orig{font-size:13px;color:var(--muted);text-decoration:line-through;}
   .discount{font-size:22px;font-weight:800;color:var(--accent-dark);}
@@ -146,15 +151,15 @@
   .sectionTitle{font-size:14px;font-weight:700;margin:24px 0 10px;color:var(--accent-dark);}
   .impactLine{font-size:11px;color:var(--accent-dark);background:var(--accent-soft);
     border-radius:8px;padding:3px 8px;display:inline-block;margin-bottom:6px;}
-  .cardPhoto{width:100%;height:140px;object-fit:cover;border-radius:10px;display:block;margin-bottom:10px;}
+  .cardPhoto{width:84px;height:84px;object-fit:cover;border-radius:10px;flex:none;}
   .cardPhotoPlaceholder{
-    width:100%;height:140px;border-radius:10px;margin-bottom:10px;
-    background:repeating-linear-gradient(135deg,#eef2ec,#eef2ec 10px,#e4e9e0 10px,#e4e9e0 20px);
+    width:84px;height:84px;border-radius:10px;flex:none;
+    background:repeating-linear-gradient(135deg,#eef2ec,#eef2ec 8px,#e4e9e0 8px,#e4e9e0 16px);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     color:var(--muted);
   }
-  .cardPhotoPlaceholder .icon{font-size:28px;margin-bottom:4px;opacity:.6;}
-  .cardPhotoPlaceholder .label{font-size:11px;}
+  .cardPhotoPlaceholder .icon{font-size:18px;opacity:.6;}
+  .cardPhotoPlaceholder .label{font-size:8px;text-align:center;padding:0 4px;line-height:1.3;}
 
   /* ---------- 絞り込みパネル ---------- */
   .filterBar{
@@ -570,20 +575,24 @@ function renderListings(){
     return (
       '<div class="card' + (soldout ? ' soldout' : '') + (l.promoted ? ' promoted' : '') + '">' +
         (l.promoted ? '<div class="prBadge">📣 PR</div>' : '') +
-        (l.photo
-          ? '<img class="cardPhoto" src="' + l.photo + '" alt="">'
-          : '<div class="cardPhotoPlaceholder"><span class="icon">📷</span><span class="label">写真はまだありません</span></div>') +
-        '<div class="storeRow">' +
-          '<span class="storeTag">' + escapeHtml(store.category || "店舗") + '</span>' +
-          '<span class="storeName">' + escapeHtml(store.name || "不明な店舗") + (store.area ? " ・ " + escapeHtml(store.area) : "") + '</span>' +
-        '</div>' +
-        (impact > 0 ? '<div class="impactLine">🌱 このお店は累計 ' + impact + '個 のロスを削減</div>' : '') +
-        '<div class="title">' + escapeHtml(l.title) + '</div>' +
-        (l.description ? '<div class="desc">' + escapeHtml(l.description) + '</div>' : '') +
-        '<div class="priceRow">' +
-          (l.originalPrice > l.discountPrice ? '<span class="orig">' + fmtPrice(l.originalPrice) + '</span>' : '') +
-          '<span class="discount">' + fmtPrice(l.discountPrice) + '</span>' +
-          (offPct > 0 ? '<span class="offPct">' + offPct + '%OFF</span>' : '') +
+        '<div class="cardRow">' +
+          '<div class="cardMain">' +
+            '<div class="storeRow">' +
+              '<span class="storeTag">' + escapeHtml(store.category || "店舗") + '</span>' +
+              '<span class="storeName">' + escapeHtml(store.name || "不明な店舗") + (store.area ? " ・ " + escapeHtml(store.area) : "") + '</span>' +
+            '</div>' +
+            (impact > 0 ? '<div class="impactLine">🌱 このお店は累計 ' + impact + '個 のロスを削減</div>' : '') +
+            '<div class="title">' + escapeHtml(l.title) + '</div>' +
+            (l.description ? '<div class="desc">' + escapeHtml(l.description) + '</div>' : '') +
+            '<div class="priceRow">' +
+              (l.originalPrice > l.discountPrice ? '<span class="orig">' + fmtPrice(l.originalPrice) + '</span>' : '') +
+              '<span class="discount">' + fmtPrice(l.discountPrice) + '</span>' +
+              (offPct > 0 ? '<span class="offPct">' + offPct + '%OFF</span>' : '') +
+            '</div>' +
+          '</div>' +
+          (l.photo
+            ? '<img class="cardPhoto" src="' + l.photo + '" alt="">'
+            : '<div class="cardPhotoPlaceholder"><span class="icon">📷</span><span class="label">写真なし</span></div>') +
         '</div>' +
         '<div class="metaRow">' +
           '<span class="metaChip">' + fmtDate(l.date) + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' 引き取り</span>' +
