@@ -129,9 +129,16 @@
         <label>エリア(商店街・地域名)</label>
         <input type="text" id="newStoreArea" placeholder="例: ○○商店街 / △△駅前">
         <div class="formActions">
+          <button type="button" class="btn btnGhost" id="newStoreLocBtn">📍 現在地をお店の位置にする</button>
+        </div>
+        <div id="newStoreLocStatus" style="font-size:11px;color:var(--muted);margin-top:2px;">
+          位置未設定(ユーザー側の「距離で絞り込む」に使われます。お店にいる状態でボタンを押してください)
+        </div>
+        <div class="formActions">
           <button class="btn btnPrimary" id="addStoreBtn">お店を追加</button>
         </div>
       </div>
+      <div id="storeLocPanel"></div>
     </section>
 
     <section>
@@ -365,6 +372,7 @@ function escapeHtml(s){
 
 function render(){
   renderStoreChips();
+  renderStoreLocPanel();
   renderListingSection();
   renderPending();
   renderResolved();
@@ -420,6 +428,29 @@ function renderStoreChips(){
   });
 }
 
+/* 距離で絞り込む機能のための位置情報。地図APIも住所入力も使わず、店主が
+   実際にその店にいる状態でボタンを押して「現在地=お店の位置」として
+   保存するだけの、一番手間のかからないやり方にしている。 */
+var draftLat = null, draftLng = null;
+
+function requestGeolocation(onOk, onErr){
+  if (!navigator.geolocation){ onErr("この端末では位置情報が使えません。"); return; }
+  navigator.geolocation.getCurrentPosition(function(pos){
+    onOk(pos.coords.latitude, pos.coords.longitude);
+  }, function(err){
+    onErr("位置情報を取得できませんでした(" + err.message + ")。設定で位置情報の利用を許可してください。");
+  }, { enableHighAccuracy:true, timeout:10000 });
+}
+
+document.getElementById("newStoreLocBtn").addEventListener("click", function(){
+  var statusEl = document.getElementById("newStoreLocStatus");
+  statusEl.textContent = "位置情報を取得中…";
+  requestGeolocation(function(lat,lng){
+    draftLat = lat; draftLng = lng;
+    statusEl.textContent = "✅ 現在地を取得しました。このまま「お店を追加」を押してください。";
+  }, function(msg){ statusEl.textContent = msg; });
+});
+
 document.getElementById("addStoreBtn").addEventListener("click", function(){
   var nameEl = document.getElementById("newStoreName");
   var catEl = document.getElementById("newStoreCategory");
@@ -429,14 +460,46 @@ document.getElementById("addStoreBtn").addEventListener("click", function(){
   var category = catEl.value.trim();
   var area = areaEl.value.trim();
   var newStoreId = newId();
+  var lat = draftLat, lng = draftLng;
   withDoc(function(data){
-    data.stores.push({ id:newStoreId, name:name, category:category, area:area, active:true });
+    data.stores.push({ id:newStoreId, name:name, category:category, area:area, active:true, lat:lat, lng:lng });
     return { ok:true };
   }).then(function(){
     nameEl.value = ""; catEl.value = ""; areaEl.value = "";
+    draftLat = null; draftLng = null;
+    document.getElementById("newStoreLocStatus").textContent =
+      "位置未設定(ユーザー側の「距離で絞り込む」に使われます。お店にいる状態でボタンを押してください)";
     selectedStoreId = newStoreId;
   }).catch(function(e){ console.warn(e); });
 });
+
+/* 既存店舗の位置をあとから設定・更新するための小さいパネル。選択中の
+   お店(storeChipsで選ばれているもの)に対して操作する。 */
+function renderStoreLocPanel(){
+  var wrap = document.getElementById("storeLocPanel");
+  var store = state.stores.find(function(s){ return s.id === selectedStoreId; });
+  if (!store){ wrap.innerHTML = ""; return; }
+  var hasLoc = typeof store.lat === "number" && typeof store.lng === "number";
+  wrap.innerHTML =
+    '<div class="card" style="display:flex;justify-content:space-between;align-items:center;">' +
+      '<div style="font-size:12px;color:var(--muted);">' +
+        escapeHtml(store.name) + ' の位置: ' + (hasLoc ? '✅ 設定済み' : '未設定') +
+      '</div>' +
+      '<button class="btn btnSmall btnGhost" id="updateStoreLocBtn">📍 現在地で更新</button>' +
+    '</div>';
+  document.getElementById("updateStoreLocBtn").addEventListener("click", function(){
+    var btn = document.getElementById("updateStoreLocBtn");
+    btn.textContent = "取得中…";
+    requestGeolocation(function(lat,lng){
+      withDoc(function(data){
+        var s = data.stores.find(function(x){ return x.id === store.id; });
+        if (!s) return { ok:false };
+        s.lat = lat; s.lng = lng;
+        return { ok:true };
+      }).catch(function(e){ console.warn(e); });
+    }, function(msg){ alert(msg); btn.textContent = "📍 現在地で更新"; });
+  });
+}
 
 function renderListingSection(){
   var section = document.getElementById("listingSection");

@@ -147,6 +147,7 @@
   .impactLine{font-size:11px;color:var(--accent-dark);background:var(--accent-soft);
     border-radius:8px;padding:3px 8px;display:inline-block;margin-bottom:6px;}
   .cardPhoto{width:100%;height:140px;object-fit:cover;border-radius:10px;display:block;margin-bottom:10px;}
+  .geoStatus{font-size:12px;color:var(--muted);margin:-6px 0 14px;min-height:16px;}
 </style>
 </head>
 <body>
@@ -168,6 +169,8 @@
 
   <div class="sectionTitle">出品中のお店</div>
   <div class="areaChips" id="areaChips"></div>
+  <div class="areaChips" id="radiusChips"></div>
+  <div class="geoStatus" id="geoStatus"></div>
   <div id="listings"></div>
 </main>
 
@@ -297,6 +300,36 @@ var state = defaultState();
 var currentListing = null;
 var qty = 1;
 var selectedArea = null; // ① 地域密着 — 商店街・エリア単位で絞り込めるようにする
+var selectedRadius = null; // メートル単位。null = 距離で絞り込まない
+var myLocation = null; // { lat, lng } — 距離チップを一度選ぶと以後は使い回す
+
+/* 2点間の距離をメートルで返す(球面三角法・ハーバサイン公式)。地図APIは
+   使わず、店舗側がボタンで保存した緯度経度と、ブラウザの位置情報だけで
+   十分な精度が出る。 */
+function distanceMeters(lat1, lng1, lat2, lng2){
+  var R = 6371000;
+  var toRad = function(d){ return d * Math.PI / 180; };
+  var dLat = toRad(lat2 - lat1);
+  var dLng = toRad(lng2 - lng1);
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2) * Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function fmtDistance(m){
+  return m < 1000 ? Math.round(m) + "m" : (m/1000).toFixed(1) + "km";
+}
+function storeDistance(store){
+  if (!myLocation || typeof store.lat !== "number" || typeof store.lng !== "number") return null;
+  return distanceMeters(myLocation.lat, myLocation.lng, store.lat, store.lng);
+}
+function requestLocation(onOk, onErr){
+  if (!navigator.geolocation){ onErr("この端末では位置情報が使えません。"); return; }
+  navigator.geolocation.getCurrentPosition(function(pos){
+    onOk({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+  }, function(err){
+    onErr("位置情報を取得できませんでした。設定で位置情報の利用を許可してから、もう一度お試しください。");
+  }, { enableHighAccuracy:true, timeout:10000 });
+}
 
 onSnapshot(docRef, function(snap){
   state = snap.exists() ? snap.data() : defaultState();
@@ -367,8 +400,39 @@ function renderAreaChips(){
   });
 }
 
+var RADIUS_OPTIONS = [500, 1000, 3000, 5000];
+
+function renderRadiusChips(){
+  var wrap = document.getElementById("radiusChips");
+  var chips = ['<span class="areaChip' + (!selectedRadius ? ' active' : '') + '" data-radius="">距離を指定しない</span>']
+    .concat(RADIUS_OPTIONS.map(function(m){
+      return '<span class="areaChip' + (selectedRadius === m ? ' active' : '') + '" data-radius="' + m + '">周辺' + fmtDistance(m) + '</span>';
+    }));
+  wrap.innerHTML = chips.join("");
+  wrap.querySelectorAll(".areaChip").forEach(function(chip){
+    chip.addEventListener("click", function(){
+      var val = chip.getAttribute("data-radius");
+      var statusEl = document.getElementById("geoStatus");
+      if (!val){ selectedRadius = null; statusEl.textContent = ""; render(); return; }
+      var radius = Number(val);
+      if (myLocation){ selectedRadius = radius; statusEl.textContent = ""; render(); return; }
+      statusEl.textContent = "現在地を取得中…";
+      requestLocation(function(loc){
+        myLocation = loc;
+        selectedRadius = radius;
+        statusEl.textContent = "";
+        render();
+      }, function(msg){
+        statusEl.textContent = msg;
+        render();
+      });
+    });
+  });
+}
+
 function renderListings(){
   renderAreaChips();
+  renderRadiusChips();
   var wrap = document.getElementById("listings");
   var storesById = {};
   (state.stores||[]).forEach(function(s){ storesById[s.id] = s; });
@@ -377,8 +441,20 @@ function renderListings(){
     var store = storesById[l.storeId];
     if (!store || store.active === false) return false;
     if (selectedArea && store.area !== selectedArea) return false;
+    if (selectedRadius && myLocation){
+      var d = storeDistance(store);
+      if (d === null || d > selectedRadius) return false;
+    }
     return true;
   }).sort(function(a,b){
+    if (myLocation){
+      var da = storeDistance(storesById[a.storeId]);
+      var db = storeDistance(storesById[b.storeId]);
+      if (da === null && db === null) { /* fall through to date sort */ }
+      else if (da === null) return 1;
+      else if (db === null) return -1;
+      else if (da !== db) return da - db;
+    }
     return (a.date+a.pickupStart).localeCompare(b.date+b.pickupStart);
   });
 
@@ -394,6 +470,7 @@ function renderListings(){
       ? Math.round((1 - l.discountPrice / l.originalPrice) * 100)
       : 0;
     var impact = storeImpact(store.id);
+    var dist = storeDistance(store);
     return (
       '<div class="card' + (soldout ? ' soldout' : '') + '">' +
         (l.photo ? '<img class="cardPhoto" src="' + l.photo + '" alt="">' : '') +
@@ -412,6 +489,7 @@ function renderListings(){
         '<div class="metaRow">' +
           '<span class="metaChip">' + fmtDate(l.date) + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' 引き取り</span>' +
           '<span class="metaChip">残り <span class="qtyLeft">' + Math.max(l.quantityLeft,0) + '</span>個</span>' +
+          (dist !== null ? '<span class="metaChip">📍 ' + fmtDistance(dist) + '</span>' : '') +
         '</div>' +
         (soldout
           ? '<span class="soldoutLabel">SOLD OUT / 受付終了</span>'
