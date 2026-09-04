@@ -81,12 +81,13 @@
   .countdown{font-size:11px;color:var(--warn);font-weight:700;}
   .empty{color:var(--muted);font-size:13px;padding:12px 0;}
   .flagList{font-size:12px;color:var(--danger);background:#fdeaea;border-radius:10px;padding:10px 12px;}
-  .impactCard{display:flex;justify-content:space-between;align-items:center;}
-  .impactCard .name{font-weight:700;font-size:14px;}
-  .impactCard .area{font-size:11px;color:var(--muted);}
-  .impactCard .nums{text-align:right;}
-  .impactCard .kg{font-size:18px;font-weight:800;color:var(--accent-dark);}
-  .impactCard .yen{font-size:11px;color:var(--muted);}
+  .impactSummary{font-size:13px;color:var(--accent-dark);margin-bottom:8px;}
+  .impactSummary b{font-size:17px;}
+  .impactRow{display:flex;justify-content:space-between;align-items:baseline;
+    padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;}
+  .impactRow:last-child{border-bottom:none;}
+  .impactRow .name{font-weight:600;}
+  .impactRow .nums{color:var(--muted);white-space:nowrap;}
   #gate{max-width:320px;margin:60px auto;text-align:center;}
   #gate input{margin-bottom:10px;}
   #gate .btn{width:100%;}
@@ -398,6 +399,7 @@ function renderImpact(){
   var wrap = document.getElementById("impactList");
   if (!state.stores.length){ wrap.innerHTML = '<div class="empty">まだお店がありません。</div>'; return; }
   var byStore = {};
+  var totalCount = 0, totalYen = 0;
   (state.reservations||[]).forEach(function(r){
     if (r.status !== PICKED_UP) return;
     var l = listingLookup(r.listingId);
@@ -405,18 +407,23 @@ function renderImpact(){
     if (!byStore[r.storeId]) byStore[r.storeId] = { count:0, yen:0 };
     byStore[r.storeId].count += r.quantity;
     byStore[r.storeId].yen += l.discountPrice * r.quantity;
+    totalCount += r.quantity;
+    totalYen += l.discountPrice * r.quantity;
   });
-  wrap.innerHTML = state.stores.map(function(s){
-    var stat = byStore[s.id] || { count:0, yen:0 };
-    return (
-      '<div class="card impactCard">' +
-        '<div><div class="name">' + escapeHtml(s.name) + '</div>' +
-        '<div class="area">' + escapeHtml([s.category,s.area].filter(Boolean).join(" ・ ")) + '</div></div>' +
-        '<div class="nums"><div class="kg">' + stat.count + '個 救出</div>' +
-        '<div class="yen">売上 ' + fmtPrice(stat.yen) + '</div></div>' +
-      '</div>'
-    );
-  }).join("");
+  // 実績が出ている店舗だけを行として並べる(0件の店舗まで表示すると
+  // 店舗数が増えるほど縦に間延びしてしまうため)
+  var rows = state.stores
+    .filter(function(s){ return byStore[s.id]; })
+    .sort(function(a,b){ return byStore[b.id].count - byStore[a.id].count; })
+    .map(function(s){
+      var stat = byStore[s.id];
+      return '<div class="impactRow"><span class="name">' + escapeHtml(s.name) + '</span>' +
+        '<span class="nums">' + stat.count + '個 / ' + fmtPrice(stat.yen) + '</span></div>';
+    }).join("");
+  wrap.innerHTML =
+    '<div class="impactSummary">全店舗合計 <b>' + totalCount + '個</b> 救出 / 売上 <b>' + fmtPrice(totalYen) + '</b></div>' +
+    (rows ? '<div class="card" style="padding:4px 14px;">' + rows + '</div>'
+          : '<div class="empty">まだ受け取り済みの予約がありません。</div>');
 }
 
 function renderStoreChips(){
