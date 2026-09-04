@@ -61,6 +61,8 @@
   .btnDanger{background:var(--danger);color:#fff;}
   .btnWarn{background:var(--warn);color:#fff;}
   .btnSmall{padding:6px 10px;font-size:12px;border-radius:8px;}
+  /* 急いでいる時にも押しやすい最重要アクション用の大きめボタン(タップ領域の目安44px以上) */
+  .btnBig{padding:14px 16px;font-size:15px;border-radius:12px;min-height:46px;}
   .formActions{margin-top:12px;display:flex;gap:8px;}
   .storeChip{
     display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);
@@ -368,14 +370,14 @@ document.getElementById("gatePw").addEventListener("keydown", function(e){ if (e
 function tryEnter(){
   var pw = document.getElementById("gatePw").value;
   if (pw === ADMIN_PASSWORD){
-    sessionStorage.setItem("foodlossAdminOk", "1");
+    localStorage.setItem("foodlossAdminOk", "1"); // 毎日使うものなので、端末に覚えさせて再入力させない
     document.getElementById("gate").hidden = true;
     document.getElementById("appRoot").hidden = false;
   } else {
     document.getElementById("gateErr").textContent = "パスワードが違います。";
   }
 }
-if (sessionStorage.getItem("foodlossAdminOk") === "1"){
+if (localStorage.getItem("foodlossAdminOk") === "1"){
   document.getElementById("gate").hidden = true;
   document.getElementById("appRoot").hidden = false;
 }
@@ -456,6 +458,11 @@ function renderStoreChips(){
   if (!state.stores.length){ wrap.innerHTML = '<div class="empty">まだお店がありません。下のフォームから追加するか、右上の「サンプル店舗を作る」を押してください。</div>'; return; }
   if (!selectedStoreId || !state.stores.find(function(s){ return s.id === selectedStoreId; })){
     selectedStoreId = state.stores[0].id;
+  }
+  // お店が1つしかない場合は選ぶ必要がないので、チップではなく店名だけ表示する
+  if (state.stores.length === 1){
+    wrap.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--accent-dark);margin-bottom:8px;">🏪 ' + escapeHtml(state.stores[0].name) + '</div>';
+    return;
   }
   wrap.innerHTML = state.stores.map(function(s){
     var tag = [s.category, s.area].filter(Boolean).join(" ・ ");
@@ -691,7 +698,7 @@ function renderPending(){
         '<div class="resName">' + escapeHtml(r.name) + ' 様 (' + escapeHtml(r.phone) + ')</div>' +
         '<div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">' + escapeHtml(l.title||"") + ' ×' + r.quantity + '</div>' +
         '<div class="formActions">' +
-          '<button class="btn btnSmall btnPrimary" data-confirm="' + r.id + '">確定する</button>' +
+          '<button class="btn btnBig btnPrimary" data-confirm="' + r.id + '" style="flex:2;">確定する</button>' +
           '<button class="btn btnSmall btnDanger" data-reject="' + r.id + '">拒否(返金)</button>' +
         '</div>' +
       '</div>'
@@ -701,7 +708,10 @@ function renderPending(){
     btn.addEventListener("click", function(){ setReservationStatus(btn.getAttribute("data-confirm"), CONFIRMED); });
   });
   wrap.querySelectorAll("[data-reject]").forEach(function(btn){
-    btn.addEventListener("click", function(){ rejectReservation(btn.getAttribute("data-reject")); });
+    btn.addEventListener("click", function(){
+      if (!confirm("この予約を拒否して返金しますか?この操作は取り消せません。")) return;
+      rejectReservation(btn.getAttribute("data-reject"));
+    });
   });
 }
 
@@ -748,7 +758,7 @@ function renderResolved(){
         '<div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">' + escapeHtml(l.title||"") + ' ×' + r.quantity + '</div>' +
         (canMarkPickup
           ? '<div class="formActions">' +
-              '<button class="btn btnSmall btnPrimary" data-pickedup="' + r.id + '">受け取り確認</button>' +
+              '<button class="btn btnBig btnPrimary" data-pickedup="' + r.id + '" style="flex:2;">受け取り確認</button>' +
               '<button class="btn btnSmall btnWarn" data-noshow="' + r.id + '">来店なし</button>' +
             '</div>'
           : '') +
@@ -771,7 +781,10 @@ function renderResolved(){
     btn.addEventListener("click", function(){ setReservationStatus(btn.getAttribute("data-pickedup"), PICKED_UP); });
   });
   wrap.querySelectorAll("[data-noshow]").forEach(function(btn){
-    btn.addEventListener("click", function(){ setReservationStatus(btn.getAttribute("data-noshow"), NO_SHOW); });
+    btn.addEventListener("click", function(){
+      if (!confirm("来店なしとして記録しますか?")) return;
+      setReservationStatus(btn.getAttribute("data-noshow"), NO_SHOW);
+    });
   });
   var toggleBtn = document.getElementById("toggleOlderResolvedBtn");
   if (toggleBtn){
