@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>フードロス予約(仮) - お店をさがす</title>
+<style>
+  :root{
+    --bg:#f3f7f1;
+    --card:#ffffff;
+    --accent:#2e7d32;
+    --accent-dark:#1b5e20;
+    --accent-soft:#e6f2e3;
+    --warn:#e65100;
+    --danger:#c62828;
+    --muted:#6b7a6b;
+    --border:#dfe6da;
+    --text:#20301f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+    padding-bottom:40px;
+  }
+  header{
+    background:linear-gradient(135deg,var(--accent) 0%,var(--accent-dark) 100%);
+    color:#fff;
+    padding:20px 16px 24px;
+    border-radius:0 0 20px 20px;
+  }
+  header h1{margin:0 0 4px;font-size:20px;}
+  header p{margin:0;font-size:13px;opacity:.9;}
+  main{max-width:520px;margin:0 auto;padding:16px;}
+  .notice{
+    background:#fff8e1;border:1px solid #ffe0a3;color:#8a6d1a;
+    border-radius:12px;padding:10px 12px;font-size:12px;margin-bottom:16px;
+  }
+  .empty{
+    text-align:center;color:var(--muted);padding:40px 16px;font-size:14px;
+  }
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:16px;
+    padding:14px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);
+  }
+  .card.soldout{opacity:.55;}
+  .storeRow{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+  .storeTag{
+    font-size:11px;background:var(--accent-soft);color:var(--accent-dark);
+    padding:2px 8px;border-radius:999px;font-weight:600;
+  }
+  .storeName{font-size:12px;color:var(--muted);}
+  .title{font-size:16px;font-weight:700;margin:2px 0 4px;}
+  .desc{font-size:13px;color:var(--muted);margin:0 0 10px;line-height:1.5;}
+  .priceRow{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;}
+  .orig{font-size:13px;color:var(--muted);text-decoration:line-through;}
+  .discount{font-size:22px;font-weight:800;color:var(--accent-dark);}
+  .offPct{font-size:11px;background:var(--danger);color:#fff;border-radius:6px;padding:2px 6px;font-weight:700;}
+  .metaRow{display:flex;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--muted);margin-bottom:10px;}
+  .metaChip{background:#f1f5ef;border-radius:8px;padding:3px 8px;}
+  .qtyLeft{font-weight:700;color:var(--accent-dark);}
+  button{
+    font-family:inherit;cursor:pointer;border:none;
+  }
+  .reserveBtn{
+    width:100%;padding:12px;border-radius:12px;background:var(--accent);
+    color:#fff;font-size:15px;font-weight:700;
+  }
+  .reserveBtn:disabled{background:#b9c2b6;cursor:not-allowed;}
+  .soldoutLabel{
+    display:inline-block;background:var(--muted);color:#fff;font-size:11px;
+    border-radius:6px;padding:3px 8px;font-weight:700;
+  }
+  /* modal */
+  .overlay{
+    position:fixed;inset:0;background:rgba(20,30,18,.5);
+    display:flex;align-items:flex-end;justify-content:center;z-index:50;
+  }
+  .overlay[hidden]{display:none;}
+  .sheet{
+    background:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;
+    padding:20px 18px calc(20px + env(safe-area-inset-bottom));
+    max-height:88vh;overflow-y:auto;
+  }
+  .sheet h2{margin:0 0 4px;font-size:17px;}
+  .sheet .sub{font-size:12px;color:var(--muted);margin:0 0 16px;}
+  label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px;font-weight:600;}
+  input[type=text],input[type=tel],input[type=number]{
+    width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:10px;
+    font-size:15px;font-family:inherit;
+  }
+  .qtyStepper{display:flex;align-items:center;gap:12px;}
+  .qtyStepper button{
+    width:36px;height:36px;border-radius:10px;background:var(--accent-soft);
+    color:var(--accent-dark);font-size:18px;font-weight:700;
+  }
+  .qtyStepper span{font-size:18px;font-weight:700;min-width:24px;text-align:center;}
+  .totalRow{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin:16px 0;padding:12px;background:var(--accent-soft);border-radius:12px;
+  }
+  .totalRow .label{font-size:13px;color:var(--accent-dark);}
+  .totalRow .amount{font-size:20px;font-weight:800;color:var(--accent-dark);}
+  .payBox{
+    border:1px dashed #c7d3c3;border-radius:12px;padding:12px;margin-top:14px;background:#fbfdfa;
+  }
+  .payBox .testTag{
+    display:inline-block;font-size:11px;background:var(--warn);color:#fff;
+    border-radius:6px;padding:2px 8px;font-weight:700;margin-bottom:8px;
+  }
+  .payRow{display:flex;gap:8px;}
+  .payRow input{flex:1;}
+  .actions{display:flex;gap:10px;margin-top:18px;}
+  .actions button{flex:1;padding:13px;border-radius:12px;font-size:15px;font-weight:700;}
+  .btnGhost{background:#eef2ec;color:var(--text);}
+  .btnPrimary{background:var(--accent);color:#fff;}
+  .btnPrimary:disabled{background:#b9c2b6;}
+  .err{color:var(--danger);font-size:12px;margin-top:8px;min-height:16px;}
+
+  /* confirmation / voucher */
+  .voucher{
+    background:var(--card);border:2px dashed var(--accent);border-radius:16px;
+    padding:18px;text-align:center;margin-bottom:18px;
+  }
+  .voucher .code{font-size:26px;font-weight:800;letter-spacing:2px;color:var(--accent-dark);margin:6px 0;}
+  .statusPill{
+    display:inline-block;font-size:12px;font-weight:700;border-radius:999px;
+    padding:4px 12px;margin-bottom:8px;
+  }
+  .statusPill.pending{background:#fff3cd;color:#8a6d1a;}
+  .statusPill.ok{background:#e6f2e3;color:var(--accent-dark);}
+  .statusPill.bad{background:#fdeaea;color:var(--danger);}
+  .voucher .hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5;}
+  #myReservations{margin-top:8px;}
+  .sectionTitle{font-size:14px;font-weight:700;margin:24px 0 10px;color:var(--accent-dark);}
+  .areaChips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .areaChip{
+    background:#fff;border:1px solid var(--border);border-radius:999px;
+    padding:6px 12px;font-size:12px;cursor:pointer;
+  }
+  .areaChip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .impactLine{font-size:11px;color:var(--accent-dark);background:var(--accent-soft);
+    border-radius:8px;padding:3px 8px;display:inline-block;margin-bottom:6px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>フードロス予約(仮)</h1>
+  <p>近くのお店の余った食事を、お得に受け取る。</p>
+</header>
+
+<main>
+  <div class="notice">
+    🧪 これは検証用プロトタイプです。表示される決済はすべてダミーで、実際の請求は発生しません。
+  </div>
+
+  <div id="myReservationsWrap" hidden>
+    <div class="sectionTitle">あなたの予約</div>
+    <div id="myReservations"></div>
+  </div>
+
+  <div class="sectionTitle">出品中のお店</div>
+  <div class="areaChips" id="areaChips"></div>
+  <div id="listings"></div>
+</main>
+
+<!-- 予約シート -->
+<div class="overlay" id="reserveOverlay" hidden>
+  <div class="sheet">
+    <h2 id="rsTitle"></h2>
+    <p class="sub" id="rsSub"></p>
+
+    <label>数量</label>
+    <div class="qtyStepper">
+      <button type="button" id="qtyMinus">－</button>
+      <span id="qtyVal">1</span>
+      <button type="button" id="qtyPlus">＋</button>
+    </div>
+
+    <label>お名前</label>
+    <input type="text" id="rsName" placeholder="山田 花子">
+
+    <label>電話番号(連絡・引き取り確認用)</label>
+    <input type="tel" id="rsPhone" placeholder="09012345678">
+
+    <div class="totalRow">
+      <span class="label">お支払い金額</span>
+      <span class="amount" id="rsTotal">¥0</span>
+    </div>
+
+    <div class="payBox">
+      <span class="testTag">TEST決済</span>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
+        本物のカード情報は入力しないでください。何を入れても実際の課金は発生しません。
+      </div>
+      <label style="margin-top:0;">カード番号</label>
+      <input type="text" id="rsCard" placeholder="4242 4242 4242 4242" inputmode="numeric">
+      <div class="payRow">
+        <div style="flex:1;">
+          <label>有効期限</label>
+          <input type="text" id="rsExp" placeholder="MM/YY">
+        </div>
+        <div style="flex:1;">
+          <label>CVC</label>
+          <input type="text" id="rsCvc" placeholder="123" inputmode="numeric">
+        </div>
+      </div>
+    </div>
+
+    <div class="err" id="rsErr"></div>
+
+    <div class="actions">
+      <button class="btnGhost" id="rsCancel">やめる</button>
+      <button class="btnPrimary" id="rsSubmit">支払って予約する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 予約完了/状況シート -->
+<div class="overlay" id="voucherOverlay" hidden>
+  <div class="sheet">
+    <div class="voucher" id="voucherBox"></div>
+    <div class="actions">
+      <button class="btnGhost" id="voucherClose" style="flex:none;width:100%;">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getFirestore, doc, runTransaction, onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+/* ---------- Firebase (same project as the other two apps; a brand-new
+   top-level collection would need its own security rule added in the
+   Firebase console, so this app instead reuses the existing open rule
+   scoped to the exact document families/foodloss-shared — same trick
+   otetsudai-app used, see its memory notes). Everything (stores, listings,
+   reservations) lives as arrays inside that one document, and every write
+   goes through runTransaction so concurrent reservations for the last item
+   never oversell. ---------- */
+var firebaseConfig = {
+  apiKey: "AIzaSyDkW4YD3l6TDineUFq6zjD59cs6rz8njdY",
+  authDomain: "maru-tsuke-note.firebaseapp.com",
+  projectId: "maru-tsuke-note",
+  storageBucket: "maru-tsuke-note.firebasestorage.app",
+  messagingSenderId: "335358054006",
+  appId: "1:335358054006:web:93984697eeaea5d6771957"
+};
+var app = initializeApp(firebaseConfig);
+var db = getFirestore(app);
+var DOC_ID = "foodloss-shared";
+var docRef = doc(db, "families", DOC_ID);
+
+var PENDING = "pending_confirmation";
+var CONFIRMED = "confirmed";
+var AUTO_CONFIRMED = "auto_confirmed";
+var REJECTED = "rejected_refunded";
+var PICKED_UP = "picked_up";
+var NO_SHOW = "no_show";
+var CONFIRM_TIMEOUT_MS = 15 * 60 * 1000; // 15分で店舗未対応なら自動確定
+
+function defaultState(){ return { stores: [], listings: [], reservations: [] }; }
+function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+/* runs `mutator(data)` against the freshest copy of the shared document
+   inside a Firestore transaction, and writes it back only if mutator
+   returns {ok:true}. This is the single write path for the whole app —
+   every reservation-create / status-change goes through here so two
+   clients touching the doc at the same moment always serialize safely
+   instead of clobbering each other (the exact bug that hit futaba-study-app
+   before it moved to diffed field updates — here we go one step further
+   and use a real transaction since we also need atomic stock decrements). */
+function withDoc(mutator){
+  return runTransaction(db, function(t){
+    return t.get(docRef).then(function(snap){
+      var data = snap.exists() ? snap.data() : defaultState();
+      if (!data.stores) data.stores = [];
+      if (!data.listings) data.listings = [];
+      if (!data.reservations) data.reservations = [];
+      var result = mutator(data) || { ok:true };
+      if (result.ok) t.set(docRef, data);
+      return result;
+    });
+  });
+}
+
+var state = defaultState();
+var currentListing = null;
+var qty = 1;
+var selectedArea = null; // ① 地域密着 — 商店街・エリア単位で絞り込めるようにする
+
+onSnapshot(docRef, function(snap){
+  state = snap.exists() ? snap.data() : defaultState();
+  if (!state.stores) state.stores = [];
+  if (!state.listings) state.listings = [];
+  if (!state.reservations) state.reservations = [];
+  autoConfirmExpired();
+  render();
+}, function(err){
+  console.warn("sync failed", err);
+});
+
+/* 店舗が15分操作しなければ自動確定にする。誰か(このページでも管理画面でも)が
+   最初に気づいたクライアントが書き込む方式 — サーバー側の定期実行がない
+   静的サイトなので、閲覧のたびにこのチェックを行うことで代用している。 */
+function autoConfirmExpired(){
+  var now = Date.now();
+  var targets = (state.reservations||[]).filter(function(r){
+    return r.status === PENDING && r.confirmDeadline && new Date(r.confirmDeadline).getTime() <= now;
+  });
+  if (!targets.length) return;
+  withDoc(function(data){
+    var changed = false;
+    targets.forEach(function(target){
+      var r = data.reservations.find(function(x){ return x.id === target.id; });
+      if (r && r.status === PENDING) { r.status = AUTO_CONFIRMED; changed = true; }
+    });
+    return { ok: changed };
+  }).catch(function(e){ console.warn("auto-confirm failed", e); });
+}
+
+var WD = ["日","月","火","水","木","金","土"];
+function fmtDate(dateStr){
+  var d = new Date(dateStr + "T00:00:00");
+  return (d.getMonth()+1) + "/" + d.getDate() + "(" + WD[d.getDay()] + ")";
+}
+function fmtPrice(n){ return "¥" + Number(n||0).toLocaleString(); }
+
+function render(){
+  renderListings();
+  renderMyReservations();
+}
+
+function storeImpact(storeId){
+  var count = 0;
+  (state.reservations||[]).forEach(function(r){
+    if (r.storeId !== storeId || r.status !== PICKED_UP) return;
+    count += r.quantity;
+  });
+  return count;
+}
+
+function renderAreaChips(){
+  var wrap = document.getElementById("areaChips");
+  var areas = Array.from(new Set((state.stores||[]).map(function(s){ return s.area; }).filter(Boolean)));
+  if (areas.length < 2){ wrap.innerHTML = ""; return; }
+  if (selectedArea && areas.indexOf(selectedArea) === -1) selectedArea = null;
+  var chips = ['<span class="areaChip' + (!selectedArea ? ' active' : '') + '" data-area="">すべて</span>']
+    .concat(areas.map(function(a){
+      return '<span class="areaChip' + (selectedArea === a ? ' active' : '') + '" data-area="' + escapeHtml(a) + '">' + escapeHtml(a) + '</span>';
+    }));
+  wrap.innerHTML = chips.join("");
+  wrap.querySelectorAll(".areaChip").forEach(function(chip){
+    chip.addEventListener("click", function(){
+      selectedArea = chip.getAttribute("data-area") || null;
+      render();
+    });
+  });
+}
+
+function renderListings(){
+  renderAreaChips();
+  var wrap = document.getElementById("listings");
+  var storesById = {};
+  (state.stores||[]).forEach(function(s){ storesById[s.id] = s; });
+
+  var listings = (state.listings||[]).filter(function(l){
+    var store = storesById[l.storeId];
+    if (!store || store.active === false) return false;
+    if (selectedArea && store.area !== selectedArea) return false;
+    return true;
+  }).sort(function(a,b){
+    return (a.date+a.pickupStart).localeCompare(b.date+b.pickupStart);
+  });
+
+  if (!listings.length){
+    wrap.innerHTML = '<div class="empty">現在出品はありません。<br>お店の方は admin.html から出品してください。</div>';
+    return;
+  }
+
+  wrap.innerHTML = listings.map(function(l){
+    var store = storesById[l.storeId] || {};
+    var soldout = !l.open || l.quantityLeft <= 0;
+    var offPct = l.originalPrice > 0
+      ? Math.round((1 - l.discountPrice / l.originalPrice) * 100)
+      : 0;
+    var impact = storeImpact(store.id);
+    return (
+      '<div class="card' + (soldout ? ' soldout' : '') + '">' +
+        '<div class="storeRow">' +
+          '<span class="storeTag">' + escapeHtml(store.category || "店舗") + '</span>' +
+          '<span class="storeName">' + escapeHtml(store.name || "不明な店舗") + (store.area ? " ・ " + escapeHtml(store.area) : "") + '</span>' +
+        '</div>' +
+        (impact > 0 ? '<div class="impactLine">🌱 このお店は累計 ' + impact + '個 のロスを削減</div>' : '') +
+        '<div class="title">' + escapeHtml(l.title) + '</div>' +
+        (l.description ? '<div class="desc">' + escapeHtml(l.description) + '</div>' : '') +
+        '<div class="priceRow">' +
+          (l.originalPrice > l.discountPrice ? '<span class="orig">' + fmtPrice(l.originalPrice) + '</span>' : '') +
+          '<span class="discount">' + fmtPrice(l.discountPrice) + '</span>' +
+          (offPct > 0 ? '<span class="offPct">' + offPct + '%OFF</span>' : '') +
+        '</div>' +
+        '<div class="metaRow">' +
+          '<span class="metaChip">' + fmtDate(l.date) + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' 引き取り</span>' +
+          '<span class="metaChip">残り <span class="qtyLeft">' + Math.max(l.quantityLeft,0) + '</span>個</span>' +
+        '</div>' +
+        (soldout
+          ? '<span class="soldoutLabel">SOLD OUT / 受付終了</span>'
+          : '<button class="reserveBtn" data-id="' + l.id + '">予約する</button>'
+        ) +
+      '</div>'
+    );
+  }).join("");
+
+  wrap.querySelectorAll(".reserveBtn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      openReserveSheet(btn.getAttribute("data-id"));
+    });
+  });
+}
+
+function statusLabel(status){
+  switch(status){
+    case PENDING: return { text:"店舗確認中…", cls:"pending" };
+    case CONFIRMED: return { text:"確定しました", cls:"ok" };
+    case AUTO_CONFIRMED: return { text:"確定しました", cls:"ok" };
+    case PICKED_UP: return { text:"受け取り済み", cls:"ok" };
+    case REJECTED: return { text:"対応できませんでした(返金済み)", cls:"bad" };
+    case NO_SHOW: return { text:"未来店として記録されました", cls:"bad" };
+    default: return { text:status, cls:"pending" };
+  }
+}
+
+function myReservationIds(){
+  try { return JSON.parse(localStorage.getItem("foodlossMyReservations") || "[]"); }
+  catch(e){ return []; }
+}
+function rememberReservation(id){
+  var ids = myReservationIds();
+  ids.unshift(id);
+  localStorage.setItem("foodlossMyReservations", JSON.stringify(ids.slice(0,20)));
+}
+
+function renderMyReservations(){
+  var ids = myReservationIds();
+  var wrap = document.getElementById("myReservationsWrap");
+  var list = document.getElementById("myReservations");
+  var mine = ids
+    .map(function(id){ return (state.reservations||[]).find(function(r){ return r.id === id; }); })
+    .filter(Boolean);
+  if (!mine.length){ wrap.hidden = true; return; }
+  wrap.hidden = false;
+  var listingsById = {};
+  (state.listings||[]).forEach(function(l){ listingsById[l.id] = l; });
+  list.innerHTML = mine.map(function(r){
+    var l = listingsById[r.listingId] || {};
+    var st = statusLabel(r.status);
+    return (
+      '<div class="card">' +
+        '<span class="statusPill ' + st.cls + '">' + st.text + '</span>' +
+        '<div class="title">' + escapeHtml(l.title || "(出品情報なし)") + '</div>' +
+        '<div class="metaRow"><span class="metaChip">予約コード ' + r.id.toUpperCase() + '</span>' +
+        '<span class="metaChip">数量 ' + r.quantity + '</span></div>' +
+      '</div>'
+    );
+  }).join("");
+}
+
+function escapeHtml(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+    return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+  });
+}
+
+/* ---------- 予約シート ---------- */
+var reserveOverlay = document.getElementById("reserveOverlay");
+
+function openReserveSheet(listingId){
+  currentListing = (state.listings||[]).find(function(l){ return l.id === listingId; });
+  if (!currentListing) return;
+  qty = 1;
+  document.getElementById("rsTitle").textContent = currentListing.title;
+  document.getElementById("rsSub").textContent =
+    fmtDate(currentListing.date) + " " + currentListing.pickupStart + "〜" + currentListing.pickupEnd + " 引き取り";
+  document.getElementById("rsName").value = "";
+  document.getElementById("rsPhone").value = "";
+  document.getElementById("rsCard").value = "";
+  document.getElementById("rsExp").value = "";
+  document.getElementById("rsCvc").value = "";
+  document.getElementById("rsErr").textContent = "";
+  updateQtyUI();
+  reserveOverlay.hidden = false;
+}
+
+function updateQtyUI(){
+  var max = Math.max(currentListing ? currentListing.quantityLeft : 1, 1);
+  if (qty > max) qty = max;
+  if (qty < 1) qty = 1;
+  document.getElementById("qtyVal").textContent = qty;
+  document.getElementById("rsTotal").textContent = fmtPrice(currentListing ? currentListing.discountPrice * qty : 0);
+}
+document.getElementById("qtyMinus").addEventListener("click", function(){ qty--; updateQtyUI(); });
+document.getElementById("qtyPlus").addEventListener("click", function(){ qty++; updateQtyUI(); });
+document.getElementById("rsCancel").addEventListener("click", function(){ reserveOverlay.hidden = true; });
+
+document.getElementById("rsSubmit").addEventListener("click", function(){
+  var errEl = document.getElementById("rsErr");
+  var name = document.getElementById("rsName").value.trim();
+  var phone = document.getElementById("rsPhone").value.trim().replace(/[^0-9]/g,"");
+  var card = document.getElementById("rsCard").value.trim();
+  var exp = document.getElementById("rsExp").value.trim();
+  var cvc = document.getElementById("rsCvc").value.trim();
+
+  if (!name){ errEl.textContent = "お名前を入力してください。"; return; }
+  if (phone.length < 10){ errEl.textContent = "電話番号を正しく入力してください。"; return; }
+  if (!card || !exp || !cvc){ errEl.textContent = "テスト決済欄をすべて入力してください(実際には課金されません)。"; return; }
+
+  var submitBtn = document.getElementById("rsSubmit");
+  submitBtn.disabled = true;
+  errEl.textContent = "";
+
+  var listingId = currentListing.id;
+  var requestQty = qty;
+  var newReservationId = newId();
+
+  withDoc(function(data){
+    var listing = data.listings.find(function(l){ return l.id === listingId; });
+    if (!listing || !listing.open || listing.quantityLeft < requestQty){
+      return { ok:false, reason:"soldout" };
+    }
+    listing.quantityLeft -= requestQty;
+    data.reservations.push({
+      id: newReservationId,
+      listingId: listingId,
+      storeId: listing.storeId,
+      quantity: requestQty,
+      name: name,
+      phone: phone,
+      status: PENDING,
+      createdAt: new Date().toISOString(),
+      confirmDeadline: new Date(Date.now() + CONFIRM_TIMEOUT_MS).toISOString()
+    });
+    return { ok:true };
+  }).then(function(result){
+    submitBtn.disabled = false;
+    if (!result.ok){
+      errEl.textContent = "ちょうど売り切れてしまいました。ページを更新してご確認ください。";
+      return;
+    }
+    reserveOverlay.hidden = true;
+    rememberReservation(newReservationId);
+    showVoucher(newReservationId);
+  }).catch(function(e){
+    submitBtn.disabled = false;
+    errEl.textContent = "通信エラーが発生しました。もう一度お試しください。";
+    console.warn(e);
+  });
+});
+
+/* ---------- バウチャー表示 ---------- */
+var voucherOverlay = document.getElementById("voucherOverlay");
+document.getElementById("voucherClose").addEventListener("click", function(){ voucherOverlay.hidden = true; });
+
+function showVoucher(reservationId){
+  renderVoucher(reservationId);
+  voucherOverlay.hidden = false;
+}
+function renderVoucher(reservationId){
+  var r = (state.reservations||[]).find(function(x){ return x.id === reservationId; });
+  var box = document.getElementById("voucherBox");
+  if (!r){ box.innerHTML = "<p>予約情報が見つかりません。</p>"; return; }
+  var l = (state.listings||[]).find(function(x){ return x.id === r.listingId; }) || {};
+  var store = (state.stores||[]).find(function(x){ return x.id === r.storeId; }) || {};
+  var st = statusLabel(r.status);
+  box.innerHTML =
+    '<span class="statusPill ' + st.cls + '">' + st.text + '</span>' +
+    '<div class="code">' + r.id.toUpperCase() + '</div>' +
+    '<div style="font-weight:700;">' + escapeHtml(l.title || "") + '</div>' +
+    '<div style="font-size:13px;color:var(--muted);margin-top:4px;">' + escapeHtml(store.name || "") + '</div>' +
+    '<div class="hint">' +
+      (r.status === PENDING
+        ? "店舗が確認中です。15分以内にお店から反応がない場合は自動的に確定扱いになります。このコードを引き取り時に提示してください。"
+        : (r.status === REJECTED
+          ? "大変申し訳ございません。今回はご用意できませんでした。お支払いは自動的に返金されます(テスト決済のため実際の返金処理はありません)。"
+          : "このコードを引き取り時にお店へ提示してください。" + (l.pickupStart ? "引き取り時間: " + fmtDate(l.date) + " " + l.pickupStart + "〜" + l.pickupEnd : ""))) +
+    '</div>';
+}
+</script>
+</body>
+</html>

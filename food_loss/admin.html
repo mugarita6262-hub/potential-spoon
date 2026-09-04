@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>フードロス予約(仮) - 店舗管理</title>
+<style>
+  :root{
+    --bg:#f3f7f1;
+    --card:#ffffff;
+    --accent:#2e7d32;
+    --accent-dark:#1b5e20;
+    --accent-soft:#e6f2e3;
+    --warn:#e65100;
+    --danger:#c62828;
+    --muted:#6b7a6b;
+    --border:#dfe6da;
+    --text:#20301f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+    padding-bottom:60px;
+  }
+  header{
+    background:linear-gradient(135deg,var(--accent-dark) 0%,var(--accent) 100%);
+    color:#fff;padding:18px 16px;border-radius:0 0 18px 18px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  header h1{margin:0;font-size:18px;}
+  header button{
+    background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:8px;
+    padding:6px 10px;font-size:12px;
+  }
+  main{max-width:640px;margin:0 auto;padding:16px;}
+  section{margin-bottom:28px;}
+  .sectionTitle{font-size:15px;font-weight:700;color:var(--accent-dark);margin:0 0 10px;display:flex;align-items:center;gap:8px;}
+  .count{font-size:11px;background:var(--accent-soft);color:var(--accent-dark);border-radius:999px;padding:2px 8px;font-weight:700;}
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);
+  }
+  .row{display:flex;gap:10px;}
+  .row > *{flex:1;}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;font-weight:600;}
+  label:first-child{margin-top:0;}
+  input[type=text],input[type=number],input[type=date],input[type=time],select,textarea{
+    width:100%;padding:10px 11px;border:1px solid var(--border);border-radius:9px;
+    font-size:14px;font-family:inherit;background:#fff;
+  }
+  textarea{resize:vertical;min-height:50px;}
+  button{font-family:inherit;cursor:pointer;border:none;}
+  .btn{padding:10px 14px;border-radius:10px;font-size:13px;font-weight:700;}
+  .btnPrimary{background:var(--accent);color:#fff;}
+  .btnGhost{background:#eef2ec;color:var(--text);}
+  .btnDanger{background:var(--danger);color:#fff;}
+  .btnWarn{background:var(--warn);color:#fff;}
+  .btnSmall{padding:6px 10px;font-size:12px;border-radius:8px;}
+  .formActions{margin-top:12px;display:flex;gap:8px;}
+  .storeChip{
+    display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);
+    border-radius:999px;padding:6px 12px;font-size:13px;margin:0 8px 8px 0;cursor:pointer;
+  }
+  .storeChip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .storeChip .cat{font-size:10px;opacity:.75;}
+  .listingCard .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .listingCard .title{font-weight:700;font-size:14px;}
+  .listingCard .meta{font-size:12px;color:var(--muted);margin-top:4px;}
+  .badge{font-size:11px;border-radius:6px;padding:2px 7px;font-weight:700;}
+  .badge.open{background:var(--accent-soft);color:var(--accent-dark);}
+  .badge.closed{background:#eee;color:var(--muted);}
+  .resCard{border-left:4px solid var(--warn);}
+  .resCard.resolved{border-left-color:var(--border);opacity:.85;}
+  .resTop{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);}
+  .resName{font-weight:700;font-size:14px;margin-top:2px;}
+  .countdown{font-size:11px;color:var(--warn);font-weight:700;}
+  .empty{color:var(--muted);font-size:13px;padding:12px 0;}
+  .flagList{font-size:12px;color:var(--danger);background:#fdeaea;border-radius:10px;padding:10px 12px;}
+  .impactCard{display:flex;justify-content:space-between;align-items:center;}
+  .impactCard .name{font-weight:700;font-size:14px;}
+  .impactCard .area{font-size:11px;color:var(--muted);}
+  .impactCard .nums{text-align:right;}
+  .impactCard .kg{font-size:18px;font-weight:800;color:var(--accent-dark);}
+  .impactCard .yen{font-size:11px;color:var(--muted);}
+  #gate{max-width:320px;margin:60px auto;text-align:center;}
+  #gate input{margin-bottom:10px;}
+  #gate .btn{width:100%;}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <h2>店舗管理画面</h2>
+  <p style="font-size:12px;color:var(--muted);">
+    ※これは検証用の簡易パスワードで、本格的なアカウント認証ではありません(Stage 1で店舗ごとのログインに置き換え予定)。
+  </p>
+  <input type="text" id="gatePw" placeholder="パスワード">
+  <button class="btn btnPrimary" id="gateBtn">入る</button>
+  <div id="gateErr" style="color:var(--danger);font-size:12px;margin-top:6px;"></div>
+</div>
+
+<div id="appRoot" hidden>
+  <header>
+    <h1>店舗管理画面</h1>
+    <button id="seedBtn">サンプル店舗を作る</button>
+  </header>
+
+  <main>
+    <section>
+      <div class="sectionTitle">要対応の予約 <span class="count" id="pendingCount">0</span></div>
+      <div id="pendingList"></div>
+    </section>
+
+    <section>
+      <div class="sectionTitle">⚠ ノーショー要注意</div>
+      <div id="noShowFlags"></div>
+    </section>
+
+    <section>
+      <div class="sectionTitle">お店</div>
+      <div id="storeChips"></div>
+      <div class="card">
+        <label>店舗名</label>
+        <input type="text" id="newStoreName" placeholder="例: パン工房 みどり">
+        <label>業態</label>
+        <input type="text" id="newStoreCategory" placeholder="例: ベーカリー / 居酒屋 / コンビニ">
+        <label>エリア(商店街・地域名)</label>
+        <input type="text" id="newStoreArea" placeholder="例: ○○商店街 / △△駅前">
+        <div class="formActions">
+          <button class="btn btnPrimary" id="addStoreBtn">お店を追加</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sectionTitle">🌱 ロス削減実績</div>
+      <div id="impactList"></div>
+    </section>
+
+    <section id="listingSection" hidden>
+      <div class="sectionTitle" id="listingSectionTitle">出品</div>
+      <div class="card">
+        <label>商品名</label>
+        <input type="text" id="lTitle" placeholder="例: 本日の余ったパン詰め合わせ">
+        <label>説明(任意)</label>
+        <textarea id="lDesc" placeholder="内容は当日のお楽しみです、など"></textarea>
+        <div class="row">
+          <div>
+            <label>通常価格</label>
+            <input type="number" id="lOrig" min="0" placeholder="1000">
+          </div>
+          <div>
+            <label>割引後価格</label>
+            <input type="number" id="lDiscount" min="0" placeholder="400">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>個数</label>
+            <input type="number" id="lQty" min="1" value="3">
+          </div>
+          <div>
+            <label>引き取り日</label>
+            <input type="date" id="lDate">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>引き取り開始</label>
+            <input type="time" id="lStart" value="19:00">
+          </div>
+          <div>
+            <label>引き取り終了</label>
+            <input type="time" id="lEnd" value="20:00">
+          </div>
+        </div>
+        <div class="formActions">
+          <button class="btn btnPrimary" id="addListingBtn">出品する</button>
+        </div>
+      </div>
+      <div id="listingList"></div>
+    </section>
+
+    <section>
+      <div class="sectionTitle">対応済みの予約</div>
+      <div id="resolvedList"></div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getFirestore, doc, runTransaction, onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+/* Same shared document as index.html — see that file's comment for why
+   (reuses the existing open Firestore rule instead of needing a new one). */
+var firebaseConfig = {
+  apiKey: "AIzaSyDkW4YD3l6TDineUFq6zjD59cs6rz8njdY",
+  authDomain: "maru-tsuke-note.firebaseapp.com",
+  projectId: "maru-tsuke-note",
+  storageBucket: "maru-tsuke-note.firebasestorage.app",
+  messagingSenderId: "335358054006",
+  appId: "1:335358054006:web:93984697eeaea5d6771957"
+};
+var app = initializeApp(firebaseConfig);
+var db = getFirestore(app);
+var DOC_ID = "foodloss-shared";
+var docRef = doc(db, "families", DOC_ID);
+
+/* Stage 0 の簡易ゲート。Firestoreのルール自体はopenのままなので、これは
+   本当の意味でのセキュリティではなく単なる誤操作防止。実店舗運用が始まる
+   Stage 1で、店舗ごとのFirebase Authログインに置き換える予定。 */
+var ADMIN_PASSWORD = "foodloss2026";
+
+var PENDING = "pending_confirmation";
+var CONFIRMED = "confirmed";
+var AUTO_CONFIRMED = "auto_confirmed";
+var REJECTED = "rejected_refunded";
+var PICKED_UP = "picked_up";
+var NO_SHOW = "no_show";
+var CONFIRM_TIMEOUT_MS = 15 * 60 * 1000;
+
+function defaultState(){ return { stores: [], listings: [], reservations: [] }; }
+function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+function withDoc(mutator){
+  return runTransaction(db, function(t){
+    return t.get(docRef).then(function(snap){
+      var data = snap.exists() ? snap.data() : defaultState();
+      if (!data.stores) data.stores = [];
+      if (!data.listings) data.listings = [];
+      if (!data.reservations) data.reservations = [];
+      var result = mutator(data) || { ok:true };
+      if (result.ok) t.set(docRef, data);
+      return result;
+    });
+  });
+}
+
+var state = defaultState();
+var selectedStoreId = null;
+
+onSnapshot(docRef, function(snap){
+  state = snap.exists() ? snap.data() : defaultState();
+  if (!state.stores) state.stores = [];
+  if (!state.listings) state.listings = [];
+  if (!state.reservations) state.reservations = [];
+  autoConfirmExpired();
+  render();
+}, function(err){ console.warn("sync failed", err); });
+
+function autoConfirmExpired(){
+  var now = Date.now();
+  var targets = (state.reservations||[]).filter(function(r){
+    return r.status === PENDING && r.confirmDeadline && new Date(r.confirmDeadline).getTime() <= now;
+  });
+  if (!targets.length) return;
+  withDoc(function(data){
+    var changed = false;
+    targets.forEach(function(target){
+      var r = data.reservations.find(function(x){ return x.id === target.id; });
+      if (r && r.status === PENDING) { r.status = AUTO_CONFIRMED; changed = true; }
+    });
+    return { ok: changed };
+  }).catch(function(e){ console.warn("auto-confirm failed", e); });
+}
+
+/* ---------- ゲート ---------- */
+document.getElementById("gateBtn").addEventListener("click", tryEnter);
+document.getElementById("gatePw").addEventListener("keydown", function(e){ if (e.key === "Enter") tryEnter(); });
+function tryEnter(){
+  var pw = document.getElementById("gatePw").value;
+  if (pw === ADMIN_PASSWORD){
+    sessionStorage.setItem("foodlossAdminOk", "1");
+    document.getElementById("gate").hidden = true;
+    document.getElementById("appRoot").hidden = false;
+  } else {
+    document.getElementById("gateErr").textContent = "パスワードが違います。";
+  }
+}
+if (sessionStorage.getItem("foodlossAdminOk") === "1"){
+  document.getElementById("gate").hidden = true;
+  document.getElementById("appRoot").hidden = false;
+}
+
+/* ---------- サンプル投入 ---------- */
+document.getElementById("seedBtn").addEventListener("click", function(){
+  withDoc(function(data){
+    if (data.stores.length) return { ok:false };
+    var today = new Date().toISOString().slice(0,10);
+    var s1 = { id: newId(), name: "パン工房 みどり", category: "ベーカリー", active: true };
+    var s2 = { id: newId(), name: "定食屋 だいどこ", category: "定食屋", active: true };
+    data.stores.push(s1, s2);
+    data.listings.push(
+      { id:newId(), storeId:s1.id, title:"本日の余ったパン詰め合わせ", description:"クロワッサンや食パン耳などが入ります。中身はお楽しみ。",
+        originalPrice:1000, discountPrice:400, quantityTotal:5, quantityLeft:5, date:today, pickupStart:"19:00", pickupEnd:"20:00", open:true },
+      { id:newId(), storeId:s2.id, title:"日替わり弁当あまり", description:"", originalPrice:650, discountPrice:300,
+        quantityTotal:3, quantityLeft:3, date:today, pickupStart:"20:00", pickupEnd:"20:30", open:true }
+    );
+    return { ok:true };
+  }).catch(function(e){ console.warn(e); });
+});
+
+/* ---------- 描画 ---------- */
+function fmtPrice(n){ return "¥" + Number(n||0).toLocaleString(); }
+function escapeHtml(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+    return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+  });
+}
+
+function render(){
+  renderStoreChips();
+  renderListingSection();
+  renderPending();
+  renderResolved();
+  renderNoShowFlags();
+  renderImpact();
+}
+
+/* ④ 単なる転売マーケットではなく、店舗の"実際に減らせたロス"を可視化する
+   裏側の記録ツールとして機能させる一手。「受け取り済み」まで進んだ予約だけを
+   実際に救えた分としてカウントする(確定止まりはまだ持ち帰られたか分からない
+   ため含めない)。 */
+function renderImpact(){
+  var wrap = document.getElementById("impactList");
+  if (!state.stores.length){ wrap.innerHTML = '<div class="empty">まだお店がありません。</div>'; return; }
+  var byStore = {};
+  (state.reservations||[]).forEach(function(r){
+    if (r.status !== PICKED_UP) return;
+    var l = listingLookup(r.listingId);
+    if (!l) return;
+    if (!byStore[r.storeId]) byStore[r.storeId] = { count:0, yen:0 };
+    byStore[r.storeId].count += r.quantity;
+    byStore[r.storeId].yen += l.discountPrice * r.quantity;
+  });
+  wrap.innerHTML = state.stores.map(function(s){
+    var stat = byStore[s.id] || { count:0, yen:0 };
+    return (
+      '<div class="card impactCard">' +
+        '<div><div class="name">' + escapeHtml(s.name) + '</div>' +
+        '<div class="area">' + escapeHtml([s.category,s.area].filter(Boolean).join(" ・ ")) + '</div></div>' +
+        '<div class="nums"><div class="kg">' + stat.count + '個 救出</div>' +
+        '<div class="yen">売上 ' + fmtPrice(stat.yen) + '</div></div>' +
+      '</div>'
+    );
+  }).join("");
+}
+
+function renderStoreChips(){
+  var wrap = document.getElementById("storeChips");
+  if (!state.stores.length){ wrap.innerHTML = '<div class="empty">まだお店がありません。下のフォームから追加するか、右上の「サンプル店舗を作る」を押してください。</div>'; return; }
+  if (!selectedStoreId || !state.stores.find(function(s){ return s.id === selectedStoreId; })){
+    selectedStoreId = state.stores[0].id;
+  }
+  wrap.innerHTML = state.stores.map(function(s){
+    var tag = [s.category, s.area].filter(Boolean).join(" ・ ");
+    return '<span class="storeChip' + (s.id === selectedStoreId ? ' active' : '') + '" data-id="' + s.id + '">' +
+      escapeHtml(s.name) + ' <span class="cat">' + escapeHtml(tag) + '</span></span>';
+  }).join("");
+  wrap.querySelectorAll(".storeChip").forEach(function(chip){
+    chip.addEventListener("click", function(){
+      selectedStoreId = chip.getAttribute("data-id");
+      render();
+    });
+  });
+}
+
+document.getElementById("addStoreBtn").addEventListener("click", function(){
+  var nameEl = document.getElementById("newStoreName");
+  var catEl = document.getElementById("newStoreCategory");
+  var areaEl = document.getElementById("newStoreArea");
+  var name = nameEl.value.trim();
+  if (!name) return;
+  var category = catEl.value.trim();
+  var area = areaEl.value.trim();
+  var newStoreId = newId();
+  withDoc(function(data){
+    data.stores.push({ id:newStoreId, name:name, category:category, area:area, active:true });
+    return { ok:true };
+  }).then(function(){
+    nameEl.value = ""; catEl.value = ""; areaEl.value = "";
+    selectedStoreId = newStoreId;
+  }).catch(function(e){ console.warn(e); });
+});
+
+function renderListingSection(){
+  var section = document.getElementById("listingSection");
+  if (!selectedStoreId){ section.hidden = true; return; }
+  section.hidden = false;
+  var store = state.stores.find(function(s){ return s.id === selectedStoreId; });
+  document.getElementById("listingSectionTitle").textContent = "出品(" + (store ? store.name : "") + ")";
+  if (!document.getElementById("lDate").value){
+    document.getElementById("lDate").value = new Date().toISOString().slice(0,10);
+  }
+
+  var listings = state.listings.filter(function(l){ return l.storeId === selectedStoreId; })
+    .sort(function(a,b){ return (b.date+b.pickupStart).localeCompare(a.date+a.pickupStart); });
+  var listWrap = document.getElementById("listingList");
+  if (!listings.length){ listWrap.innerHTML = '<div class="empty">まだ出品がありません。</div>'; return; }
+  listWrap.innerHTML = listings.map(function(l){
+    var open = l.open && l.quantityLeft > 0;
+    return (
+      '<div class="card listingCard">' +
+        '<div class="top">' +
+          '<div>' +
+            '<div class="title">' + escapeHtml(l.title) + '</div>' +
+            '<div class="meta">' + l.date + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' / ' +
+              fmtPrice(l.originalPrice) + ' → ' + fmtPrice(l.discountPrice) + ' / 残り' + l.quantityLeft + '個</div>' +
+          '</div>' +
+          '<span class="badge ' + (open ? 'open' : 'closed') + '">' + (open ? '受付中' : '停止中') + '</span>' +
+        '</div>' +
+        '<div class="formActions">' +
+          (l.open
+            ? '<button class="btn btnSmall btnGhost" data-close="' + l.id + '">受付を止める</button>'
+            : '<button class="btn btnSmall btnPrimary" data-open="' + l.id + '">再開する</button>') +
+          '<button class="btn btnSmall btnGhost" data-dup="' + l.id + '">📋 コピーして出品</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join("");
+  listWrap.querySelectorAll("[data-close]").forEach(function(btn){
+    btn.addEventListener("click", function(){ setListingOpen(btn.getAttribute("data-close"), false); });
+  });
+  listWrap.querySelectorAll("[data-open]").forEach(function(btn){
+    btn.addEventListener("click", function(){ setListingOpen(btn.getAttribute("data-open"), true); });
+  });
+  listWrap.querySelectorAll("[data-dup]").forEach(function(btn){
+    btn.addEventListener("click", function(){ duplicateListing(btn.getAttribute("data-dup")); });
+  });
+}
+
+/* ③ 出品コストをほぼゼロにする一手 — 「昨日と同じ内容」を丸ごとフォームに
+   流し込み、日付だけ今日にして確認ボタンを押すだけで再出品できるようにする。
+   閉店前の忙しい時間帯に毎回フル入力させないための仕掛け。 */
+function duplicateListing(listingId){
+  var l = listingLookup(listingId);
+  if (!l) return;
+  document.getElementById("lTitle").value = l.title;
+  document.getElementById("lDesc").value = l.description || "";
+  document.getElementById("lOrig").value = l.originalPrice;
+  document.getElementById("lDiscount").value = l.discountPrice;
+  document.getElementById("lQty").value = l.quantityTotal;
+  document.getElementById("lDate").value = new Date().toISOString().slice(0,10);
+  document.getElementById("lStart").value = l.pickupStart;
+  document.getElementById("lEnd").value = l.pickupEnd;
+  document.getElementById("lTitle").scrollIntoView({ behavior:"smooth", block:"center" });
+}
+
+function setListingOpen(listingId, open){
+  withDoc(function(data){
+    var l = data.listings.find(function(x){ return x.id === listingId; });
+    if (!l) return { ok:false };
+    l.open = open;
+    return { ok:true };
+  }).catch(function(e){ console.warn(e); });
+}
+
+document.getElementById("addListingBtn").addEventListener("click", function(){
+  if (!selectedStoreId) return;
+  var title = document.getElementById("lTitle").value.trim();
+  var desc = document.getElementById("lDesc").value.trim();
+  var orig = Number(document.getElementById("lOrig").value || 0);
+  var discount = Number(document.getElementById("lDiscount").value || 0);
+  var qtyTotal = Math.max(1, Number(document.getElementById("lQty").value || 1));
+  var date = document.getElementById("lDate").value;
+  var start = document.getElementById("lStart").value;
+  var end = document.getElementById("lEnd").value;
+  if (!title || !date || !start || !end){ alert("商品名・日付・時間を入力してください。"); return; }
+
+  withDoc(function(data){
+    data.listings.push({
+      id:newId(), storeId:selectedStoreId, title:title, description:desc,
+      originalPrice:orig, discountPrice:discount, quantityTotal:qtyTotal, quantityLeft:qtyTotal,
+      date:date, pickupStart:start, pickupEnd:end, open:true
+    });
+    return { ok:true };
+  }).then(function(){
+    document.getElementById("lTitle").value = "";
+    document.getElementById("lDesc").value = "";
+    document.getElementById("lOrig").value = "";
+    document.getElementById("lDiscount").value = "";
+    document.getElementById("lQty").value = "3";
+  }).catch(function(e){ console.warn(e); });
+});
+
+/* ---------- 予約対応 ---------- */
+function listingLookup(id){ return state.listings.find(function(l){ return l.id === id; }); }
+function storeLookup(id){ return state.stores.find(function(s){ return s.id === id; }); }
+
+function renderPending(){
+  var pending = (state.reservations||[]).filter(function(r){ return r.status === PENDING; })
+    .sort(function(a,b){ return a.confirmDeadline.localeCompare(b.confirmDeadline); });
+  document.getElementById("pendingCount").textContent = pending.length;
+  var wrap = document.getElementById("pendingList");
+  if (!pending.length){ wrap.innerHTML = '<div class="empty">今のところ対応が必要な予約はありません。</div>'; return; }
+  wrap.innerHTML = pending.map(function(r){
+    var l = listingLookup(r.listingId) || {};
+    var store = storeLookup(r.storeId) || {};
+    var remainMin = Math.max(0, Math.round((new Date(r.confirmDeadline).getTime() - Date.now()) / 60000));
+    return (
+      '<div class="card resCard">' +
+        '<div class="resTop"><span>' + escapeHtml(store.name||"") + '</span><span class="countdown">あと' + remainMin + '分で自動確定</span></div>' +
+        '<div class="resName">' + escapeHtml(r.name) + ' 様 (' + escapeHtml(r.phone) + ')</div>' +
+        '<div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">' + escapeHtml(l.title||"") + ' ×' + r.quantity + '</div>' +
+        '<div class="formActions">' +
+          '<button class="btn btnSmall btnPrimary" data-confirm="' + r.id + '">確定する</button>' +
+          '<button class="btn btnSmall btnDanger" data-reject="' + r.id + '">拒否(返金)</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join("");
+  wrap.querySelectorAll("[data-confirm]").forEach(function(btn){
+    btn.addEventListener("click", function(){ setReservationStatus(btn.getAttribute("data-confirm"), CONFIRMED); });
+  });
+  wrap.querySelectorAll("[data-reject]").forEach(function(btn){
+    btn.addEventListener("click", function(){ rejectReservation(btn.getAttribute("data-reject")); });
+  });
+}
+
+function renderResolved(){
+  var resolved = (state.reservations||[]).filter(function(r){ return r.status !== PENDING; })
+    .sort(function(a,b){ return b.createdAt.localeCompare(a.createdAt); }).slice(0,30);
+  var wrap = document.getElementById("resolvedList");
+  if (!resolved.length){ wrap.innerHTML = '<div class="empty">まだありません。</div>'; return; }
+  var labels = {};
+  labels[CONFIRMED] = ["確定済み","open"];
+  labels[AUTO_CONFIRMED] = ["自動確定","open"];
+  labels[REJECTED] = ["拒否・返金済み","closed"];
+  labels[PICKED_UP] = ["受け取り済み","open"];
+  labels[NO_SHOW] = ["未来店","closed"];
+  wrap.innerHTML = resolved.map(function(r){
+    var l = listingLookup(r.listingId) || {};
+    var store = storeLookup(r.storeId) || {};
+    var lab = labels[r.status] || [r.status,"closed"];
+    var canMarkPickup = (r.status === CONFIRMED || r.status === AUTO_CONFIRMED);
+    return (
+      '<div class="card resCard resolved">' +
+        '<div class="resTop"><span>' + escapeHtml(store.name||"") + '</span><span class="badge ' + lab[1] + '">' + lab[0] + '</span></div>' +
+        '<div class="resName">' + escapeHtml(r.name) + ' 様 (' + escapeHtml(r.phone) + ')</div>' +
+        '<div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">' + escapeHtml(l.title||"") + ' ×' + r.quantity + '</div>' +
+        (canMarkPickup
+          ? '<div class="formActions">' +
+              '<button class="btn btnSmall btnPrimary" data-pickedup="' + r.id + '">受け取り確認</button>' +
+              '<button class="btn btnSmall btnWarn" data-noshow="' + r.id + '">来店なし</button>' +
+            '</div>'
+          : '') +
+      '</div>'
+    );
+  }).join("");
+  wrap.querySelectorAll("[data-pickedup]").forEach(function(btn){
+    btn.addEventListener("click", function(){ setReservationStatus(btn.getAttribute("data-pickedup"), PICKED_UP); });
+  });
+  wrap.querySelectorAll("[data-noshow]").forEach(function(btn){
+    btn.addEventListener("click", function(){ setReservationStatus(btn.getAttribute("data-noshow"), NO_SHOW); });
+  });
+}
+
+function setReservationStatus(reservationId, status){
+  withDoc(function(data){
+    var r = data.reservations.find(function(x){ return x.id === reservationId; });
+    if (!r) return { ok:false };
+    r.status = status;
+    return { ok:true };
+  }).catch(function(e){ console.warn(e); });
+}
+
+function rejectReservation(reservationId){
+  withDoc(function(data){
+    var r = data.reservations.find(function(x){ return x.id === reservationId; });
+    if (!r) return { ok:false };
+    var l = data.listings.find(function(x){ return x.id === r.listingId; });
+    if (l) l.quantityLeft += r.quantity; // 在庫を戻す
+    r.status = REJECTED;
+    return { ok:true };
+  }).catch(function(e){ console.warn(e); });
+}
+
+/* ---------- ノーショー要注意リスト ---------- */
+function renderNoShowFlags(){
+  var wrap = document.getElementById("noShowFlags");
+  var counts = {};
+  (state.reservations||[]).forEach(function(r){
+    if (r.status !== NO_SHOW) return;
+    counts[r.phone] = (counts[r.phone]||0) + 1;
+  });
+  var flagged = Object.keys(counts).filter(function(p){ return counts[p] >= 2; });
+  if (!flagged.length){ wrap.innerHTML = '<div class="empty">現在、該当する電話番号はありません。</div>'; return; }
+  wrap.innerHTML = '<div class="flagList">' + flagged.map(function(p){
+    return '電話番号 ' + escapeHtml(p) + ' は過去に ' + counts[p] + ' 回来店なしです';
+  }).join("<br>") + '</div>';
+}
+</script>
+</body>
+</html>
