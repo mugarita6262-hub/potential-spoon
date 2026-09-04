@@ -704,7 +704,8 @@
       exams: [],
       examPrep: [],
       stickers: [],
-      comments: []
+      comments: [],
+      presentEventUsed: false
     };
   }
 
@@ -716,6 +717,7 @@
     if (!s.examPrep) s.examPrep = [];
     if (!s.comments) s.comments = [];
     if (!s.stickers) s.stickers = [];
+    if (typeof s.presentEventUsed !== "boolean") s.presentEventUsed = false;
     return s;
   }
 
@@ -858,6 +860,11 @@
   function drawSticker() {
     var roll = Math.random() * 100;
     var tier = roll < TIER_WEIGHT.super ? "super" : (roll < TIER_WEIGHT.super + TIER_WEIGHT.rare ? "rare" : "common");
+    var pool = STICKER_CATALOG.filter(function (s) { return s.tier === tier; });
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function drawStickerOfTier(tier) {
     var pool = STICKER_CATALOG.filter(function (s) { return s.tier === tier; });
     return pool[Math.floor(Math.random() * pool.length)];
   }
@@ -1044,7 +1051,7 @@
     // backdrop shouldn't be able to dismiss it early — that made it look like the pull
     // "cancelled" even though the sticker had already been saved. Only the plain
     // congratulations stage (before choosing to pull) stays tap-to-close.
-    if (stage === "shaking" || stage === "reveal") overlay.removeAttribute("data-action");
+    if (stage === "shaking" || stage === "reveal" || stage === "present-shaking" || stage === "present-reveal") overlay.removeAttribute("data-action");
     else overlay.setAttribute("data-action", "close-celebrate");
 
     if (stage === "celebrate") {
@@ -1088,6 +1095,32 @@
           startCelebrationFX(canvas);
         }
       }
+    } else if (stage === "present-shaking") {
+      modal.innerHTML =
+        '<p class="gacha-hint" style="margin-bottom:2px">プレゼント ' + (presentEventStep + 1) + ' / 3</p>' +
+        '<div class="gacha-capsule shaking"><div class="half top"></div><div class="half bottom"></div></div>' +
+        '<p class="gacha-hint">なにが出るかな…？</p>';
+    } else if (stage === "present-reveal") {
+      var pSticker = extra;
+      var isLast = presentEventStep === 2;
+      var actionsHtml = isLast
+        ? '<button class="celebrate-close" data-action="close-celebrate">とじる</button><button class="celebrate-close" data-action="goto-collection">コレクションを見る</button>'
+        : '<button class="celebrate-gacha-btn" data-action="present-next">つぎへ（' + (presentEventStep + 2) + '/3）</button>';
+      modal.innerHTML =
+        '<p class="gacha-hint" style="margin-bottom:2px;color:#fff">プレゼント ' + (presentEventStep + 1) + ' / 3</p>' +
+        '<div class="gacha-reveal tier-' + pSticker.tier + '">' +
+          '<div class="gacha-reveal-glow"></div>' +
+          '<img class="gacha-reveal-photo" src="img/sticker/' + pSticker.key + '.jpg" alt="' + escapeHtml(pSticker.name) + '">' +
+          '<p class="celebrate-title" style="font-size:24px">' + escapeHtml(pSticker.name) + '</p>' +
+          '<p class="gacha-reveal-tier tier-' + pSticker.tier + '">' + TIER_LABEL[pSticker.tier] + '</p>' +
+          actionsHtml +
+        '</div>';
+      if (pSticker.tier === "rare") {
+        flashScreen();
+      } else if (pSticker.tier === "super") {
+        flashScreen();
+        if (!prefersReducedMotion()) startCelebrationFX(document.getElementById("confettiCanvas"));
+      }
     }
   }
 
@@ -1106,6 +1139,35 @@
       celebrateOpen = true;
       document.getElementById("celebrateOverlay").hidden = false;
       renderCelebrateModal(dateStr, "reveal", sticker);
+    }, 900);
+  }
+
+  // "プレゼントイベント" — a one-time surprise unlocked by posting the magic phrase in
+  // お話し場所. Three gacha pulls in a row, with one of the three (a random position,
+  // so it's not always the last) guaranteed to be a super-rare sticker.
+  var PRESENT_EVENT_PHRASE = "とくべつだよ";
+  var presentEventStep = 0;
+  var presentEventForcedIndex = -1;
+
+  function startPresentEvent() {
+    if (state.presentEventUsed || celebrateOpen) return;
+    presentEventStep = 0;
+    presentEventForcedIndex = Math.floor(Math.random() * 3);
+    celebrateOpen = true;
+    document.getElementById("celebrateOverlay").hidden = false;
+    runPresentEventDraw();
+  }
+
+  function runPresentEventDraw() {
+    renderCelebrateModal(null, "present-shaking");
+    setTimeout(function () {
+      var sticker = presentEventStep === presentEventForcedIndex ? drawStickerOfTier("super") : drawSticker();
+      state.stickers.push({ id: uid(), key: sticker.key, date: todayISO() });
+      if (presentEventStep === 2) state.presentEventUsed = true;
+      saveState(state);
+      celebrateOpen = true;
+      document.getElementById("celebrateOverlay").hidden = false;
+      renderCelebrateModal(null, "present-reveal", sticker);
     }, 900);
   }
 
@@ -1902,6 +1964,7 @@
 
     if (action === "close-celebrate") { closeCelebration(); return; }
     if (action === "pull-gacha") { pullGacha(actionEl.getAttribute("data-date")); return; }
+    if (action === "present-next") { presentEventStep++; runPresentEventDraw(); return; }
     if (action === "goto-collection") { closeCelebration(); goto("collection"); return; }
 
   });
@@ -2088,6 +2151,9 @@
       try { localStorage.setItem(TALK_NAME_KEY, commenterName); } catch (e2) {}
       toast("書き込みました");
       render();
+      if (commentText === PRESENT_EVENT_PHRASE && !state.presentEventUsed) {
+        setTimeout(startPresentEvent, 400);
+      }
       return;
     }
   });
