@@ -240,6 +240,13 @@ var PICKED_UP = "picked_up";
 var NO_SHOW = "no_show";
 var CONFIRM_TIMEOUT_MS = 15 * 60 * 1000;
 
+/* PR(出品を一覧の先頭に固定表示する)機能の想定価格。Stage 0では実際の
+   課金は行わず、ボタンに金額を表示するだけ(店舗の反応を見るための
+   プレースホルダー)。実際の請求はStage 3で決済を導入したときに実装する。
+   金額の考え方: 今のディスカウント後価格帯(¥350〜900)だと、PRで1個
+   多く売れれば元が取れる水準として¥200/日を起点にしている。 */
+var PR_PRICE_PER_DAY = 200;
+
 function defaultState(){ return { stores: [], listings: [], reservations: [] }; }
 function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
@@ -537,7 +544,7 @@ function renderListingSection(){
             : '<button class="btn btnSmall btnPrimary" data-open="' + l.id + '">再開する</button>') +
           '<button class="btn btnSmall btnGhost" data-dup="' + l.id + '">📋 コピーして出品</button>' +
           '<button class="btn btnSmall btnPromo' + (l.promoted ? ' on' : '') + '" data-promo="' + l.id + '">' +
-            (l.promoted ? '★ PR中(やめる)' : '★ PRする') + '</button>' +
+            (l.promoted ? '★ PR中(やめる)' : '★ PRする(¥' + PR_PRICE_PER_DAY + '/日・課金は未実装)') + '</button>' +
         '</div>' +
       '</div>'
     );
