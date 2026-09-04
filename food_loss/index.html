@@ -49,6 +49,12 @@
     padding:14px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);
   }
   .card.soldout{opacity:.55;}
+  .card.promoted{border-color:#f4c430;box-shadow:0 0 0 1px #f4c430,0 2px 6px rgba(244,196,48,.25);}
+  .prBadge{
+    display:inline-block;font-size:11px;font-weight:800;color:#5c4600;
+    background:linear-gradient(135deg,#ffe9a8,#f4c430);border-radius:999px;
+    padding:2px 10px;margin-bottom:6px;
+  }
   .storeRow{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
   .storeTag{
     font-size:11px;background:var(--accent-soft);color:var(--accent-dark);
@@ -447,6 +453,9 @@ function renderListings(){
     }
     return true;
   }).sort(function(a,b){
+    // PRされている出品は絞り込み条件を満たす中で常に先頭 — 新しくPRした方が上
+    if (!!a.promoted !== !!b.promoted) return a.promoted ? -1 : 1;
+    if (a.promoted && b.promoted) return (b.promotedAt||"").localeCompare(a.promotedAt||"");
     if (myLocation){
       var da = storeDistance(storesById[a.storeId]);
       var db = storeDistance(storesById[b.storeId]);
@@ -472,7 +481,8 @@ function renderListings(){
     var impact = storeImpact(store.id);
     var dist = storeDistance(store);
     return (
-      '<div class="card' + (soldout ? ' soldout' : '') + '">' +
+      '<div class="card' + (soldout ? ' soldout' : '') + (l.promoted ? ' promoted' : '') + '">' +
+        (l.promoted ? '<div class="prBadge">📣 PR</div>' : '') +
         (l.photo ? '<img class="cardPhoto" src="' + l.photo + '" alt="">' : '') +
         '<div class="storeRow">' +
           '<span class="storeTag">' + escapeHtml(store.category || "店舗") + '</span>' +

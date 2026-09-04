@@ -71,6 +71,9 @@
   .badge{font-size:11px;border-radius:6px;padding:2px 7px;font-weight:700;}
   .badge.open{background:var(--accent-soft);color:var(--accent-dark);}
   .badge.closed{background:#eee;color:var(--muted);}
+  .badge.promoted{background:#fff3cd;color:#8a6d1a;}
+  .btnPromo{background:#ffe9a8;color:#8a6d1a;}
+  .btnPromo.on{background:#f4c430;color:#5c4600;}
   .resCard{border-left:4px solid var(--warn);}
   .resCard.resolved{border-left-color:var(--border);opacity:.85;}
   .resTop{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);}
@@ -522,7 +525,7 @@ function renderListingSection(){
         '<div class="top">' +
           (l.photo ? '<img src="' + l.photo + '" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex:none;">' : '') +
           '<div>' +
-            '<div class="title">' + escapeHtml(l.title) + '</div>' +
+            '<div class="title">' + escapeHtml(l.title) + (l.promoted ? ' <span class="badge promoted">PR中</span>' : '') + '</div>' +
             '<div class="meta">' + l.date + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' / ' +
               fmtPrice(l.originalPrice) + ' → ' + fmtPrice(l.discountPrice) + ' / 残り' + l.quantityLeft + '個</div>' +
           '</div>' +
@@ -533,6 +536,8 @@ function renderListingSection(){
             ? '<button class="btn btnSmall btnGhost" data-close="' + l.id + '">受付を止める</button>'
             : '<button class="btn btnSmall btnPrimary" data-open="' + l.id + '">再開する</button>') +
           '<button class="btn btnSmall btnGhost" data-dup="' + l.id + '">📋 コピーして出品</button>' +
+          '<button class="btn btnSmall btnPromo' + (l.promoted ? ' on' : '') + '" data-promo="' + l.id + '">' +
+            (l.promoted ? '★ PR中(やめる)' : '★ PRする') + '</button>' +
         '</div>' +
       '</div>'
     );
@@ -546,6 +551,22 @@ function renderListingSection(){
   listWrap.querySelectorAll("[data-dup]").forEach(function(btn){
     btn.addEventListener("click", function(){ duplicateListing(btn.getAttribute("data-dup")); });
   });
+  listWrap.querySelectorAll("[data-promo]").forEach(function(btn){
+    btn.addEventListener("click", function(){ togglePromoted(btn.getAttribute("data-promo")); });
+  });
+}
+
+/* 「PRする」— ユーザー側の一覧の先頭に固定表示させる一手。今は無料の
+   トグルだが、将来的には店舗が広告的にお金を払って使う機能に発展させる
+   ことも見込んでいる(Stage 3の収益化候補)。 */
+function togglePromoted(listingId){
+  withDoc(function(data){
+    var l = data.listings.find(function(x){ return x.id === listingId; });
+    if (!l) return { ok:false };
+    l.promoted = !l.promoted;
+    l.promotedAt = l.promoted ? new Date().toISOString() : null;
+    return { ok:true };
+  }).catch(function(e){ console.warn(e); });
 }
 
 /* ③ 出品コストをほぼゼロにする一手 — 「昨日と同じ内容」を丸ごとフォームに
