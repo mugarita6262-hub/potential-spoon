@@ -176,6 +176,10 @@
   .statusPill.bad{background:#fdeaea;color:var(--danger);}
   .voucher .hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5;}
   #myReservations{margin-top:8px;}
+  .historyToggle{
+    width:100%;background:none;border:1px dashed var(--border);border-radius:12px;
+    padding:10px;font-size:12px;color:var(--muted);margin-bottom:10px;
+  }
   .sectionTitle{font-size:14px;font-weight:700;margin:24px 0 10px;color:var(--accent-dark);}
   .impactLine{font-size:11px;color:var(--accent-dark);background:var(--accent-soft);
     border-radius:8px;padding:3px 8px;display:inline-block;margin-bottom:6px;}
@@ -680,6 +684,8 @@ function rememberReservation(id){
   localStorage.setItem("foodlossMyReservations", JSON.stringify(ids.slice(0,20)));
 }
 
+var showReservationHistory = false; // 受取済み等の履歴はボタンを押すまで畳んでおく
+
 function renderMyReservations(){
   var ids = myReservationIds();
   var wrap = document.getElementById("myReservationsWrap");
@@ -691,7 +697,14 @@ function renderMyReservations(){
   wrap.hidden = false;
   var listingsById = {};
   (state.listings||[]).forEach(function(l){ listingsById[l.id] = l; });
-  list.innerHTML = mine.map(function(r){
+
+  // 受取済み・拒否・未来店は「終わった予約」として履歴側にまとめ、常時表示
+  // されるのは今からお店に行く必要がある予約(確認中・確定)だけにする。
+  var RESOLVED_STATUSES = [PICKED_UP, REJECTED, NO_SHOW];
+  var active = mine.filter(function(r){ return RESOLVED_STATUSES.indexOf(r.status) === -1; });
+  var history = mine.filter(function(r){ return RESOLVED_STATUSES.indexOf(r.status) !== -1; });
+
+  function cardHtml(r){
     var l = listingsById[r.listingId] || {};
     var st = statusLabel(r.status);
     return (
@@ -702,7 +715,28 @@ function renderMyReservations(){
         '<span class="metaChip">数量 ' + r.quantity + '</span></div>' +
       '</div>'
     );
-  }).join("");
+  }
+
+  var html = active.map(cardHtml).join("");
+  if (!active.length && !history.length){
+    html = '<div class="empty">現在アクティブな予約はありません。</div>';
+  }
+  if (history.length){
+    html += '<button class="historyToggle" id="toggleHistoryBtn">' +
+      (showReservationHistory
+        ? '▲ 受取済みなどの履歴を閉じる'
+        : '▼ 受取済みなどの履歴を見る(' + history.length + '件)') +
+      '</button>';
+    if (showReservationHistory) html += history.map(cardHtml).join("");
+  }
+  list.innerHTML = html;
+  var toggleBtn = document.getElementById("toggleHistoryBtn");
+  if (toggleBtn){
+    toggleBtn.addEventListener("click", function(){
+      showReservationHistory = !showReservationHistory;
+      render();
+    });
+  }
 }
 
 function escapeHtml(s){

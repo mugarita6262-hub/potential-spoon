@@ -705,18 +705,38 @@ function renderPending(){
   });
 }
 
+/* 「対応済みの予約」がずっと画面に残り続ける問題への着地:
+   - 「確定済み・受け取り待ち」はまだ店舗の対応が必要なので、日付に関わらず常に表示
+   - 「受け取り済み/拒否/未来店」など完全に終わったものは、今日の分だけ常時表示し、
+     それより前の分は「過去の履歴を見る」ボタンの中に畳んでおく(=1日ごとに自然に
+     スッキリする、という運用にしている) */
+var showOlderResolved = false;
+
 function renderResolved(){
+  var todayStr = new Date().toISOString().slice(0,10);
   var resolved = (state.reservations||[]).filter(function(r){ return r.status !== PENDING; })
-    .sort(function(a,b){ return b.createdAt.localeCompare(a.createdAt); }).slice(0,30);
+    .sort(function(a,b){ return b.createdAt.localeCompare(a.createdAt); });
+
+  var CLOSED_STATUSES = [PICKED_UP, REJECTED, NO_SHOW];
+  var awaitingPickup = resolved.filter(function(r){ return CLOSED_STATUSES.indexOf(r.status) === -1; });
+  var closedToday = resolved.filter(function(r){
+    return CLOSED_STATUSES.indexOf(r.status) !== -1 && r.createdAt.slice(0,10) === todayStr;
+  });
+  var closedOlder = resolved.filter(function(r){
+    return CLOSED_STATUSES.indexOf(r.status) !== -1 && r.createdAt.slice(0,10) !== todayStr;
+  }).slice(0,30);
+  var visible = awaitingPickup.concat(closedToday)
+    .sort(function(a,b){ return b.createdAt.localeCompare(a.createdAt); });
+
   var wrap = document.getElementById("resolvedList");
-  if (!resolved.length){ wrap.innerHTML = '<div class="empty">まだありません。</div>'; return; }
   var labels = {};
   labels[CONFIRMED] = ["確定済み","open"];
   labels[AUTO_CONFIRMED] = ["自動確定","open"];
   labels[REJECTED] = ["拒否・返金済み","closed"];
   labels[PICKED_UP] = ["受け取り済み","open"];
   labels[NO_SHOW] = ["未来店","closed"];
-  wrap.innerHTML = resolved.map(function(r){
+
+  function cardHtml(r){
     var l = listingLookup(r.listingId) || {};
     var store = storeLookup(r.storeId) || {};
     var lab = labels[r.status] || [r.status,"closed"];
@@ -734,13 +754,32 @@ function renderResolved(){
           : '') +
       '</div>'
     );
-  }).join("");
+  }
+
+  var html = visible.length ? visible.map(cardHtml).join("") : '<div class="empty">本日はまだありません。</div>';
+  if (closedOlder.length){
+    html += '<button class="btn btnGhost" id="toggleOlderResolvedBtn" style="width:100%;margin-top:8px;">' +
+      (showOlderResolved
+        ? '▲ 過去の履歴を閉じる'
+        : '▼ 過去の履歴を見る(' + closedOlder.length + '件)') +
+      '</button>';
+    if (showOlderResolved) html += closedOlder.map(cardHtml).join("");
+  }
+  wrap.innerHTML = html;
+
   wrap.querySelectorAll("[data-pickedup]").forEach(function(btn){
     btn.addEventListener("click", function(){ setReservationStatus(btn.getAttribute("data-pickedup"), PICKED_UP); });
   });
   wrap.querySelectorAll("[data-noshow]").forEach(function(btn){
     btn.addEventListener("click", function(){ setReservationStatus(btn.getAttribute("data-noshow"), NO_SHOW); });
   });
+  var toggleBtn = document.getElementById("toggleOlderResolvedBtn");
+  if (toggleBtn){
+    toggleBtn.addEventListener("click", function(){
+      showOlderResolved = !showOlderResolved;
+      render();
+    });
+  }
 }
 
 function setReservationStatus(reservationId, status){
