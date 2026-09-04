@@ -39,7 +39,8 @@
     padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
     display:flex;align-items:center;justify-content:space-between;
   }
-  .topBar .brand{font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px;}
+  .topBar .brand{display:flex;align-items:center;}
+  .logoMark{width:30px;height:30px;color:#fff;}
   .topBar .avatar{
     width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.18);
     display:flex;align-items:center;justify-content:center;font-size:13px;
@@ -218,7 +219,16 @@
 <body>
 
 <div class="topBar">
-  <span class="brand">🌱 もったいないマーケット(仮)</span>
+  <span class="brand">
+    <!-- ロゴ:リングの中に、ハートの2つの膨らみを双葉(二葉)の葉に見立てて
+         一体化させたマーク。単色(currentColor)のみで構成。 -->
+    <svg class="logoMark" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="もったいないマーケット ロゴ">
+      <circle cx="32" cy="32" r="27" stroke="currentColor" stroke-width="3.2"/>
+      <path d="M32,45 A19,19 0 0,1 19,17 A19,19 0 0,0 32,45 Z" fill="currentColor"/>
+      <path d="M32,45 A19,19 0 0,0 45,17 A19,19 0 0,1 32,45 Z" fill="currentColor"/>
+      <line x1="32" y1="45" x2="32" y2="51" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  </span>
   <span class="avatar">👤</span>
 </div>
 <header class="hero">
