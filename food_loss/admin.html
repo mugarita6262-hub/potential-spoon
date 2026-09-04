@@ -91,6 +91,19 @@
   #gate{max-width:320px;margin:60px auto;text-align:center;}
   #gate input{margin-bottom:10px;}
   #gate .btn{width:100%;}
+  .sectionHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .sectionHead .sectionTitle{margin:0;}
+  .overlay{
+    position:fixed;inset:0;background:rgba(20,30,18,.5);
+    display:flex;align-items:flex-end;justify-content:center;z-index:50;
+  }
+  .overlay[hidden]{display:none;}
+  .sheet{
+    background:#fff;width:100%;max-width:640px;border-radius:20px 20px 0 0;
+    padding:20px 18px calc(20px + env(safe-area-inset-bottom));
+    max-height:88vh;overflow-y:auto;
+  }
+  .sheet h2{margin:0 0 14px;font-size:16px;}
 </style>
 </head>
 <body>
@@ -123,25 +136,11 @@
     </section>
 
     <section>
-      <div class="sectionTitle">お店</div>
-      <div id="storeChips"></div>
-      <div class="card">
-        <label>店舗名</label>
-        <input type="text" id="newStoreName" placeholder="例: パン工房 みどり">
-        <label>業態</label>
-        <input type="text" id="newStoreCategory" placeholder="例: ベーカリー / 居酒屋 / コンビニ">
-        <label>エリア(商店街・地域名)</label>
-        <input type="text" id="newStoreArea" placeholder="例: ○○商店街 / △△駅前">
-        <div class="formActions">
-          <button type="button" class="btn btnGhost" id="newStoreLocBtn">📍 現在地をお店の位置にする</button>
-        </div>
-        <div id="newStoreLocStatus" style="font-size:11px;color:var(--muted);margin-top:2px;">
-          位置未設定(ユーザー側の「距離で絞り込む」に使われます。お店にいる状態でボタンを押してください)
-        </div>
-        <div class="formActions">
-          <button class="btn btnPrimary" id="addStoreBtn">お店を追加</button>
-        </div>
+      <div class="sectionHead">
+        <div class="sectionTitle">お店</div>
+        <button class="btn btnPrimary btnSmall" id="openAddStoreBtn">＋ 店舗を追加</button>
       </div>
+      <div id="storeChips"></div>
       <div id="storeLocPanel"></div>
     </section>
 
@@ -205,6 +204,29 @@
       <div id="resolvedList"></div>
     </section>
   </main>
+</div>
+
+<!-- 店舗追加シート(常時表示だと場所を取るので、ボタンで開く形にしている) -->
+<div class="overlay" id="addStoreOverlay" hidden>
+  <div class="sheet">
+    <h2>店舗を追加</h2>
+    <label>店舗名</label>
+    <input type="text" id="newStoreName" placeholder="例: パン工房 みどり">
+    <label>業態</label>
+    <input type="text" id="newStoreCategory" placeholder="例: ベーカリー / 居酒屋 / コンビニ">
+    <label>エリア(商店街・地域名)</label>
+    <input type="text" id="newStoreArea" placeholder="例: ○○商店街 / △△駅前">
+    <div class="formActions">
+      <button type="button" class="btn btnGhost" id="newStoreLocBtn">📍 現在地をお店の位置にする</button>
+    </div>
+    <div id="newStoreLocStatus" style="font-size:11px;color:var(--muted);margin-top:2px;">
+      位置未設定(ユーザー側の「距離で絞り込む」に使われます。お店にいる状態でボタンを押してください)
+    </div>
+    <div class="formActions">
+      <button class="btn btnGhost" id="cancelAddStoreBtn">やめる</button>
+      <button class="btn btnPrimary" id="addStoreBtn">お店を追加</button>
+    </div>
+  </div>
 </div>
 
 <script type="module">
@@ -459,6 +481,10 @@ function requestGeolocation(onOk, onErr){
   }, { enableHighAccuracy:true, timeout:10000 });
 }
 
+var addStoreOverlay = document.getElementById("addStoreOverlay");
+document.getElementById("openAddStoreBtn").addEventListener("click", function(){ addStoreOverlay.hidden = false; });
+document.getElementById("cancelAddStoreBtn").addEventListener("click", function(){ addStoreOverlay.hidden = true; });
+
 document.getElementById("newStoreLocBtn").addEventListener("click", function(){
   var statusEl = document.getElementById("newStoreLocStatus");
   statusEl.textContent = "位置情報を取得中…";
@@ -487,6 +513,7 @@ document.getElementById("addStoreBtn").addEventListener("click", function(){
     document.getElementById("newStoreLocStatus").textContent =
       "位置未設定(ユーザー側の「距離で絞り込む」に使われます。お店にいる状態でボタンを押してください)";
     selectedStoreId = newStoreId;
+    addStoreOverlay.hidden = true;
   }).catch(function(e){ console.warn(e); });
 });
 

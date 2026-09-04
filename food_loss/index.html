@@ -66,7 +66,7 @@
     font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.4;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
-  .cardRow{display:flex;gap:10px;align-items:flex-start;}
+  .cardRow{display:flex;gap:10px;align-items:stretch;}
   .cardMain{flex:1;min-width:0;}
   .priceRow{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;}
   .orig{font-size:13px;color:var(--muted);text-decoration:line-through;}
@@ -151,9 +151,9 @@
   .sectionTitle{font-size:14px;font-weight:700;margin:24px 0 10px;color:var(--accent-dark);}
   .impactLine{font-size:11px;color:var(--accent-dark);background:var(--accent-soft);
     border-radius:8px;padding:3px 8px;display:inline-block;margin-bottom:6px;}
-  .cardPhoto{width:84px;height:84px;object-fit:cover;border-radius:10px;flex:none;}
+  .cardPhoto{width:110px;min-height:100%;object-fit:cover;border-radius:10px;flex:none;align-self:stretch;}
   .cardPhotoPlaceholder{
-    width:84px;height:84px;border-radius:10px;flex:none;
+    width:110px;border-radius:10px;flex:none;align-self:stretch;
     background:repeating-linear-gradient(135deg,#eef2ec,#eef2ec 8px,#e4e9e0 8px,#e4e9e0 16px);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     color:var(--muted);
