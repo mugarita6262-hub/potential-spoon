@@ -577,7 +577,12 @@ function renderListingSection(){
   var listWrap = document.getElementById("listingList");
   if (!listings.length){ listWrap.innerHTML = '<div class="empty">まだ出品がありません。</div>'; return; }
   listWrap.innerHTML = listings.map(function(l){
-    var open = l.open && l.quantityLeft > 0;
+    // 「手動で止めた(l.open)」と「在庫切れ(quantityLeft)」は別物。混ぜて
+    // 1つのバッジにすると、在庫切れの時に「再開する」を押しても見た目が
+    // 変わらず壊れて見えるので、それぞれ分けて表示する。
+    var soldOut = l.quantityLeft <= 0;
+    var open = l.open && !soldOut;
+    var badgeText = soldOut ? "売り切れ" : (open ? "受付中" : "停止中");
     return (
       '<div class="card listingCard">' +
         '<div class="top">' +
@@ -589,12 +594,14 @@ function renderListingSection(){
             '<div class="meta">' + l.date + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' / ' +
               fmtPrice(l.originalPrice) + ' → ' + fmtPrice(l.discountPrice) + ' / 残り' + l.quantityLeft + '個</div>' +
           '</div>' +
-          '<span class="badge ' + (open ? 'open' : 'closed') + '">' + (open ? '受付中' : '停止中') + '</span>' +
+          '<span class="badge ' + (open ? 'open' : 'closed') + '">' + badgeText + '</span>' +
         '</div>' +
         '<div class="formActions">' +
-          (l.open
-            ? '<button class="btn btnSmall btnGhost" data-close="' + l.id + '">受付を止める</button>'
-            : '<button class="btn btnSmall btnPrimary" data-open="' + l.id + '">再開する</button>') +
+          (soldOut
+            ? '<span style="font-size:11px;color:var(--muted);align-self:center;">在庫切れです。「コピーして出品」から新しく出品してください</span>'
+            : (l.open
+              ? '<button class="btn btnSmall btnGhost" data-close="' + l.id + '">受付を止める</button>'
+              : '<button class="btn btnSmall btnPrimary" data-open="' + l.id + '">再開する</button>')) +
           '<button class="btn btnSmall btnGhost" data-dup="' + l.id + '">📋 コピーして出品</button>' +
           '<button class="btn btnSmall btnPromo' + (l.promoted ? ' on' : '') + '" data-promo="' + l.id + '">' +
             (l.promoted ? '★ PR中(やめる)' : '★ PRする(¥' + PR_PRICE_PER_DAY + '/日・課金は未実装)') + '</button>' +
