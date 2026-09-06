@@ -104,6 +104,22 @@
     max-height:88vh;overflow-y:auto;
   }
   .sheet h2{margin:0 0 14px;font-size:16px;}
+  /* 操作後に「保存できたか不安」にならないよう、軽く出して消えるトースト通知 */
+  .toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(0);
+    background:var(--accent-dark);color:#fff;font-size:13px;font-weight:700;
+    padding:10px 18px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.2);
+    z-index:100;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+  /* ファイル入力は標準のまま使いつつ、見た目だけ大きいカメラボタンに */
+  .photoPickBtn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    width:100%;padding:14px;border:2px dashed var(--border);border-radius:12px;
+    background:var(--accent-soft);color:var(--accent-dark);font-size:14px;font-weight:700;
+    cursor:pointer;
+  }
+  #lPhotoInput{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;}
 </style>
 </head>
 <body>
@@ -125,34 +141,22 @@
   </header>
 
   <main>
+    <!-- 一番よく使う2つ(要対応の予約・出品)を上に。出品セクションには
+         店舗選択もまとめて統合し、セクション数自体を減らしている。 -->
     <section>
       <div class="sectionTitle">要対応の予約 <span class="count" id="pendingCount">0</span></div>
       <div id="pendingList"></div>
     </section>
 
     <section>
-      <div class="sectionTitle">⚠ ノーショー要注意</div>
-      <div id="noShowFlags"></div>
-    </section>
-
-    <section>
       <div class="sectionHead">
-        <div class="sectionTitle">お店</div>
-        <button class="btn btnPrimary btnSmall" id="openAddStoreBtn">＋ 店舗を追加</button>
+        <div class="sectionTitle" id="listingSectionTitle">出品</div>
+        <button class="btn btnGhost btnSmall" id="openAddStoreBtn">＋ 店舗を追加</button>
       </div>
       <div id="storeChips"></div>
       <div id="storeLocPanel"></div>
-    </section>
-
-    <section>
-      <div class="sectionTitle">🌱 ロス削減実績</div>
-      <div id="impactList"></div>
-    </section>
-
-    <section id="listingSection" hidden>
-      <div class="sectionHead">
-        <div class="sectionTitle" id="listingSectionTitle">出品</div>
-        <button class="btn btnPrimary btnBig" id="openAddListingBtn">＋ 出品する</button>
+      <div id="listingActionRow" hidden style="margin-bottom:10px;">
+        <button class="btn btnPrimary btnBig" id="openAddListingBtn" style="width:100%;">＋ 出品する</button>
       </div>
       <div id="listingList"></div>
     </section>
@@ -160,6 +164,16 @@
     <section>
       <div class="sectionTitle">対応済みの予約</div>
       <div id="resolvedList"></div>
+    </section>
+
+    <section>
+      <div class="sectionTitle">🌱 ロス削減実績</div>
+      <div id="impactList"></div>
+    </section>
+
+    <section>
+      <div class="sectionTitle">⚠ ノーショー要注意</div>
+      <div id="noShowFlags"></div>
     </section>
   </main>
 </div>
@@ -195,6 +209,7 @@
     <label>商品名</label>
     <input type="text" id="lTitle" placeholder="例: 本日の余ったパン詰め合わせ">
     <label>写真(任意・その場で撮影できます)</label>
+    <label class="photoPickBtn" for="lPhotoInput">📷 写真を撮る / 選ぶ</label>
     <input type="file" id="lPhotoInput" accept="image/*" capture="environment">
     <div id="lPhotoPreviewWrap" hidden style="margin-top:8px;">
       <img id="lPhotoPreview" style="width:100%;max-width:220px;border-radius:10px;display:block;">
@@ -238,6 +253,8 @@
     </div>
   </div>
 </div>
+
+<div class="toast" id="toastEl"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
@@ -435,6 +452,16 @@ function escapeHtml(s){
   });
 }
 
+/* 操作した直後に「保存できたか」不安にならないよう、軽いトースト通知を出す。 */
+var toastTimer = null;
+function showToast(msg){
+  var el = document.getElementById("toastEl");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 2200);
+}
+
 function render(){
   renderStoreChips();
   renderStoreLocPanel();
@@ -553,6 +580,7 @@ document.getElementById("addStoreBtn").addEventListener("click", function(){
       "位置未設定(ユーザー側の「距離で絞り込む」に使われます。お店にいる状態でボタンを押してください)";
     selectedStoreId = newStoreId;
     addStoreOverlay.hidden = true;
+    showToast("✅ 店舗を追加しました");
   }).catch(function(e){ console.warn(e); });
 });
 
@@ -585,15 +613,20 @@ function renderStoreLocPanel(){
 }
 
 function renderListingSection(){
-  var section = document.getElementById("listingSection");
-  if (!selectedStoreId){ section.hidden = true; return; }
-  section.hidden = false;
+  var actionRow = document.getElementById("listingActionRow");
+  var listWrap = document.getElementById("listingList");
+  if (!selectedStoreId){
+    actionRow.hidden = true;
+    listWrap.innerHTML = "";
+    document.getElementById("listingSectionTitle").textContent = "出品";
+    return;
+  }
+  actionRow.hidden = false;
   var store = state.stores.find(function(s){ return s.id === selectedStoreId; });
   document.getElementById("listingSectionTitle").textContent = "出品(" + (store ? store.name : "") + ")";
 
   var listings = state.listings.filter(function(l){ return l.storeId === selectedStoreId; })
     .sort(function(a,b){ return (b.date+b.pickupStart).localeCompare(a.date+a.pickupStart); });
-  var listWrap = document.getElementById("listingList");
   if (!listings.length){ listWrap.innerHTML = '<div class="empty">まだ出品がありません。</div>'; return; }
   listWrap.innerHTML = listings.map(function(l){
     // 「手動で止めた(l.open)」と「在庫切れ(quantityLeft)」は別物。混ぜて
@@ -791,6 +824,7 @@ document.getElementById("addListingBtn").addEventListener("click", function(){
   }).then(function(){
     setPhotoDraft(null);
     addListingOverlay.hidden = true;
+    showToast("✅ 出品しました");
   }).catch(function(e){ console.warn(e); });
 });
 
@@ -821,12 +855,16 @@ function renderPending(){
     );
   }).join("");
   wrap.querySelectorAll("[data-confirm]").forEach(function(btn){
-    btn.addEventListener("click", function(){ setReservationStatus(btn.getAttribute("data-confirm"), CONFIRMED); });
+    btn.addEventListener("click", function(){
+      setReservationStatus(btn.getAttribute("data-confirm"), CONFIRMED);
+      showToast("✅ 予約を確定しました");
+    });
   });
   wrap.querySelectorAll("[data-reject]").forEach(function(btn){
     btn.addEventListener("click", function(){
       if (!confirm("この予約を拒否して返金しますか?この操作は取り消せません。")) return;
       rejectReservation(btn.getAttribute("data-reject"));
+      showToast("予約を拒否しました(返金・在庫を戻しました)");
     });
   });
 }
@@ -894,12 +932,16 @@ function renderResolved(){
   wrap.innerHTML = html;
 
   wrap.querySelectorAll("[data-pickedup]").forEach(function(btn){
-    btn.addEventListener("click", function(){ setReservationStatus(btn.getAttribute("data-pickedup"), PICKED_UP); });
+    btn.addEventListener("click", function(){
+      setReservationStatus(btn.getAttribute("data-pickedup"), PICKED_UP);
+      showToast("✅ 受け取り済みにしました");
+    });
   });
   wrap.querySelectorAll("[data-noshow]").forEach(function(btn){
     btn.addEventListener("click", function(){
       if (!confirm("来店なしとして記録しますか?")) return;
       setReservationStatus(btn.getAttribute("data-noshow"), NO_SHOW);
+      showToast("来店なしとして記録しました");
     });
   });
   var toggleBtn = document.getElementById("toggleOlderResolvedBtn");

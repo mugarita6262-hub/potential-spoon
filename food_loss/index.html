@@ -195,8 +195,16 @@
   /* ---------- 絞り込みパネル ---------- */
   .filterBar{
     background:var(--card);border:1px solid var(--border);border-radius:16px;
-    padding:14px 14px 12px;margin-bottom:16px;
+    padding:4px 14px;margin-bottom:16px;
   }
+  .filterBar.expanded{padding:14px 14px 12px;}
+  .filterSummary{
+    width:100%;background:none;border:none;padding:12px 0;
+    display:flex;align-items:center;justify-content:space-between;
+    font-size:13px;font-weight:700;color:var(--accent-dark);
+  }
+  .filterChev{transition:transform .2s;color:var(--muted);}
+  .filterChev.open{transform:rotate(180deg);}
   .filterGroup{margin-bottom:12px;}
   .filterGroup:last-child{margin-bottom:0;}
   .filterLabel{
@@ -252,19 +260,25 @@
 
   <div class="sectionTitle">出品中のお店</div>
   <div class="filterBar">
-    <div class="filterGroup">
-      <div class="filterLabel">📍 エリア</div>
-      <div class="chipStrip" id="areaChips"></div>
+    <button class="filterSummary" id="filterToggleBtn">
+      <span id="filterSummaryText">🔍 絞り込み・並び替え</span>
+      <span class="filterChev" id="filterChev">▾</span>
+    </button>
+    <div id="filterPanelBody" hidden>
+      <div class="filterGroup">
+        <div class="filterLabel">📍 エリア</div>
+        <div class="chipStrip" id="areaChips"></div>
+      </div>
+      <div class="filterGroup">
+        <div class="filterLabel">📏 距離</div>
+        <div class="chipStrip" id="radiusChips"></div>
+      </div>
+      <div class="filterGroup">
+        <div class="filterLabel">↕️ 並び替え</div>
+        <select class="sortSelect" id="sortSelect"></select>
+      </div>
+      <div class="geoStatus" id="geoStatus"></div>
     </div>
-    <div class="filterGroup">
-      <div class="filterLabel">📏 距離</div>
-      <div class="chipStrip" id="radiusChips"></div>
-    </div>
-    <div class="filterGroup">
-      <div class="filterLabel">↕️ 並び替え</div>
-      <select class="sortSelect" id="sortSelect"></select>
-    </div>
-    <div class="geoStatus" id="geoStatus"></div>
   </div>
   <div id="listings"></div>
 </main>
@@ -581,10 +595,35 @@ function renderRadiusChips(){
   });
 }
 
+/* 絞り込みパネルは初見の人が実際の出品にたどり着くまでを短くするため、
+   デフォルトは畳んでおき、現在の設定を要約した1行だけ常時見せる。 */
+var filterPanelOpen = false;
+document.getElementById("filterToggleBtn").addEventListener("click", function(){
+  filterPanelOpen = !filterPanelOpen;
+  document.getElementById("filterPanelBody").hidden = !filterPanelOpen;
+  document.getElementById("filterChev").classList.toggle("open", filterPanelOpen);
+  document.querySelector(".filterBar").classList.toggle("expanded", filterPanelOpen);
+  updateFilterSummary();
+});
+
+function updateFilterSummary(){
+  if (filterPanelOpen){
+    document.getElementById("filterSummaryText").textContent = "🔍 絞り込み・並び替え";
+    return;
+  }
+  var parts = [];
+  if (selectedArea) parts.push(selectedArea);
+  if (selectedRadius) parts.push("周辺" + fmtDistance(selectedRadius));
+  var sortOpt = SORT_OPTIONS.find(function(o){ return o.id === sortMode; });
+  if (sortOpt && sortMode !== "recommended") parts.push(sortOpt.label);
+  document.getElementById("filterSummaryText").textContent = parts.length ? "🔍 " + parts.join(" ・ ") : "🔍 絞り込み・並び替え";
+}
+
 function renderListings(){
   renderAreaChips();
   renderRadiusChips();
   renderSortChips();
+  updateFilterSummary();
   var wrap = document.getElementById("listings");
   var storesById = {};
   (state.stores||[]).forEach(function(s){ storesById[s.id] = s; });
