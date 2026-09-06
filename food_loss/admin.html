@@ -648,7 +648,7 @@ function prLabel(l){
   if (l.promoted){
     var elapsedMin = l.promotedAt ? Math.floor((Date.now() - new Date(l.promotedAt).getTime()) / 60000) : 99;
     if (!chargedToday && elapsedMin < 5){
-      return '★ PR中(あと' + (5 - elapsedMin) + '分以内なら無料で取り消せます)';
+      return '★ PR中(あと' + (5 - elapsedMin) + '分以内なら無料で取り消せます・1日1回まで)';
     }
     return '★ PR中(本日分¥' + PR_PRICE_PER_DAY + '確定・やめる)';
   }
@@ -657,25 +657,43 @@ function prLabel(l){
     : '★ PRする(¥' + PR_PRICE_PER_DAY + '/日・課金は未実装)';
 }
 
-/* 「PRする」— ユーザー側の一覧の先頭に固定表示させる一手。上の課金ルール
-   コメント通り、OFFにする瞬間に「5分過ぎているか」を見て、過ぎていれば
-   その日を promotedChargeDates に確定させる。 */
+/* 「PRする」— ユーザー側の一覧の先頭に固定表示させる一手。
+   課金ルール:
+   - OFFにする瞬間に「5分過ぎているか」を見て、過ぎていればその日を
+     promotedChargeDates に確定させる。
+   - 5分以内の無料取消(誤操作救済)は1日1回まで。使い切ったら
+     promotedFreeUndoUsedDates にその日を記録し、次に同じ日にONにしても
+     猶予なしで即座にその日の分を確定させる(ON→OFFの無限リピートで
+     ずっと無料表示され続けるのを防ぐため)。 */
 function togglePromoted(listingId){
   withDoc(function(data){
     var l = data.listings.find(function(x){ return x.id === listingId; });
     if (!l) return { ok:false };
     if (!l.promotedChargeDates) l.promotedChargeDates = [];
+    if (!l.promotedFreeUndoUsedDates) l.promotedFreeUndoUsedDates = [];
+    var today = todayStr();
     if (l.promoted){
       var elapsed = l.promotedAt ? (Date.now() - new Date(l.promotedAt).getTime()) : Infinity;
-      var today = todayStr();
-      if (elapsed >= PR_GRACE_MS && l.promotedChargeDates.indexOf(today) === -1){
+      var alreadyCharged = l.promotedChargeDates.indexOf(today) !== -1;
+      if (!alreadyCharged && elapsed >= PR_GRACE_MS){
         l.promotedChargeDates.push(today); // 5分超過後のOFF → その日の分を確定
+      } else if (!alreadyCharged){
+        // 5分以内の無料取消 = その日の無料取消を使い切る
+        if (l.promotedFreeUndoUsedDates.indexOf(today) === -1) l.promotedFreeUndoUsedDates.push(today);
       }
       l.promoted = false;
       l.promotedAt = null;
     } else {
       l.promoted = true;
-      l.promotedAt = new Date().toISOString();
+      var freeUndoUsed = l.promotedFreeUndoUsedDates.indexOf(today) !== -1;
+      var chargedToday = l.promotedChargeDates.indexOf(today) !== -1;
+      if (freeUndoUsed && !chargedToday){
+        // 今日はもう無料取消を使い切っているので、猶予なしで即確定
+        l.promotedChargeDates.push(today);
+        l.promotedAt = new Date().toISOString();
+      } else {
+        l.promotedAt = new Date().toISOString();
+      }
     }
     return { ok:true };
   }).catch(function(e){ console.warn(e); });
