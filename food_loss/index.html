@@ -45,7 +45,7 @@
   .logoMark{width:30px;height:30px;color:var(--accent-dark);}
   .topBar .avatar{
     width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-dark);
-    display:flex;align-items:center;justify-content:center;font-size:13px;
+    display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;font-weight:700;
   }
   /* バナー枠 — 実際のバナー画像が入るまでのダミー(濃いグレー)。ネイティブの
      バナーカルーセルらしく、ナビゲーションバーの下に角丸なしで全幅に置く */
@@ -234,7 +234,7 @@
       <line x1="32" y1="46" x2="32" y2="52" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
     </svg>
   </span>
-  <span class="avatar">👤</span>
+  <span class="avatar" id="topBarAvatar">👤</span>
 </div>
 <header class="hero">
   <div class="heroContent">
@@ -282,11 +282,21 @@
       <button type="button" id="qtyPlus">＋</button>
     </div>
 
-    <label>お名前</label>
-    <input type="text" id="rsName" placeholder="山田 花子">
+    <div id="rsMemberSummary" hidden style="font-size:12px;background:var(--accent-soft);color:var(--accent-dark);border-radius:10px;padding:8px 10px;margin-top:12px;display:flex;justify-content:space-between;align-items:center;">
+      <span id="rsMemberSummaryText"></span>
+      <button type="button" id="rsMemberChange" style="background:none;border:none;text-decoration:underline;color:inherit;font-size:12px;padding:0;">変える</button>
+    </div>
+    <div id="rsPersonalInfo">
+      <label>お名前</label>
+      <input type="text" id="rsName" placeholder="山田 花子">
 
-    <label>電話番号(連絡・引き取り確認用)</label>
-    <input type="tel" id="rsPhone" placeholder="09012345678">
+      <label>電話番号(連絡・引き取り確認用)</label>
+      <input type="tel" id="rsPhone" placeholder="09012345678">
+
+      <button type="button" id="rsRegisterHint" style="background:none;border:none;text-decoration:underline;color:var(--accent-dark);font-size:12px;padding:6px 0 0;">
+        🎫 会員登録すると次回から自動入力にできます
+      </button>
+    </div>
 
     <div class="totalRow">
       <span class="label">お支払い金額</span>
@@ -329,6 +339,13 @@
       <button class="btnGhost" id="voucherClose" style="flex:none;width:100%;">閉じる</button>
     </div>
   </div>
+</div>
+
+<!-- 会員登録/マイページシート。本物のSMSは送らず、確認コードを画面に
+     表示する疑似認証(ダミー決済と同じ考え方)。将来Firebase Phone Auth に
+     置き換える前提の、見た目・流れだけ先に作った版。 -->
+<div class="overlay" id="memberOverlay" hidden>
+  <div class="sheet" id="memberSheet"></div>
 </div>
 
 <script type="module">
@@ -760,15 +777,44 @@ function openReserveSheet(listingId){
   document.getElementById("rsTitle").textContent = currentListing.title;
   document.getElementById("rsSub").textContent =
     fmtDate(currentListing.date) + " " + currentListing.pickupStart + "〜" + currentListing.pickupEnd + " 引き取り";
-  document.getElementById("rsName").value = "";
-  document.getElementById("rsPhone").value = "";
-  document.getElementById("rsCard").value = "";
-  document.getElementById("rsExp").value = "";
-  document.getElementById("rsCvc").value = "";
   document.getElementById("rsErr").textContent = "";
+
+  // 会員登録済みなら名前・電話番号は自動入力してフォームを隠し、決済欄も
+  // ダミーの固定値で埋めて「数クリックで予約できる」状態にする。
+  var member = getMember();
+  var personalInfo = document.getElementById("rsPersonalInfo");
+  var memberSummary = document.getElementById("rsMemberSummary");
+  if (member){
+    document.getElementById("rsName").value = member.name;
+    document.getElementById("rsPhone").value = member.phone;
+    document.getElementById("rsCard").value = "4242 4242 4242 4242";
+    document.getElementById("rsExp").value = "12/34";
+    document.getElementById("rsCvc").value = "123";
+    personalInfo.hidden = true;
+    memberSummary.hidden = false;
+    document.getElementById("rsMemberSummaryText").textContent = "🎫 " + member.name + " 様 (" + member.phone + ") として予約";
+  } else {
+    document.getElementById("rsName").value = "";
+    document.getElementById("rsPhone").value = "";
+    document.getElementById("rsCard").value = "";
+    document.getElementById("rsExp").value = "";
+    document.getElementById("rsCvc").value = "";
+    personalInfo.hidden = false;
+    memberSummary.hidden = true;
+  }
   updateQtyUI();
   reserveOverlay.hidden = false;
 }
+document.getElementById("rsMemberChange").addEventListener("click", function(){
+  document.getElementById("rsPersonalInfo").hidden = false;
+  document.getElementById("rsMemberSummary").hidden = true;
+});
+document.getElementById("rsRegisterHint").addEventListener("click", function(){
+  reserveOverlay.hidden = true;
+  memberStep = "form";
+  renderMemberSheet();
+  memberOverlay.hidden = false;
+});
 
 function updateQtyUI(){
   var max = Math.max(currentListing ? currentListing.quantityLeft : 1, 1);
@@ -876,6 +922,125 @@ function renderVoucher(reservationId){
           ? "大変申し訳ございません。今回はご用意できませんでした。お支払いは自動的に返金されます(テスト決済のため実際の返金処理はありません)。"
           : "このコードを引き取り時にお店へ提示してください。" + (l.pickupStart ? "引き取り時間: " + fmtDate(l.date) + " " + l.pickupStart + "〜" + l.pickupEnd : ""))) +
     '</div>';
+}
+
+/* ---------- 会員登録(疑似SMS認証) ----------
+   本物のFirebase Phone AuthはBlazeプラン+SMS従量課金が必要になるため、
+   今は「確認コードを画面に表示して自分で入力する」疑似認証にとどめている
+   (ダミー決済と同じ考え方の"見た目だけ先に作る"アプローチ)。将来、実際の
+   SMS送信に置き換える前提の暫定実装。 */
+var memberOverlay = document.getElementById("memberOverlay");
+var memberSheetEl = document.getElementById("memberSheet");
+var memberStep = "form"; // "form" | "verify"
+var memberDraft = null;
+var memberFakeCode = null;
+
+function getMember(){
+  try { return JSON.parse(localStorage.getItem("foodlossMember") || "null"); }
+  catch(e){ return null; }
+}
+function saveMember(m){ localStorage.setItem("foodlossMember", JSON.stringify(m)); }
+function clearMember(){ localStorage.removeItem("foodlossMember"); }
+
+document.getElementById("topBarAvatar").addEventListener("click", function(){
+  memberStep = "form";
+  renderMemberSheet();
+  memberOverlay.hidden = false;
+});
+
+function renderMemberSheet(){
+  var member = getMember();
+  var html = "";
+
+  if (member){
+    html =
+      '<h2>マイページ</h2>' +
+      '<div class="card" style="margin-top:4px;">' +
+        '<div style="font-size:13px;color:var(--muted);">お名前</div><div style="font-weight:700;margin-bottom:8px;">' + escapeHtml(member.name) + '</div>' +
+        '<div style="font-size:13px;color:var(--muted);">電話番号</div><div style="font-weight:700;margin-bottom:8px;">' + escapeHtml(member.phone) + '</div>' +
+        '<div style="font-size:13px;color:var(--muted);">メールアドレス</div><div style="font-weight:700;">' + escapeHtml(member.email || "(未登録)") + '</div>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:8px;">✅ 電話番号認証済み(疑似)。次回からの予約はこの情報が自動で使われます。</div>' +
+      '<div class="actions"><button class="btnGhost" id="memberLogoutBtn" style="flex:none;width:100%;">ログアウト</button></div>' +
+      '<div class="actions"><button class="btnGhost" id="memberCloseBtn" style="flex:none;width:100%;">閉じる</button></div>';
+  } else if (memberStep === "verify"){
+    html =
+      '<h2>電話番号を確認</h2>' +
+      '<p class="sub">🧪 検証用のため、実際のSMSは送信していません。下に表示している確認コードをそのまま入力してください。</p>' +
+      '<div style="text-align:center;background:var(--accent-soft);border-radius:12px;padding:14px;margin:10px 0;">' +
+        '<div style="font-size:11px;color:var(--muted);">テスト用確認コード</div>' +
+        '<div style="font-size:28px;font-weight:800;letter-spacing:4px;color:var(--accent-dark);">' + memberFakeCode + '</div>' +
+      '</div>' +
+      '<label>確認コード(6桁)</label>' +
+      '<input type="text" id="memberCodeInput" inputmode="numeric" placeholder="' + memberFakeCode + '">' +
+      '<div class="err" id="memberErr"></div>' +
+      '<div class="actions">' +
+        '<button class="btnGhost" id="memberBackBtn">戻る</button>' +
+        '<button class="btnPrimary" id="memberVerifyBtn">認証する</button>' +
+      '</div>';
+  } else {
+    html =
+      '<h2>会員登録</h2>' +
+      '<p class="sub">登録しておくと、次回からの予約で名前・電話番号の入力が不要になります。</p>' +
+      '<label>お名前</label>' +
+      '<input type="text" id="memberName" placeholder="山田 花子" value="' + (memberDraft ? escapeHtml(memberDraft.name) : "") + '">' +
+      '<label>電話番号</label>' +
+      '<input type="tel" id="memberPhone" placeholder="09012345678" value="' + (memberDraft ? escapeHtml(memberDraft.phone) : "") + '">' +
+      '<label>メールアドレス</label>' +
+      '<input type="text" id="memberEmail" placeholder="example@mail.com" value="' + (memberDraft ? escapeHtml(memberDraft.email) : "") + '">' +
+      '<div class="err" id="memberErr"></div>' +
+      '<div class="actions">' +
+        '<button class="btnGhost" id="memberCloseBtn2" style="flex:none;">やめる</button>' +
+        '<button class="btnPrimary" id="memberSendCodeBtn">📱 確認コードを送る</button>' +
+      '</div>';
+  }
+
+  memberSheetEl.innerHTML = html;
+  wireMemberSheetEvents();
+}
+
+function wireMemberSheetEvents(){
+  var closeBtn = document.getElementById("memberCloseBtn");
+  if (closeBtn) closeBtn.addEventListener("click", function(){ memberOverlay.hidden = true; });
+  var closeBtn2 = document.getElementById("memberCloseBtn2");
+  if (closeBtn2) closeBtn2.addEventListener("click", function(){ memberOverlay.hidden = true; });
+
+  var logoutBtn = document.getElementById("memberLogoutBtn");
+  if (logoutBtn) logoutBtn.addEventListener("click", function(){
+    if (!confirm("ログアウトしますか?次回の予約でまた名前・電話番号の入力が必要になります。")) return;
+    clearMember();
+    renderMemberSheet();
+  });
+
+  var sendBtn = document.getElementById("memberSendCodeBtn");
+  if (sendBtn) sendBtn.addEventListener("click", function(){
+    var name = document.getElementById("memberName").value.trim();
+    var phone = document.getElementById("memberPhone").value.trim().replace(/[^0-9]/g,"");
+    var email = document.getElementById("memberEmail").value.trim();
+    var errEl = document.getElementById("memberErr");
+    if (!name){ errEl.textContent = "お名前を入力してください。"; return; }
+    if (phone.length < 10){ errEl.textContent = "電話番号を正しく入力してください。"; return; }
+    if (!email || email.indexOf("@") === -1){ errEl.textContent = "メールアドレスを正しく入力してください。"; return; }
+    memberDraft = { name:name, phone:phone, email:email };
+    memberFakeCode = String(Math.floor(100000 + Math.random()*900000));
+    memberStep = "verify";
+    renderMemberSheet();
+  });
+
+  var backBtn = document.getElementById("memberBackBtn");
+  if (backBtn) backBtn.addEventListener("click", function(){ memberStep = "form"; renderMemberSheet(); });
+
+  var verifyBtn = document.getElementById("memberVerifyBtn");
+  if (verifyBtn) verifyBtn.addEventListener("click", function(){
+    var input = document.getElementById("memberCodeInput").value.trim();
+    var errEl = document.getElementById("memberErr");
+    if (input !== memberFakeCode){ errEl.textContent = "確認コードが違います。"; return; }
+    saveMember({ name: memberDraft.name, phone: memberDraft.phone, email: memberDraft.email, verifiedAt: new Date().toISOString() });
+    memberDraft = null;
+    memberFakeCode = null;
+    memberStep = "form";
+    renderMemberSheet();
+  });
 }
 </script>
 </body>
