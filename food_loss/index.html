@@ -190,6 +190,8 @@
   .myResCard{cursor:pointer;}
   .myResCard:active{background:var(--accent-soft);}
   .viewVoucherHint{font-size:11px;color:var(--accent-dark);font-weight:700;margin-top:8px;}
+  .pickupReminder{font-size:12px;color:var(--accent-dark);font-weight:700;margin-top:8px;}
+  .pickupReminder.urgent{color:var(--danger);}
   .historyToggle{
     width:100%;background:none;border:1px dashed var(--border);border-radius:12px;
     padding:10px;font-size:12px;color:var(--muted);margin-bottom:10px;
@@ -967,6 +969,15 @@ function renderMyReservations(){
     var l = listingsById[r.listingId] || {};
     var st = statusLabel(r.status);
     var canView = VOUCHER_VIEWABLE.indexOf(r.status) !== -1;
+    var reminder = "";
+    if (canView && l.date){
+      var minsLeft = Math.round((pickupEndDate(l).getTime() - Date.now()) / 60000);
+      var urgent = minsLeft <= URGENT_THRESHOLD_MIN;
+      reminder = '<div class="pickupReminder' + (urgent ? ' urgent' : '') + '">⏰ ' +
+        fmtDate(l.date) + ' ' + l.pickupEnd + ' までにお店に引き取りに行きましょう' +
+        (urgent ? '(あと' + fmtCountdown(minsLeft) + ')' : '') +
+        '</div>';
+    }
     return (
       '<div class="card' + (canView ? ' myResCard' : '') + '"' + (canView ? ' data-viewvoucher="' + r.id + '"' : '') + '>' +
         '<span class="statusPill ' + st.cls + '">' + st.text + '</span>' +
@@ -976,6 +987,7 @@ function renderMyReservations(){
           '<span class="metaChip">予約コード ' + r.id.toUpperCase() + '</span>' +
           '<span class="metaChip">数量 ' + r.quantity + '</span>' +
         '</div>' +
+        reminder +
         (canView ? '<div class="viewVoucherHint">🎫 タップして引き取り用のコードを表示</div>' : '') +
       '</div>'
     );
