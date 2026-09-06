@@ -11,6 +11,11 @@
      ピン地図で視覚的に探せる体験に強化するため。 -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- フォント: 見出し=M PLUS Rounded 1c(親しみやすく・少し丸みのある太字で
+     ブランドらしさを)、本文=Noto Sans JP(可読性重視の定番)。 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
     /* アースカラー(オリーブ+テラコッタ+サンドベージュ)— 地球にやさしいフードロスをイメージした配色 */
@@ -29,10 +34,14 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
+  .icon{width:1em;height:1em;display:inline-block;vertical-align:-0.15em;flex:none;}
+  h1,h2,.sectionTitle,.brand,.hero p,.filterSummary,.mapToggleBtn,.reserveBtn,.reviewBtn,.directionsBtn,.historyToggle,.impactCheer,.pickupReminder,.personalImpactCard .num,.appleSigninBtn{
+    font-family:"M PLUS Rounded 1c","Noto Sans JP",sans-serif;
+  }
   body{
     background:var(--bg);
     color:var(--text);
-    font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+    font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
     padding-bottom:40px;
   }
   /* ネイティブアプリの薄いナビゲーションバーを想定(将来ネイティブ化したとき
@@ -302,13 +311,13 @@
     </svg>
   </span>
   <div style="display:flex;align-items:center;gap:10px;">
-    <span class="notifBell" id="notifBellBtn">🔔<span class="notifBadge" id="notifBadge" hidden></span></span>
-    <span class="avatar" id="topBarAvatar">👤</span>
+    <span class="notifBell" id="notifBellBtn"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><span class="notifBadge" id="notifBadge" hidden></span></span>
+    <span class="avatar" id="topBarAvatar"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.925 20.056a6 6 0 0 0-11.851.001"/><circle cx="12" cy="11" r="4"/><circle cx="12" cy="12" r="10"/></svg></span>
   </div>
 </div>
 <header class="hero">
   <div class="heroContent">
-    <p class="heroEyebrow">🌍 地球にやさしいフードロス削減</p>
+    <p class="heroEyebrow"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> 地球にやさしいフードロス削減</p>
     <h1>もったいないをおとくにかえる</h1>
     <p>近くのお店の余った食事を、お得に受け取る。</p>
   </div>
@@ -317,7 +326,7 @@
 <main>
   <div id="installBanner" hidden style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--accent-soft);color:var(--accent-dark);border-radius:12px;padding:10px 12px;margin-bottom:14px;font-size:12.5px;">
     <span id="installBannerText"></span>
-    <button type="button" id="installBannerClose" style="background:none;border:none;color:inherit;font-size:16px;line-height:1;padding:0;flex:none;">✕</button>
+    <button type="button" id="installBannerClose" style="background:none;border:none;color:inherit;font-size:16px;line-height:1;padding:0;flex:none;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
 
   <div id="personalImpactCard" hidden class="personalImpactCard"></div>
@@ -330,30 +339,34 @@
   <div class="sectionTitle">出品中のお店</div>
   <div class="filterBar">
     <button class="filterSummary" id="filterToggleBtn">
-      <span id="filterSummaryText">🔍 絞り込み・並び替え</span>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+      <span id="filterSummaryText" style="margin-left:6px;">絞り込み・並び替え</span>
       <span class="filterChev" id="filterChev">▾</span>
     </button>
     <div id="filterPanelBody" hidden>
       <div class="filterGroup" id="favFilterGroup" hidden>
-        <div class="filterLabel">❤️ お気に入り</div>
+        <div class="filterLabel"><svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/></svg> お気に入り</div>
         <div class="chipStrip" id="favChips"></div>
       </div>
       <div class="filterGroup">
-        <div class="filterLabel">📍 エリア</div>
+        <div class="filterLabel"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg> エリア</div>
         <div class="chipStrip" id="areaChips"></div>
       </div>
       <div class="filterGroup">
-        <div class="filterLabel">📏 距離</div>
+        <div class="filterLabel"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg> 距離</div>
         <div class="chipStrip" id="radiusChips"></div>
       </div>
       <div class="filterGroup">
-        <div class="filterLabel">↕️ 並び替え</div>
+        <div class="filterLabel"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg> 並び替え</div>
         <select class="sortSelect" id="sortSelect"></select>
       </div>
       <div class="geoStatus" id="geoStatus"></div>
     </div>
   </div>
-  <button class="mapToggleBtn" id="mapToggleBtn">🗺 地図で見る</button>
+  <button class="mapToggleBtn" id="mapToggleBtn">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></svg>
+    <span id="mapToggleText" style="margin-left:6px;">地図で見る</span>
+  </button>
   <div id="mapView" hidden></div>
   <div id="listings"></div>
 </main>
@@ -383,7 +396,7 @@
       <input type="tel" id="rsPhone" placeholder="09012345678">
 
       <button type="button" id="rsRegisterHint" style="background:none;border:none;text-decoration:underline;color:var(--accent-dark);font-size:12px;padding:6px 0 0;">
-        🎫 会員登録すると次回から自動入力にできます
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg> 会員登録すると次回から自動入力にできます
       </button>
     </div>
 
@@ -442,7 +455,7 @@
      つき1回だけ投稿できる)。 -->
 <div class="overlay" id="reviewOverlay" hidden>
   <div class="sheet">
-    <h2>👍 このお店をおすすめする</h2>
+    <h2><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/><path d="M7 10v12"/></svg> このお店をおすすめする</h2>
     <p class="sub" id="reviewStoreLabel"></p>
     <label style="margin-top:0;">良かった点を選んでください(複数可)</label>
     <div class="tagPicker" id="tagPicker"></div>
@@ -463,7 +476,7 @@
   <div class="sheet">
     <h2>通知</h2>
     <div id="notifEnableRow" hidden style="font-size:12px;color:var(--muted);margin-bottom:12px;">
-      <button type="button" class="btnGhost" id="notifEnableBtn" style="width:100%;padding:10px;border-radius:10px;">🔔 ブラウザ通知を有効にする(このブラウザを開いている間だけ届きます)</button>
+      <button type="button" class="btnGhost" id="notifEnableBtn" style="width:100%;padding:10px;border-radius:10px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg> ブラウザ通知を有効にする(このブラウザを開いている間だけ届きます)</button>
     </div>
     <div id="notifList"></div>
     <div class="actions">
@@ -764,16 +777,16 @@ document.getElementById("filterToggleBtn").addEventListener("click", function(){
 
 function updateFilterSummary(){
   if (filterPanelOpen){
-    document.getElementById("filterSummaryText").textContent = "🔍 絞り込み・並び替え";
+    document.getElementById("filterSummaryText").textContent = "絞り込み・並び替え";
     return;
   }
   var parts = [];
-  if (selectedFavOnly) parts.push("❤️ お気に入り");
+  if (selectedFavOnly) parts.push("お気に入り");
   if (selectedArea) parts.push(selectedArea);
   if (selectedRadius) parts.push("周辺" + fmtDistance(selectedRadius));
   var sortOpt = SORT_OPTIONS.find(function(o){ return o.id === sortMode; });
   if (sortOpt && sortMode !== "recommended") parts.push(sortOpt.label);
-  document.getElementById("filterSummaryText").textContent = parts.length ? "🔍 " + parts.join(" ・ ") : "🔍 絞り込み・並び替え";
+  document.getElementById("filterSummaryText").textContent = parts.length ? parts.join(" ・ ") : "絞り込み・並び替え";
 }
 
 function renderListings(){
@@ -839,16 +852,16 @@ function renderListings(){
     var urgent = minutesToClose <= URGENT_THRESHOLD_MIN;
     return (
       '<div class="card' + (l.promoted ? ' promoted' : '') + '">' +
-        (l.promoted ? '<div class="prBadge">📣 PR</div>' : '') +
+        (l.promoted ? '<div class="prBadge">' + icon("megaphone") + ' PR</div>' : '') +
         '<div class="cardRow">' +
           '<div class="cardMain">' +
             '<div class="storeRow">' +
               '<span class="storeTag">' + escapeHtml(store.category || "店舗") + '</span>' +
               '<span class="storeName">' + escapeHtml(store.name || "不明な店舗") + (store.area ? " ・ " + escapeHtml(store.area) : "") + '</span>' +
-              (reco ? '<span class="storeRating">👍 おすすめ' + reco.count + '件</span>' : '') +
-              '<span class="favHeart' + (isFavorite(store.id) ? ' on' : '') + '" data-fav="' + store.id + '">' + (isFavorite(store.id) ? '❤️' : '🤍') + '</span>' +
+              (reco ? '<span class="storeRating">' + icon("thumbs-up") + ' おすすめ' + reco.count + '件</span>' : '') +
+              '<span class="favHeart' + (isFavorite(store.id) ? ' on' : '') + '" data-fav="' + store.id + '">' + heartIcon(isFavorite(store.id)) + '</span>' +
             '</div>' +
-            (impact > 0 ? '<div class="impactLine">🌱 このお店は累計 ' + impact + '個 のロスを削減</div>' : '') +
+            (impact > 0 ? '<div class="impactLine">' + icon("sprout") + ' このお店は累計 ' + impact + '個 のロスを削減</div>' : '') +
             '<div class="title">' + escapeHtml(l.title) + '</div>' +
             (l.description ? '<div class="desc">' + escapeHtml(l.description) + '</div>' : '') +
             '<div class="priceRow">' +
@@ -863,10 +876,10 @@ function renderListings(){
         '</div>' +
         '<div class="metaRow">' +
           '<span class="metaChip' + (urgent ? ' urgentChip' : '') + '">' +
-            (urgent ? '⏰ あと' + fmtCountdown(minutesToClose) + 'で受付終了' : fmtDate(l.date) + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' 引き取り') +
+            (urgent ? icon("alarm-clock") + ' あと' + fmtCountdown(minutesToClose) + 'で受付終了' : fmtDate(l.date) + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' 引き取り') +
           '</span>' +
           '<span class="metaChip">残り <span class="qtyLeft">' + Math.max(l.quantityLeft,0) + '</span>個</span>' +
-          (dist !== null ? '<span class="metaChip">📍 ' + fmtDistance(dist) + '</span>' : '') +
+          (dist !== null ? '<span class="metaChip">' + icon("map-pin") + ' ' + fmtDistance(dist) + '</span>' : '') +
         '</div>' +
         '<button class="reserveBtn" data-id="' + l.id + '">予約する</button>' +
       '</div>'
@@ -897,7 +910,7 @@ document.getElementById("mapToggleBtn").addEventListener("click", function(){
   mapViewOpen = !mapViewOpen;
   document.getElementById("listings").hidden = mapViewOpen;
   document.getElementById("mapView").hidden = !mapViewOpen;
-  document.getElementById("mapToggleBtn").textContent = mapViewOpen ? "📋 リストで見る" : "🗺 地図で見る";
+  document.getElementById("mapToggleText").textContent = mapViewOpen ? "リストで見る" : "地図で見る";
   if (mapViewOpen && !leafletMap){
     leafletMap = L.map("mapView").setView([34.72, 135.55], 13); // 初期値はデモ店舗のある大阪近辺、店舗が分かればfitBoundsで自動調整
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -931,7 +944,7 @@ function renderMapPins(listings, storesById){
     var popupHtml = '<div style="min-width:170px;">' +
       '<div style="font-weight:700;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
         '<span>' + escapeHtml(entry.store.name) + '</span>' +
-        (dirUrl ? '<a href="' + dirUrl + '" target="_blank" rel="noopener" style="font-size:11px;font-weight:700;color:var(--accent-dark);white-space:nowrap;">🗺 経路</a>' : '') +
+        (dirUrl ? '<a href="' + dirUrl + '" target="_blank" rel="noopener" style="font-size:11px;font-weight:700;color:var(--accent-dark);white-space:nowrap;">' + icon("map") + ' 経路</a>' : '') +
       '</div>' +
       entry.listings.map(function(l){
         return '<div style="font-size:12px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;gap:6px;">' +
@@ -1023,7 +1036,7 @@ function renderPersonalImpact(){
   if (count <= 0){ card.hidden = true; return; }
   card.hidden = false;
   card.innerHTML =
-    '<div class="num">🌍 ' + count + '個</div>' +
+    '<div class="num">' + icon("globe") + ' ' + count + '個</div>' +
     '<div class="label">あなたがこれまでに減らした「もったいない」(節約額 ' + fmtPrice(yen) + ')</div>';
 }
 
@@ -1056,7 +1069,7 @@ function renderMyReservations(){
     if (canView && l.date){
       var minsLeft = Math.round((pickupEndDate(l).getTime() - Date.now()) / 60000);
       var urgent = minsLeft <= URGENT_THRESHOLD_MIN;
-      reminder = '<div class="pickupReminder' + (urgent ? ' urgent' : '') + '">⏰ ' +
+      reminder = '<div class="pickupReminder' + (urgent ? ' urgent' : '') + '">' + icon("alarm-clock") + ' ' +
         fmtDate(l.date) + ' ' + l.pickupEnd + ' までにお店に引き取りに行きましょう' +
         (urgent ? '(あと' + fmtCountdown(minsLeft) + ')' : '') +
         '</div>';
@@ -1073,9 +1086,9 @@ function renderMyReservations(){
           '<span class="metaChip">数量 ' + r.quantity + '</span>' +
         '</div>' +
         reminder +
-        (canView ? '<div class="viewVoucherHint">🎫 タップして引き取り用のコードを表示</div>' : '') +
-        (canReview ? '<button class="reviewBtn" data-review="' + r.id + '">👍 このお店をおすすめする</button>' : '') +
-        (r.status === PICKED_UP && alreadyReviewed ? '<div class="reviewedNote">👍 おすすめ済みです。ありがとうございます!</div>' : '') +
+        (canView ? '<div class="viewVoucherHint">' + icon("ticket") + ' タップして引き取り用のコードを表示</div>' : '') +
+        (canReview ? '<button class="reviewBtn" data-review="' + r.id + '">' + icon("thumbs-up") + ' このお店をおすすめする</button>' : '') +
+        (r.status === PICKED_UP && alreadyReviewed ? '<div class="reviewedNote">' + icon("thumbs-up") + ' おすすめ済みです。ありがとうございます!</div>' : '') +
       '</div>'
     );
   }
@@ -1114,6 +1127,35 @@ function escapeHtml(s){
   });
 }
 
+/* ---------- アイコン(Lucide、MITライセンス) ----------
+   絵文字はOS/端末ごとに見た目が変わり太さも揃わないため、UIのナビゲー
+   ション・ボタン類は統一されたSVGアイコンに差し替えている(文章の中の
+   気持ちを表す絵文字はそのまま残し、UIの「部品」だけを対象にした)。 */
+var ICON_PATHS = {
+  globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+  "map-pin": '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+  ruler: '<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/>',
+  "arrow-up-down": '<path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/>',
+  search: '<path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/>',
+  map: '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+  camera: '<path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/>',
+  ticket: '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/>',
+  "alarm-clock": '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/><path d="M6.38 18.7 4 21"/><path d="M17.64 18.67 20 21"/>',
+  sprout: '<path d="M14 9.536V7a4 4 0 0 1 4-4h1.5a.5.5 0 0 1 .5.5V5a4 4 0 0 1-4 4 4 4 0 0 0-4 4c0 2 1 3 1 5a5 5 0 0 1-1 3"/><path d="M4 9a5 5 0 0 1 8 4 5 5 0 0 1-8-4"/><path d="M5 21h14"/>',
+  heart: '<path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/>',
+  bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+  "circle-user": '<path d="M17.925 20.056a6 6 0 0 0-11.851.001"/><circle cx="12" cy="11" r="4"/><circle cx="12" cy="12" r="10"/>',
+  megaphone: '<path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/>',
+  "thumbs-up": '<path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/><path d="M7 10v12"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'
+};
+function icon(name, cls){
+  return '<svg class="icon' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (ICON_PATHS[name] || '') + '</svg>';
+}
+function heartIcon(filled){
+  return '<svg class="icon" viewBox="0 0 24 24" fill="' + (filled ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICON_PATHS.heart + '</svg>';
+}
+
 /* ---------- 予約シート ---------- */
 var reserveOverlay = document.getElementById("reserveOverlay");
 
@@ -1139,7 +1181,7 @@ function openReserveSheet(listingId){
     document.getElementById("rsCvc").value = "123";
     personalInfo.hidden = true;
     memberSummary.hidden = false;
-    document.getElementById("rsMemberSummaryText").textContent = "🎫 " + member.name + " 様 (" + member.phone + ") として予約";
+    document.getElementById("rsMemberSummaryText").innerHTML = icon("ticket") + " " + escapeHtml(member.name) + " 様 (" + escapeHtml(member.phone) + ") として予約";
   } else {
     document.getElementById("rsName").value = "";
     document.getElementById("rsPhone").value = "";
@@ -1353,10 +1395,10 @@ function renderVoucher(reservationId){
           : "このコードを引き取り時にお店へ提示してください。" + (l.pickupStart ? "引き取り時間: " + fmtDate(l.date) + " " + l.pickupStart + "〜" + l.pickupEnd : ""))) +
     '</div>' +
     (r.status !== REJECTED
-      ? '<div class="impactCheer">🌱 ' + r.quantity + '個分の「もったいない」を防げました。ありがとうございます!</div>'
+      ? '<div class="impactCheer">' + icon("sprout") + ' ' + r.quantity + '個分の「もったいない」を防げました。ありがとうございます!</div>'
       : '') +
     (r.status !== REJECTED && directionsUrl(store)
-      ? '<a class="directionsBtn" href="' + directionsUrl(store) + '" target="_blank" rel="noopener">🗺 お店までの経路を見る</a>'
+      ? '<a class="directionsBtn" href="' + directionsUrl(store) + '" target="_blank" rel="noopener">' + icon("map") + ' お店までの経路を見る</a>'
       : '');
 }
 

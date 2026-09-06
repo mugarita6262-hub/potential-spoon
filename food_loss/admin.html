@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>フードロス予約(仮) - 店舗管理</title>
+<!-- フォント: index.html(ユーザー側)と統一 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
     /* アースカラー — index.html(ユーザー側)と統一 */
@@ -22,9 +26,13 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
+  .icon{width:1em;height:1em;display:inline-block;vertical-align:-0.15em;flex:none;}
+  h1,h2,.sectionTitle,.btnBig,.btnPrimary{
+    font-family:"M PLUS Rounded 1c","Noto Sans JP",sans-serif;
+  }
   body{
     background:var(--bg);color:var(--text);
-    font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+    font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
     padding-bottom:60px;
   }
   header{
@@ -156,23 +164,23 @@
     <section>
       <div class="sectionHead">
         <div class="sectionTitle" id="listingSectionTitle">出品</div>
-        <button class="btn btnGhost btnSmall" id="openAddStoreBtn">＋ 店舗を追加</button>
+        <button class="btn btnGhost btnSmall" id="openAddStoreBtn"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> 店舗を追加</button>
       </div>
       <div id="storeChips"></div>
       <div id="storeLocPanel"></div>
       <div id="listingActionRow" hidden style="margin-bottom:10px;">
-        <button class="btn btnPrimary btnBig" id="openAddListingBtn" style="width:100%;">＋ 出品する</button>
+        <button class="btn btnPrimary btnBig" id="openAddListingBtn" style="width:100%;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> 出品する</button>
       </div>
       <div id="listingList"></div>
     </section>
 
     <section>
-      <div class="sectionTitle">🌱 ロス削減実績</div>
+      <div class="sectionTitle"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9.536V7a4 4 0 0 1 4-4h1.5a.5.5 0 0 1 .5.5V5a4 4 0 0 1-4 4 4 4 0 0 0-4 4c0 2 1 3 1 5a5 5 0 0 1-1 3"/><path d="M4 9a5 5 0 0 1 8 4 5 5 0 0 1-8-4"/><path d="M5 21h14"/></svg> ロス削減実績</div>
       <div id="impactList"></div>
     </section>
 
     <section>
-      <div class="sectionTitle">⚠ ノーショー要注意</div>
+      <div class="sectionTitle"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> ノーショー要注意</div>
       <div id="noShowFlags"></div>
     </section>
   </main>
@@ -189,7 +197,7 @@
     <label>エリア(商店街・地域名)</label>
     <input type="text" id="newStoreArea" placeholder="例: ○○商店街 / △△駅前">
     <div class="formActions">
-      <button type="button" class="btn btnGhost" id="newStoreLocBtn">📍 現在地をお店の位置にする</button>
+      <button type="button" class="btn btnGhost" id="newStoreLocBtn"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg> 現在地をお店の位置にする</button>
     </div>
     <div id="newStoreLocStatus" style="font-size:11px;color:var(--muted);margin-top:2px;">
       位置未設定(ユーザー側の「距離で絞り込む」に使われます。お店にいる状態でボタンを押してください)
@@ -209,7 +217,7 @@
     <label>商品名</label>
     <input type="text" id="lTitle" placeholder="例: 本日の余ったパン詰め合わせ">
     <label>写真(任意・その場で撮影できます)</label>
-    <label class="photoPickBtn" for="lPhotoInput">📷 写真を撮る / 選ぶ</label>
+    <label class="photoPickBtn" for="lPhotoInput"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg> 写真を撮る / 選ぶ</label>
     <input type="file" id="lPhotoInput" accept="image/*" capture="environment">
     <div id="lPhotoPreviewWrap" hidden style="margin-top:8px;">
       <img id="lPhotoPreview" style="width:100%;max-width:220px;border-radius:10px;display:block;">
@@ -454,6 +462,25 @@ function escapeHtml(s){
   });
 }
 
+/* ---------- アイコン(Lucide、MITライセンス) ----------
+   index.html(ユーザー側)と同じ考え方。UIの「部品」だけをSVGアイコンに
+   差し替え、文章中の気持ちを表す絵文字はそのまま残している。 */
+var ICON_PATHS = {
+  "map-pin": '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+  camera: '<path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/>',
+  sprout: '<path d="M14 9.536V7a4 4 0 0 1 4-4h1.5a.5.5 0 0 1 .5.5V5a4 4 0 0 1-4 4 4 4 0 0 0-4 4c0 2 1 3 1 5a5 5 0 0 1-1 3"/><path d="M4 9a5 5 0 0 1 8 4 5 5 0 0 1-8-4"/><path d="M5 21h14"/>',
+  megaphone: '<path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/>',
+  store: '<path d="M15 21v-5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5"/><path d="M17.774 10.31a1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.451 0 1.12 1.12 0 0 0-1.548 0 2.5 2.5 0 0 1-3.452 0 1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.77-3.248l2.889-4.184A2 2 0 0 1 7 2h10a2 2 0 0 1 1.653.873l2.895 4.192a2.5 2.5 0 0 1-3.774 3.244"/><path d="M4 10.95V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8.05"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  "triangle-alert": '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>'
+};
+function icon(name, cls){
+  return '<svg class="icon' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (ICON_PATHS[name] || '') + '</svg>';
+}
+
 /* 操作した直後に「保存できたか」不安にならないよう、軽いトースト通知を出す。 */
 var toastTimer = null;
 function showToast(msg){
@@ -517,7 +544,7 @@ function renderStoreChips(){
   }
   // お店が1つしかない場合は選ぶ必要がないので、店名だけ表示する
   if (state.stores.length === 1){
-    wrap.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--accent-dark);margin-bottom:8px;">🏪 ' + escapeHtml(state.stores[0].name) + '</div>';
+    wrap.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--accent-dark);margin-bottom:8px;display:flex;align-items:center;gap:6px;">' + icon("store") + escapeHtml(state.stores[0].name) + '</div>';
     return;
   }
   // 複数店舗の場合はチップを並べず、ドロップダウン1つですっきり選べるようにする
@@ -558,7 +585,7 @@ document.getElementById("newStoreLocBtn").addEventListener("click", function(){
   statusEl.textContent = "位置情報を取得中…";
   requestGeolocation(function(lat,lng){
     draftLat = lat; draftLng = lng;
-    statusEl.textContent = "✅ 現在地を取得しました。このまま「お店を追加」を押してください。";
+    statusEl.innerHTML = icon("check") + " 現在地を取得しました。このまま「お店を追加」を押してください。";
   }, function(msg){ statusEl.textContent = msg; });
 });
 
@@ -595,10 +622,10 @@ function renderStoreLocPanel(){
   var hasLoc = typeof store.lat === "number" && typeof store.lng === "number";
   wrap.innerHTML =
     '<div class="card" style="display:flex;justify-content:space-between;align-items:center;">' +
-      '<div style="font-size:12px;color:var(--muted);">' +
-        escapeHtml(store.name) + ' の位置: ' + (hasLoc ? '✅ 設定済み' : '未設定') +
+      '<div style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;">' +
+        escapeHtml(store.name) + ' の位置: ' + (hasLoc ? icon("check") + ' 設定済み' : '未設定') +
       '</div>' +
-      '<button class="btn btnSmall btnGhost" id="updateStoreLocBtn">📍 現在地で更新</button>' +
+      '<button class="btn btnSmall btnGhost" id="updateStoreLocBtn">' + icon("map-pin") + ' 現在地で更新</button>' +
     '</div>';
   document.getElementById("updateStoreLocBtn").addEventListener("click", function(){
     var btn = document.getElementById("updateStoreLocBtn");
@@ -610,7 +637,7 @@ function renderStoreLocPanel(){
         s.lat = lat; s.lng = lng;
         return { ok:true };
       }).catch(function(e){ console.warn(e); });
-    }, function(msg){ alert(msg); btn.textContent = "📍 現在地で更新"; });
+    }, function(msg){ alert(msg); btn.innerHTML = icon("map-pin") + " 現在地で更新"; });
   });
 }
 
@@ -643,7 +670,7 @@ function renderListingSection(){
         '<div class="top">' +
           (l.photo
             ? '<img src="' + l.photo + '" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex:none;">'
-            : '<div style="width:56px;height:56px;border-radius:8px;flex:none;background:#efe8d8;display:flex;align-items:center;justify-content:center;font-size:20px;opacity:.6;">📷</div>') +
+            : '<div style="width:56px;height:56px;border-radius:8px;flex:none;background:#efe8d8;display:flex;align-items:center;justify-content:center;opacity:.6;font-size:22px;">' + icon("camera") + '</div>') +
           '<div>' +
             '<div class="title">' + escapeHtml(l.title) + (l.promoted ? ' <span class="badge promoted">PR中</span>' : '') + '</div>' +
             '<div class="meta">' + l.date + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' / ' +
@@ -659,7 +686,7 @@ function renderListingSection(){
             : (l.open
               ? '<button class="btn btnSmall btnGhost" data-close="' + l.id + '">受付を止める</button>'
               : '<button class="btn btnSmall btnPrimary" data-open="' + l.id + '">再開する</button>')) +
-          '<button class="btn btnSmall btnGhost" data-dup="' + l.id + '">📋 コピーして出品</button>' +
+          '<button class="btn btnSmall btnGhost" data-dup="' + l.id + '">' + icon("copy") + ' コピーして出品</button>' +
           '<button class="btn btnSmall btnPromo' + (l.promoted ? ' on' : '') + '" data-promo="' + l.id + '">' + promo.button + '</button>' +
         '</div>' +
       '</div>'
