@@ -67,6 +67,7 @@
   .listingCard .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .listingCard .title{font-weight:700;font-size:14px;}
   .listingCard .meta{font-size:12px;color:var(--muted);margin-top:4px;}
+  .listingNote{font-size:11px;color:var(--muted);margin-top:8px;}
   .badge{font-size:11px;border-radius:6px;padding:2px 7px;font-weight:700;}
   .badge.open{background:var(--accent-soft);color:var(--accent-dark);}
   .badge.closed{background:#e9e2ce;color:var(--muted);}
@@ -601,7 +602,7 @@ function renderListingSection(){
     var soldOut = l.quantityLeft <= 0;
     var open = l.open && !soldOut;
     var badgeText = soldOut ? "売り切れ" : (open ? "受付中" : "停止中");
-    var promoLabel = prLabel(l);
+    var promo = prInfo(l);
     return (
       '<div class="card listingCard">' +
         '<div class="top">' +
@@ -615,14 +616,16 @@ function renderListingSection(){
           '</div>' +
           '<span class="badge ' + (open ? 'open' : 'closed') + '">' + badgeText + '</span>' +
         '</div>' +
+        (soldOut ? '<div class="listingNote">在庫切れです。「コピーして出品」から新しく出品してください。</div>' : '') +
+        '<div class="listingNote">' + escapeHtml(promo.note) + '</div>' +
         '<div class="formActions">' +
           (soldOut
-            ? '<span style="font-size:11px;color:var(--muted);align-self:center;">在庫切れです。「コピーして出品」から新しく出品してください</span>'
+            ? ''
             : (l.open
               ? '<button class="btn btnSmall btnGhost" data-close="' + l.id + '">受付を止める</button>'
               : '<button class="btn btnSmall btnPrimary" data-open="' + l.id + '">再開する</button>')) +
           '<button class="btn btnSmall btnGhost" data-dup="' + l.id + '">📋 コピーして出品</button>' +
-          '<button class="btn btnSmall btnPromo' + (l.promoted ? ' on' : '') + '" data-promo="' + l.id + '">' + promoLabel + '</button>' +
+          '<button class="btn btnSmall btnPromo' + (l.promoted ? ' on' : '') + '" data-promo="' + l.id + '">' + promo.button + '</button>' +
         '</div>' +
       '</div>'
     );
@@ -641,20 +644,21 @@ function renderListingSection(){
   });
 }
 
-/* ボタンの文言を課金ルールの状態に応じて出し分ける */
-function prLabel(l){
+/* ボタンは短く固定、状態の説明は別行の小さい注記(note)に分ける
+   (ボタンに全部詰め込むと2行になって見づらいため)。 */
+function prInfo(l){
   var dates = l.promotedChargeDates || [];
   var chargedToday = dates.indexOf(todayStr()) !== -1;
   if (l.promoted){
     var elapsedMin = l.promotedAt ? Math.floor((Date.now() - new Date(l.promotedAt).getTime()) / 60000) : 99;
     if (!chargedToday && elapsedMin < 5){
-      return '★ PR中(あと' + (5 - elapsedMin) + '分以内なら無料で取り消せます・1日1回まで)';
+      return { button: "★ PR中(やめる)", note: "あと" + (5 - elapsedMin) + "分以内なら無料で取り消せます(1日1回まで)" };
     }
-    return '★ PR中(本日分¥' + PR_PRICE_PER_DAY + '確定・やめる)';
+    return { button: "★ PR中(やめる)", note: "本日分¥" + PR_PRICE_PER_DAY + " 確定済み" };
   }
   return chargedToday
-    ? '★ PRする(本日分は購入済みなので無料で再開できます)'
-    : '★ PRする(¥' + PR_PRICE_PER_DAY + '/日・課金は未実装)';
+    ? { button: "★ PRする", note: "本日分は購入済みなので無料で再開できます" }
+    : { button: "★ PRする", note: "¥" + PR_PRICE_PER_DAY + "/日・課金は未実装" };
 }
 
 /* 「PRする」— ユーザー側の一覧の先頭に固定表示させる一手。
