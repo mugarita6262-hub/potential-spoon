@@ -141,11 +141,16 @@
   </header>
 
   <main>
-    <!-- 一番よく使う2つ(要対応の予約・出品)を上に。出品セクションには
-         店舗選択もまとめて統合し、セクション数自体を減らしている。 -->
+    <!-- 予約対応の2つ(要対応・対応済み)をまず上にまとめ、そのあとに
+         出品(店舗選択も統合)を続ける並び。 -->
     <section>
       <div class="sectionTitle">要対応の予約 <span class="count" id="pendingCount">0</span></div>
       <div id="pendingList"></div>
+    </section>
+
+    <section>
+      <div class="sectionTitle">対応済みの予約</div>
+      <div id="resolvedList"></div>
     </section>
 
     <section>
@@ -159,11 +164,6 @@
         <button class="btn btnPrimary btnBig" id="openAddListingBtn" style="width:100%;">＋ 出品する</button>
       </div>
       <div id="listingList"></div>
-    </section>
-
-    <section>
-      <div class="sectionTitle">対応済みの予約</div>
-      <div id="resolvedList"></div>
     </section>
 
     <section>

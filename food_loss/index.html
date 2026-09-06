@@ -842,8 +842,12 @@ function renderMapPins(listings, storesById){
   Object.keys(byStore).forEach(function(id){
     var entry = byStore[id];
     var marker = L.marker([entry.store.lat, entry.store.lng]).addTo(leafletMap);
+    var dirUrl = directionsUrl(entry.store);
     var popupHtml = '<div style="min-width:170px;">' +
-      '<div style="font-weight:700;margin-bottom:4px;">' + escapeHtml(entry.store.name) + '</div>' +
+      '<div style="font-weight:700;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
+        '<span>' + escapeHtml(entry.store.name) + '</span>' +
+        (dirUrl ? '<a href="' + dirUrl + '" target="_blank" rel="noopener" style="font-size:11px;font-weight:700;color:var(--accent-dark);white-space:nowrap;">🗺 経路</a>' : '') +
+      '</div>' +
       entry.listings.map(function(l){
         return '<div style="font-size:12px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;gap:6px;">' +
           '<span>' + escapeHtml(l.title) + ' ' + fmtPrice(l.discountPrice) + '</span>' +
