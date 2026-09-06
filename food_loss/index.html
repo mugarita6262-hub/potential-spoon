@@ -7,6 +7,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>フードロス予約(仮) - お店をさがす</title>
+<!-- 地図表示用(OpenStreetMapタイル・APIキー不要のLeaflet)。①地域密着を
+     ピン地図で視覚的に探せる体験に強化するため。 -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root{
     /* アースカラー(オリーブ+テラコッタ+サンドベージュ)— 地球にやさしいフードロスをイメージした配色 */
@@ -84,6 +88,7 @@
     padding:2px 8px;border-radius:999px;font-weight:600;
   }
   .storeName{font-size:12px;color:var(--muted);}
+  .favHeart{margin-left:auto;font-size:15px;cursor:pointer;line-height:1;padding:2px;}
   .title{font-size:15px;font-weight:700;margin:2px 0 4px;}
   .desc{
     font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.4;
@@ -187,6 +192,12 @@
   .sectionTitle{font-size:14px;font-weight:700;margin:24px 0 10px;color:var(--accent-dark);}
   .impactLine{font-size:11px;color:var(--accent-dark);background:var(--accent-soft);
     border-radius:8px;padding:3px 8px;display:inline-block;margin-bottom:6px;}
+  .personalImpactCard{
+    background:linear-gradient(135deg,var(--accent-dark),var(--accent));color:#fff;
+    border-radius:16px;padding:16px;margin-bottom:16px;text-align:center;
+  }
+  .personalImpactCard .num{font-size:26px;font-weight:800;}
+  .personalImpactCard .label{font-size:11px;opacity:.85;margin-top:2px;}
   .cardPhoto{width:110px;min-height:100%;object-fit:cover;border-radius:10px;flex:none;align-self:stretch;}
   .cardPhotoPlaceholder{
     width:110px;border-radius:10px;flex:none;align-self:stretch;
@@ -232,6 +243,17 @@
     font-size:13px;font-family:inherit;background:#fff;color:var(--text);
   }
   .geoStatus{font-size:12px;color:var(--muted);margin-top:8px;min-height:14px;}
+  .mapToggleBtn{
+    display:block;width:100%;background:var(--card);border:1px solid var(--border);
+    border-radius:12px;padding:10px;font-size:13px;font-weight:700;color:var(--accent-dark);
+    margin-bottom:14px;
+  }
+  #mapView{height:360px;border-radius:16px;overflow:hidden;margin-bottom:16px;border:1px solid var(--border);}
+  #mapView .leaflet-popup-content{font-family:inherit;}
+  .mapReserveBtn{
+    background:var(--accent);color:#fff;border:none;border-radius:6px;
+    padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;
+  }
 </style>
 </head>
 <body>
@@ -263,6 +285,8 @@
     <button type="button" id="installBannerClose" style="background:none;border:none;color:inherit;font-size:16px;line-height:1;padding:0;flex:none;">✕</button>
   </div>
 
+  <div id="personalImpactCard" hidden class="personalImpactCard"></div>
+
   <div id="myReservationsWrap" hidden>
     <div class="sectionTitle">あなたの予約</div>
     <div id="myReservations"></div>
@@ -275,6 +299,10 @@
       <span class="filterChev" id="filterChev">▾</span>
     </button>
     <div id="filterPanelBody" hidden>
+      <div class="filterGroup" id="favFilterGroup" hidden>
+        <div class="filterLabel">❤️ お気に入り</div>
+        <div class="chipStrip" id="favChips"></div>
+      </div>
       <div class="filterGroup">
         <div class="filterLabel">📍 エリア</div>
         <div class="chipStrip" id="areaChips"></div>
@@ -290,6 +318,8 @@
       <div class="geoStatus" id="geoStatus"></div>
     </div>
   </div>
+  <button class="mapToggleBtn" id="mapToggleBtn">🗺 地図で見る</button>
+  <div id="mapView" hidden></div>
   <div id="listings"></div>
 </main>
 
@@ -436,6 +466,7 @@ var state = defaultState();
 var currentListing = null;
 var qty = 1;
 var selectedArea = null; // ① 地域密着 — 商店街・エリア単位で絞り込めるようにする
+var selectedFavOnly = false; // お気に入り店舗だけに絞り込む
 var selectedRadius = null; // メートル単位。null = 距離で絞り込まない
 var myLocation = null; // { lat, lng } — 距離チップを一度選ぶと以後は使い回す
 
@@ -520,6 +551,7 @@ function fmtCountdown(minutes){
 function render(){
   renderListings();
   renderMyReservations();
+  renderPersonalImpact();
   if (openVoucherId && !voucherOverlay.hidden) renderVoucher(openVoucherId);
 }
 
@@ -549,6 +581,19 @@ function renderAreaChips(){
       selectedArea = chip.getAttribute("data-area") || null;
       render();
     });
+  });
+}
+
+function renderFavChips(){
+  var wrap = document.getElementById("favChips");
+  var group = document.getElementById("favFilterGroup");
+  if (!getFavorites().length){ group.hidden = true; selectedFavOnly = false; return; }
+  group.hidden = false;
+  wrap.innerHTML =
+    '<span class="areaChip' + (selectedFavOnly ? ' active' : '') + '" data-fav-only="1">お気に入りのお店だけ</span>';
+  wrap.querySelector("[data-fav-only]").addEventListener("click", function(){
+    selectedFavOnly = !selectedFavOnly;
+    render();
   });
 }
 
@@ -635,6 +680,7 @@ function updateFilterSummary(){
     return;
   }
   var parts = [];
+  if (selectedFavOnly) parts.push("❤️ お気に入り");
   if (selectedArea) parts.push(selectedArea);
   if (selectedRadius) parts.push("周辺" + fmtDistance(selectedRadius));
   var sortOpt = SORT_OPTIONS.find(function(o){ return o.id === sortMode; });
@@ -643,6 +689,7 @@ function updateFilterSummary(){
 }
 
 function renderListings(){
+  renderFavChips();
   renderAreaChips();
   renderRadiusChips();
   renderSortChips();
@@ -658,6 +705,7 @@ function renderListings(){
     // 引き取り時間が過ぎたものは一覧からそもそも消す(灰色表示で残さない)。
     if (!l.open || l.quantityLeft <= 0) return false;
     if (pickupEndDate(l).getTime() <= Date.now()) return false;
+    if (selectedFavOnly && !isFavorite(store.id)) return false;
     if (selectedArea && store.area !== selectedArea) return false;
     if (selectedRadius && myLocation){
       var d = storeDistance(store);
@@ -708,6 +756,7 @@ function renderListings(){
             '<div class="storeRow">' +
               '<span class="storeTag">' + escapeHtml(store.category || "店舗") + '</span>' +
               '<span class="storeName">' + escapeHtml(store.name || "不明な店舗") + (store.area ? " ・ " + escapeHtml(store.area) : "") + '</span>' +
+              '<span class="favHeart' + (isFavorite(store.id) ? ' on' : '') + '" data-fav="' + store.id + '">' + (isFavorite(store.id) ? '❤️' : '🤍') + '</span>' +
             '</div>' +
             (impact > 0 ? '<div class="impactLine">🌱 このお店は累計 ' + impact + '個 のロスを削減</div>' : '') +
             '<div class="title">' + escapeHtml(l.title) + '</div>' +
@@ -739,6 +788,82 @@ function renderListings(){
       openReserveSheet(btn.getAttribute("data-id"));
     });
   });
+  wrap.querySelectorAll("[data-fav]").forEach(function(heart){
+    heart.addEventListener("click", function(){
+      toggleFavorite(heart.getAttribute("data-fav"));
+      renderListings();
+    });
+  });
+
+  renderMapPins(listings, storesById);
+}
+
+/* ---------- 地図表示(Leaflet + OpenStreetMap、APIキー不要) ---------- */
+var mapViewOpen = false;
+var leafletMap = null;
+var leafletMarkers = [];
+
+document.getElementById("mapToggleBtn").addEventListener("click", function(){
+  mapViewOpen = !mapViewOpen;
+  document.getElementById("listings").hidden = mapViewOpen;
+  document.getElementById("mapView").hidden = !mapViewOpen;
+  document.getElementById("mapToggleBtn").textContent = mapViewOpen ? "📋 リストで見る" : "🗺 地図で見る";
+  if (mapViewOpen && !leafletMap){
+    leafletMap = L.map("mapView").setView([34.72, 135.55], 13); // 初期値はデモ店舗のある大阪近辺、店舗が分かればfitBoundsで自動調整
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(leafletMap);
+  }
+  if (mapViewOpen){
+    // hiddenだった間はLeafletがサイズを0だと思っているので、表示後に教え直す
+    setTimeout(function(){ leafletMap.invalidateSize(); renderListings(); }, 50);
+  }
+});
+
+function renderMapPins(listings, storesById){
+  if (!mapViewOpen || !leafletMap) return;
+  leafletMarkers.forEach(function(m){ leafletMap.removeLayer(m); });
+  leafletMarkers = [];
+
+  var byStore = {};
+  listings.forEach(function(l){
+    var store = storesById[l.storeId];
+    if (!store || typeof store.lat !== "number" || typeof store.lng !== "number") return;
+    if (!byStore[store.id]) byStore[store.id] = { store: store, listings: [] };
+    byStore[store.id].listings.push(l);
+  });
+
+  var pts = [];
+  Object.keys(byStore).forEach(function(id){
+    var entry = byStore[id];
+    var marker = L.marker([entry.store.lat, entry.store.lng]).addTo(leafletMap);
+    var popupHtml = '<div style="min-width:170px;">' +
+      '<div style="font-weight:700;margin-bottom:4px;">' + escapeHtml(entry.store.name) + '</div>' +
+      entry.listings.map(function(l){
+        return '<div style="font-size:12px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;gap:6px;">' +
+          '<span>' + escapeHtml(l.title) + ' ' + fmtPrice(l.discountPrice) + '</span>' +
+          '<button class="mapReserveBtn" data-id="' + l.id + '">予約</button></div>';
+      }).join("") +
+    '</div>';
+    marker.bindPopup(popupHtml);
+    marker.on("popupopen", function(){
+      document.querySelectorAll(".mapReserveBtn").forEach(function(btn){
+        btn.onclick = function(){ leafletMap.closePopup(); openReserveSheet(btn.getAttribute("data-id")); };
+      });
+    });
+    leafletMarkers.push(marker);
+    pts.push([entry.store.lat, entry.store.lng]);
+  });
+
+  if (myLocation){
+    var meMarker = L.circleMarker([myLocation.lat, myLocation.lng], {
+      radius: 7, color: "#2e7d32", fillColor: "#2e7d32", fillOpacity: 1
+    }).addTo(leafletMap);
+    leafletMarkers.push(meMarker);
+    pts.push([myLocation.lat, myLocation.lng]);
+  }
+
+  if (pts.length) leafletMap.fitBounds(pts, { padding: [30, 30], maxZoom: 15 });
 }
 
 function statusLabel(status){
@@ -753,6 +878,20 @@ function statusLabel(status){
   }
 }
 
+/* お気に入り店舗(端末に保存するだけ、会員登録は不要)。「①地域密着」を
+   さらに一歩進めて、よく使うお店だけをすぐ追えるようにする。 */
+function getFavorites(){
+  try { return JSON.parse(localStorage.getItem("foodlossFavoriteStores") || "[]"); }
+  catch(e){ return []; }
+}
+function isFavorite(storeId){ return getFavorites().indexOf(storeId) !== -1; }
+function toggleFavorite(storeId){
+  var favs = getFavorites();
+  var i = favs.indexOf(storeId);
+  if (i === -1) favs.push(storeId); else favs.splice(i, 1);
+  localStorage.setItem("foodlossFavoriteStores", JSON.stringify(favs));
+}
+
 function myReservationIds(){
   try { return JSON.parse(localStorage.getItem("foodlossMyReservations") || "[]"); }
   catch(e){ return []; }
@@ -761,6 +900,37 @@ function rememberReservation(id){
   var ids = myReservationIds();
   ids.unshift(id);
   localStorage.setItem("foodlossMyReservations", JSON.stringify(ids.slice(0,20)));
+}
+
+/* 個人の累計貢献表示(TGTGの「あなたが削減したCO2」的な、店舗単位ではなく
+   ユーザー自身の実績を見せる機能)。会員登録済みなら電話番号で全予約を
+   横断して集計できる(localStorageの直近20件キャップを受けない、より
+   正確な累計になる)。未登録なら手元のlocalStorage記録で代用する。 */
+function renderPersonalImpact(){
+  var member = getMember();
+  var reservations;
+  if (member && member.phone){
+    reservations = (state.reservations||[]).filter(function(r){ return r.phone === member.phone; });
+  } else {
+    var ids = myReservationIds();
+    reservations = ids
+      .map(function(id){ return (state.reservations||[]).find(function(r){ return r.id === id; }); })
+      .filter(Boolean);
+  }
+  var count = 0, yen = 0;
+  reservations.forEach(function(r){
+    if (r.status !== PICKED_UP) return;
+    var l = (state.listings||[]).find(function(x){ return x.id === r.listingId; });
+    if (!l) return;
+    count += r.quantity;
+    yen += l.discountPrice * r.quantity;
+  });
+  var card = document.getElementById("personalImpactCard");
+  if (count <= 0){ card.hidden = true; return; }
+  card.hidden = false;
+  card.innerHTML =
+    '<div class="num">🌍 ' + count + '個</div>' +
+    '<div class="label">あなたがこれまでに減らした「もったいない」(節約額 ' + fmtPrice(yen) + ')</div>';
 }
 
 var showReservationHistory = false; // 受取済み等の履歴はボタンを押すまで畳んでおく
