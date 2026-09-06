@@ -173,6 +173,11 @@
     font-size:12px;color:var(--accent-dark);background:var(--accent-soft);
     border-radius:999px;padding:5px 12px;display:inline-block;margin-top:10px;
   }
+  .directionsBtn{
+    display:block;width:100%;margin-top:14px;padding:12px;border-radius:12px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;
+    text-decoration:none;box-sizing:border-box;
+  }
   .statusPill{
     display:inline-block;font-size:12px;font-weight:700;border-radius:999px;
     padding:4px 12px;margin-bottom:8px;
@@ -1138,6 +1143,21 @@ function showVoucher(reservationId, fallback){
   renderVoucher(reservationId);
   voucherOverlay.hidden = false;
 }
+/* 予約→受け取りまでをシームレスにする一手。Googleマップの「ユニバーサル
+   URL」を使えば、iOS/Androidどちらでも地図アプリ(無ければブラウザ版)が
+   1つのリンクで開き、OS判定コードが要らない。緯度経度が無い店舗は店名を
+   検索クエリとして渡すフォールバックにする。 */
+function directionsUrl(store){
+  if (!store) return null;
+  if (typeof store.lat === "number" && typeof store.lng === "number"){
+    return "https://www.google.com/maps/dir/?api=1&destination=" + store.lat + "," + store.lng;
+  }
+  if (store.name){
+    return "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(store.name + (store.area ? " " + store.area : ""));
+  }
+  return null;
+}
+
 function renderVoucher(reservationId){
   var r = (state.reservations||[]).find(function(x){ return x.id === reservationId; }) ||
     (voucherFallback && voucherFallback.id === reservationId ? voucherFallback : null);
@@ -1160,6 +1180,9 @@ function renderVoucher(reservationId){
     '</div>' +
     (r.status !== REJECTED
       ? '<div class="impactCheer">🌱 ' + r.quantity + '個分の「もったいない」を防げました。ありがとうございます!</div>'
+      : '') +
+    (r.status !== REJECTED && directionsUrl(store)
+      ? '<a class="directionsBtn" href="' + directionsUrl(store) + '" target="_blank" rel="noopener">🗺 お店までの経路を見る</a>'
       : '');
 }
 
