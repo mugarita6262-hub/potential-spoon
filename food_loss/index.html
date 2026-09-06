@@ -200,15 +200,18 @@
   .viewVoucherHint{font-size:11px;color:var(--accent-dark);font-weight:700;margin-top:8px;}
   .pickupReminder{font-size:12px;color:var(--accent-dark);font-weight:700;margin-top:8px;}
   .pickupReminder.urgent{color:var(--danger);}
-  .starPicker{display:flex;gap:6px;font-size:34px;margin:16px 0;justify-content:center;line-height:1;}
-  .starPicker span{cursor:pointer;color:var(--border);}
-  .starPicker span.filled{color:#d19a3a;}
+  .tagPicker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
+  .tagChip{
+    background:#fff;border:1px solid var(--border);border-radius:999px;
+    padding:8px 14px;font-size:13px;cursor:pointer;color:var(--text);
+  }
+  .tagChip.selected{background:var(--accent);color:#fff;border-color:var(--accent);}
   .reviewBtn{
     width:100%;margin-top:10px;padding:10px;border-radius:10px;
     background:var(--clay-soft);color:#7a4420;font-size:13px;font-weight:700;
   }
   .reviewedNote{font-size:11px;color:var(--muted);margin-top:8px;}
-  .storeRating{font-size:11px;color:var(--muted);}
+  .storeRating{font-size:11px;color:var(--accent-dark);font-weight:700;}
   .historyToggle{
     width:100%;background:none;border:1px dashed var(--border);border-radius:12px;
     padding:10px;font-size:12px;color:var(--muted);margin-bottom:10px;
@@ -429,16 +432,17 @@
   <div class="sheet" id="memberSheet"></div>
 </div>
 
-<!-- レビュー投稿シート。受け取り済みの予約1件につき1回だけ投稿できる。 -->
+<!-- おすすめ投稿シート。星評価のようなマイナス点は作らず、良かった点だけを
+     複数選んでもらう「おすすめ理由タグ」方式(受け取り済みの予約1件に
+     つき1回だけ投稿できる)。 -->
 <div class="overlay" id="reviewOverlay" hidden>
   <div class="sheet">
-    <h2>お店を評価する</h2>
+    <h2>👍 このお店をおすすめする</h2>
     <p class="sub" id="reviewStoreLabel"></p>
-    <div class="starPicker" id="starPicker">
-      <span data-star="1">★</span><span data-star="2">★</span><span data-star="3">★</span><span data-star="4">★</span><span data-star="5">★</span>
-    </div>
+    <label style="margin-top:0;">良かった点を選んでください(複数可)</label>
+    <div class="tagPicker" id="tagPicker"></div>
     <label>コメント(任意)</label>
-    <textarea id="reviewComment" placeholder="良かった点など教えてください" style="width:100%;min-height:70px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+    <textarea id="reviewComment" placeholder="一言コメントがあれば教えてください" style="width:100%;min-height:70px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
     <div class="err" id="reviewErr"></div>
     <div class="actions">
       <button class="btnGhost" id="reviewCancel">やめる</button>
@@ -628,13 +632,19 @@ function storeImpact(storeId){
   return count;
 }
 
-/* 平均★とレビュー件数(疑似レビュー機能)。実際のインフラは要らず、共有
-   ドキュメントの reviews 配列を集計するだけ。 */
-function storeRating(storeId){
+/* 「おすすめ理由タグ」の集計(疑似レビュー機能)。★のような平均点は作らず
+   ポジティブな件数だけを見せる — 母数が少ない個人店ほど、低い平均点1つで
+   評判を落としてしまうのを避けるため(TABETE/TGTGなど食品ロス系サービスが
+   直接的な★評価を公開しないのと同じ考え方)。 */
+function storeRecommendation(storeId){
   var reviews = (state.reviews||[]).filter(function(rv){ return rv.storeId === storeId; });
   if (!reviews.length) return null;
-  var sum = reviews.reduce(function(a,rv){ return a + rv.rating; }, 0);
-  return { avg: sum / reviews.length, count: reviews.length };
+  var tagCounts = {};
+  reviews.forEach(function(rv){
+    (rv.tags||[]).forEach(function(t){ tagCounts[t] = (tagCounts[t]||0) + 1; });
+  });
+  var topTag = Object.keys(tagCounts).sort(function(a,b){ return tagCounts[b]-tagCounts[a]; })[0];
+  return { count: reviews.length, topTag: topTag || null };
 }
 
 function renderAreaChips(){
@@ -818,7 +828,7 @@ function renderListings(){
       ? Math.round((1 - l.discountPrice / l.originalPrice) * 100)
       : 0;
     var impact = storeImpact(store.id);
-    var rating = storeRating(store.id);
+    var reco = storeRecommendation(store.id);
     var dist = storeDistance(store);
     var minutesToClose = Math.round((pickupEndDate(l).getTime() - Date.now()) / 60000);
     var urgent = minutesToClose <= URGENT_THRESHOLD_MIN;
@@ -830,7 +840,7 @@ function renderListings(){
             '<div class="storeRow">' +
               '<span class="storeTag">' + escapeHtml(store.category || "店舗") + '</span>' +
               '<span class="storeName">' + escapeHtml(store.name || "不明な店舗") + (store.area ? " ・ " + escapeHtml(store.area) : "") + '</span>' +
-              (rating ? '<span class="storeRating">⭐' + rating.avg.toFixed(1) + '(' + rating.count + ')</span>' : '') +
+              (reco ? '<span class="storeRating">👍 おすすめ' + reco.count + '件</span>' : '') +
               '<span class="favHeart' + (isFavorite(store.id) ? ' on' : '') + '" data-fav="' + store.id + '">' + (isFavorite(store.id) ? '❤️' : '🤍') + '</span>' +
             '</div>' +
             (impact > 0 ? '<div class="impactLine">🌱 このお店は累計 ' + impact + '個 のロスを削減</div>' : '') +
@@ -1059,8 +1069,8 @@ function renderMyReservations(){
         '</div>' +
         reminder +
         (canView ? '<div class="viewVoucherHint">🎫 タップして引き取り用のコードを表示</div>' : '') +
-        (canReview ? '<button class="reviewBtn" data-review="' + r.id + '">⭐ お店を評価する</button>' : '') +
-        (r.status === PICKED_UP && alreadyReviewed ? '<div class="reviewedNote">⭐ 評価済みです。ありがとうございます!</div>' : '') +
+        (canReview ? '<button class="reviewBtn" data-review="' + r.id + '">👍 このお店をおすすめする</button>' : '') +
+        (r.status === PICKED_UP && alreadyReviewed ? '<div class="reviewedNote">👍 おすすめ済みです。ありがとうございます!</div>' : '') +
       '</div>'
     );
   }
@@ -1249,12 +1259,16 @@ function directionsUrl(store){
   return null;
 }
 
-/* ---------- レビュー・評価(疑似) ----------
-   実際のモデレーション・スパム対策などは無い簡易版。受け取り済みの予約
-   1件につき1回だけ、★1〜5+コメントを投稿できる。 */
+/* ---------- おすすめ理由タグ(疑似レビュー) ----------
+   星評価のようなマイナス軸をあえて作らない設計。母数が少ない個人店ほど
+   低評価1件で評判を落としやすいため、TABETE/TGTGなど食品ロス系サービスに
+   ならい「良かった点だけを選んでもらう」ポジティブ専用の仕組みにしている。
+   実際のモデレーション・スパム対策は無い簡易版。受け取り済みの予約1件に
+   つき1回だけ投稿できる。 */
+var RECO_TAGS = ["😋 美味しかった", "💰 お得だった", "😊 対応が良かった", "🔄 また利用したい", "📦 量が多かった", "✨ 新鮮だった"];
 var reviewOverlay = document.getElementById("reviewOverlay");
 var reviewTargetReservationId = null;
-var reviewRating = 0;
+var reviewTags = [];
 
 function openReviewSheet(reservationId){
   var r = (state.reservations||[]).find(function(x){ return x.id === reservationId; });
@@ -1262,28 +1276,31 @@ function openReviewSheet(reservationId){
   var l = (state.listings||[]).find(function(x){ return x.id === r.listingId; }) || {};
   var store = (state.stores||[]).find(function(x){ return x.id === r.storeId; }) || {};
   reviewTargetReservationId = reservationId;
-  reviewRating = 0;
+  reviewTags = [];
   document.getElementById("reviewStoreLabel").textContent = (store.name || "") + " / " + (l.title || "");
   document.getElementById("reviewComment").value = "";
   document.getElementById("reviewErr").textContent = "";
-  updateStarUI();
+  renderTagPicker();
   reviewOverlay.hidden = false;
 }
-function updateStarUI(){
-  document.querySelectorAll("#starPicker span").forEach(function(s){
-    s.classList.toggle("filled", Number(s.getAttribute("data-star")) <= reviewRating);
+function renderTagPicker(){
+  var wrap = document.getElementById("tagPicker");
+  wrap.innerHTML = RECO_TAGS.map(function(tag){
+    return '<span class="tagChip' + (reviewTags.indexOf(tag) !== -1 ? ' selected' : '') + '" data-tag="' + escapeHtml(tag) + '">' + escapeHtml(tag) + '</span>';
+  }).join("");
+  wrap.querySelectorAll(".tagChip").forEach(function(chip){
+    chip.addEventListener("click", function(){
+      var tag = chip.getAttribute("data-tag");
+      var i = reviewTags.indexOf(tag);
+      if (i === -1) reviewTags.push(tag); else reviewTags.splice(i, 1);
+      renderTagPicker();
+    });
   });
 }
-document.querySelectorAll("#starPicker span").forEach(function(s){
-  s.addEventListener("click", function(){
-    reviewRating = Number(s.getAttribute("data-star"));
-    updateStarUI();
-  });
-});
 document.getElementById("reviewCancel").addEventListener("click", function(){ reviewOverlay.hidden = true; });
 document.getElementById("reviewSubmit").addEventListener("click", function(){
   var errEl = document.getElementById("reviewErr");
-  if (reviewRating < 1){ errEl.textContent = "星の数を選んでください。"; return; }
+  if (reviewTags.length < 1){ errEl.textContent = "良かった点を1つ以上選んでください。"; return; }
   var r = (state.reservations||[]).find(function(x){ return x.id === reviewTargetReservationId; });
   if (!r){ errEl.textContent = "予約情報が見つかりません。"; return; }
   var comment = document.getElementById("reviewComment").value.trim();
@@ -1292,7 +1309,7 @@ document.getElementById("reviewSubmit").addEventListener("click", function(){
     storeId: r.storeId,
     listingId: r.listingId,
     reservationId: r.id,
-    rating: reviewRating,
+    tags: reviewTags.slice(),
     comment: comment,
     name: r.name,
     createdAt: new Date().toISOString()
@@ -1302,7 +1319,7 @@ document.getElementById("reviewSubmit").addEventListener("click", function(){
     data.reviews.push(newReview);
     return { ok:true };
   }).then(function(result){
-    if (!result.ok){ errEl.textContent = "この予約は既に評価済みです。"; return; }
+    if (!result.ok){ errEl.textContent = "この予約は既におすすめ済みです。"; return; }
     reviewOverlay.hidden = true;
   }).catch(function(e){
     errEl.textContent = "通信エラーが発生しました。もう一度お試しください。";
