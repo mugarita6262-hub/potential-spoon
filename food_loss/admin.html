@@ -64,12 +64,6 @@
   /* 急いでいる時にも押しやすい最重要アクション用の大きめボタン(タップ領域の目安44px以上) */
   .btnBig{padding:14px 16px;font-size:15px;border-radius:12px;min-height:46px;}
   .formActions{margin-top:12px;display:flex;gap:8px;}
-  .storeChip{
-    display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);
-    border-radius:999px;padding:6px 12px;font-size:13px;margin:0 8px 8px 0;cursor:pointer;
-  }
-  .storeChip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
-  .storeChip .cat{font-size:10px;opacity:.75;}
   .listingCard .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .listingCard .title{font-weight:700;font-size:14px;}
   .listingCard .meta{font-size:12px;color:var(--muted);margin-top:4px;}
@@ -285,6 +279,19 @@ var CONFIRM_TIMEOUT_MS = 15 * 60 * 1000;
    多く売れれば元が取れる水準として¥200/日を起点にしている。 */
 var PR_PRICE_PER_DAY = 200;
 
+/* PR課金ルール:
+   - 課金の単位は「暦日」。ONにした瞬間からその日の枠が発生するが、5分以内
+     にOFFにすれば無料で取り消せる(誤操作救済)。5分を過ぎたらその日の
+     ¥200が確定し、`promotedChargeDates` にその日の日付を記録する。
+   - 同じ日の中で何度ON/OFFを繰り返しても、`promotedChargeDates` に既に
+     その日が入っていれば追加課金なし(3回やり直しても¥600にはならない)。
+   - 日をまたいでON状態が続けば、新しい日になった瞬間にその日の分も
+     新たに確定する(lockInPrCharges が毎回のsnapshot/定期チェックで判定)。
+   実際の課金自体はまだ未実装(Stage 3)だが、ルールの挙動はここで先に
+   本物同様に再現しておく。 */
+var PR_GRACE_MS = 5 * 60 * 1000;
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
 function defaultState(){ return { stores: [], listings: [], reservations: [] }; }
 function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
@@ -355,8 +362,17 @@ onSnapshot(docRef, function(snap){
   if (!state.listings) state.listings = [];
   if (!state.reservations) state.reservations = [];
   autoConfirmExpired();
+  lockInPrCharges();
   render();
 }, function(err){ console.warn("sync failed", err); });
+
+// 「あと◯分」系の表示はデータが変化しなくても時間経過で変わるので、
+// 定期的に再描画してズレないようにする(30秒ごと)。
+setInterval(function(){
+  autoConfirmExpired();
+  lockInPrCharges();
+  render();
+}, 30000);
 
 function autoConfirmExpired(){
   var now = Date.now();
@@ -469,21 +485,23 @@ function renderStoreChips(){
   if (!selectedStoreId || !state.stores.find(function(s){ return s.id === selectedStoreId; })){
     selectedStoreId = state.stores[0].id;
   }
-  // お店が1つしかない場合は選ぶ必要がないので、チップではなく店名だけ表示する
+  // お店が1つしかない場合は選ぶ必要がないので、店名だけ表示する
   if (state.stores.length === 1){
     wrap.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--accent-dark);margin-bottom:8px;">🏪 ' + escapeHtml(state.stores[0].name) + '</div>';
     return;
   }
-  wrap.innerHTML = state.stores.map(function(s){
-    var tag = [s.category, s.area].filter(Boolean).join(" ・ ");
-    return '<span class="storeChip' + (s.id === selectedStoreId ? ' active' : '') + '" data-id="' + s.id + '">' +
-      escapeHtml(s.name) + ' <span class="cat">' + escapeHtml(tag) + '</span></span>';
-  }).join("");
-  wrap.querySelectorAll(".storeChip").forEach(function(chip){
-    chip.addEventListener("click", function(){
-      selectedStoreId = chip.getAttribute("data-id");
-      render();
-    });
+  // 複数店舗の場合はチップを並べず、ドロップダウン1つですっきり選べるようにする
+  wrap.innerHTML =
+    '<select id="storeSelect" style="margin-bottom:10px;">' +
+      state.stores.map(function(s){
+        var tag = [s.category, s.area].filter(Boolean).join(" ・ ");
+        return '<option value="' + s.id + '"' + (s.id === selectedStoreId ? ' selected' : '') + '>' +
+          escapeHtml(s.name) + (tag ? "(" + escapeHtml(tag) + ")" : "") + '</option>';
+      }).join("") +
+    '</select>';
+  document.getElementById("storeSelect").addEventListener("change", function(e){
+    selectedStoreId = e.target.value;
+    render();
   });
 }
 
@@ -583,6 +601,7 @@ function renderListingSection(){
     var soldOut = l.quantityLeft <= 0;
     var open = l.open && !soldOut;
     var badgeText = soldOut ? "売り切れ" : (open ? "受付中" : "停止中");
+    var promoLabel = prLabel(l);
     return (
       '<div class="card listingCard">' +
         '<div class="top">' +
@@ -603,8 +622,7 @@ function renderListingSection(){
               ? '<button class="btn btnSmall btnGhost" data-close="' + l.id + '">受付を止める</button>'
               : '<button class="btn btnSmall btnPrimary" data-open="' + l.id + '">再開する</button>')) +
           '<button class="btn btnSmall btnGhost" data-dup="' + l.id + '">📋 コピーして出品</button>' +
-          '<button class="btn btnSmall btnPromo' + (l.promoted ? ' on' : '') + '" data-promo="' + l.id + '">' +
-            (l.promoted ? '★ PR中(やめる)' : '★ PRする(¥' + PR_PRICE_PER_DAY + '/日・課金は未実装)') + '</button>' +
+          '<button class="btn btnSmall btnPromo' + (l.promoted ? ' on' : '') + '" data-promo="' + l.id + '">' + promoLabel + '</button>' +
         '</div>' +
       '</div>'
     );
@@ -623,17 +641,72 @@ function renderListingSection(){
   });
 }
 
-/* 「PRする」— ユーザー側の一覧の先頭に固定表示させる一手。今は無料の
-   トグルだが、将来的には店舗が広告的にお金を払って使う機能に発展させる
-   ことも見込んでいる(Stage 3の収益化候補)。 */
+/* ボタンの文言を課金ルールの状態に応じて出し分ける */
+function prLabel(l){
+  var dates = l.promotedChargeDates || [];
+  var chargedToday = dates.indexOf(todayStr()) !== -1;
+  if (l.promoted){
+    var elapsedMin = l.promotedAt ? Math.floor((Date.now() - new Date(l.promotedAt).getTime()) / 60000) : 99;
+    if (!chargedToday && elapsedMin < 5){
+      return '★ PR中(あと' + (5 - elapsedMin) + '分以内なら無料で取り消せます)';
+    }
+    return '★ PR中(本日分¥' + PR_PRICE_PER_DAY + '確定・やめる)';
+  }
+  return chargedToday
+    ? '★ PRする(本日分は購入済みなので無料で再開できます)'
+    : '★ PRする(¥' + PR_PRICE_PER_DAY + '/日・課金は未実装)';
+}
+
+/* 「PRする」— ユーザー側の一覧の先頭に固定表示させる一手。上の課金ルール
+   コメント通り、OFFにする瞬間に「5分過ぎているか」を見て、過ぎていれば
+   その日を promotedChargeDates に確定させる。 */
 function togglePromoted(listingId){
   withDoc(function(data){
     var l = data.listings.find(function(x){ return x.id === listingId; });
     if (!l) return { ok:false };
-    l.promoted = !l.promoted;
-    l.promotedAt = l.promoted ? new Date().toISOString() : null;
+    if (!l.promotedChargeDates) l.promotedChargeDates = [];
+    if (l.promoted){
+      var elapsed = l.promotedAt ? (Date.now() - new Date(l.promotedAt).getTime()) : Infinity;
+      var today = todayStr();
+      if (elapsed >= PR_GRACE_MS && l.promotedChargeDates.indexOf(today) === -1){
+        l.promotedChargeDates.push(today); // 5分超過後のOFF → その日の分を確定
+      }
+      l.promoted = false;
+      l.promotedAt = null;
+    } else {
+      l.promoted = true;
+      l.promotedAt = new Date().toISOString();
+    }
     return { ok:true };
   }).catch(function(e){ console.warn(e); });
+}
+
+/* ONにしっぱなしで一度もOFFにしないまま5分が過ぎた場合も、その日の分は
+   確定させる(自動確定と同じ考え方の定期チェック)。 */
+function lockInPrCharges(){
+  var now = Date.now();
+  var today = todayStr();
+  var targets = (state.listings||[]).filter(function(l){
+    if (!l.promoted || !l.promotedAt) return false;
+    var elapsed = now - new Date(l.promotedAt).getTime();
+    var dates = l.promotedChargeDates || [];
+    return elapsed >= PR_GRACE_MS && dates.indexOf(today) === -1;
+  });
+  if (!targets.length) return;
+  withDoc(function(data){
+    var changed = false;
+    var today2 = todayStr();
+    targets.forEach(function(target){
+      var l = data.listings.find(function(x){ return x.id === target.id; });
+      if (!l || !l.promoted) return;
+      if (!l.promotedChargeDates) l.promotedChargeDates = [];
+      if (l.promotedChargeDates.indexOf(today2) === -1){
+        l.promotedChargeDates.push(today2);
+        changed = true;
+      }
+    });
+    return { ok: changed };
+  }).catch(function(e){ console.warn("PR charge lock-in failed", e); });
 }
 
 /* 出品フォームは常時表示だと場所を取りすぎるので、ボタンで開くシートに
