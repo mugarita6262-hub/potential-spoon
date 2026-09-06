@@ -155,51 +155,9 @@
     </section>
 
     <section id="listingSection" hidden>
-      <div class="sectionTitle" id="listingSectionTitle">出品</div>
-      <div class="card">
-        <label>商品名</label>
-        <input type="text" id="lTitle" placeholder="例: 本日の余ったパン詰め合わせ">
-        <label>写真(任意・その場で撮影できます)</label>
-        <input type="file" id="lPhotoInput" accept="image/*" capture="environment">
-        <div id="lPhotoPreviewWrap" hidden style="margin-top:8px;">
-          <img id="lPhotoPreview" style="width:100%;max-width:220px;border-radius:10px;display:block;">
-          <button type="button" class="btn btnSmall btnGhost" id="lPhotoRemove" style="margin-top:6px;">写真を削除</button>
-        </div>
-        <label>説明(任意)</label>
-        <textarea id="lDesc" placeholder="内容は当日のお楽しみです、など"></textarea>
-        <div class="row">
-          <div>
-            <label>通常価格</label>
-            <input type="number" id="lOrig" min="0" placeholder="1000">
-          </div>
-          <div>
-            <label>割引後価格</label>
-            <input type="number" id="lDiscount" min="0" placeholder="400">
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label>個数</label>
-            <input type="number" id="lQty" min="1" value="3">
-          </div>
-          <div>
-            <label>引き取り日</label>
-            <input type="date" id="lDate">
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label>引き取り開始</label>
-            <input type="time" id="lStart" value="19:00">
-          </div>
-          <div>
-            <label>引き取り終了</label>
-            <input type="time" id="lEnd" value="20:00">
-          </div>
-        </div>
-        <div class="formActions">
-          <button class="btn btnPrimary" id="addListingBtn">出品する</button>
-        </div>
+      <div class="sectionHead">
+        <div class="sectionTitle" id="listingSectionTitle">出品</div>
+        <button class="btn btnPrimary btnBig" id="openAddListingBtn">＋ 出品する</button>
       </div>
       <div id="listingList"></div>
     </section>
@@ -230,6 +188,58 @@
     <div class="formActions">
       <button class="btn btnGhost" id="cancelAddStoreBtn">やめる</button>
       <button class="btn btnPrimary" id="addStoreBtn">お店を追加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 出品シート(常時表示だと場所を取るので、大きいボタンで開く形にしている。
+     「コピーして出品」もこのシートを開いて中身を差し替える) -->
+<div class="overlay" id="addListingOverlay" hidden>
+  <div class="sheet">
+    <h2 id="addListingSheetTitle">出品する</h2>
+    <label>商品名</label>
+    <input type="text" id="lTitle" placeholder="例: 本日の余ったパン詰め合わせ">
+    <label>写真(任意・その場で撮影できます)</label>
+    <input type="file" id="lPhotoInput" accept="image/*" capture="environment">
+    <div id="lPhotoPreviewWrap" hidden style="margin-top:8px;">
+      <img id="lPhotoPreview" style="width:100%;max-width:220px;border-radius:10px;display:block;">
+      <button type="button" class="btn btnSmall btnGhost" id="lPhotoRemove" style="margin-top:6px;">写真を削除</button>
+    </div>
+    <label>説明(任意)</label>
+    <textarea id="lDesc" placeholder="内容は当日のお楽しみです、など"></textarea>
+    <div class="row">
+      <div>
+        <label>通常価格</label>
+        <input type="number" id="lOrig" min="0" placeholder="1000">
+      </div>
+      <div>
+        <label>割引後価格</label>
+        <input type="number" id="lDiscount" min="0" placeholder="400">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>個数</label>
+        <input type="number" id="lQty" min="1" value="3">
+      </div>
+      <div>
+        <label>引き取り日</label>
+        <input type="date" id="lDate">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>引き取り開始</label>
+        <input type="time" id="lStart" value="19:00">
+      </div>
+      <div>
+        <label>引き取り終了</label>
+        <input type="time" id="lEnd" value="20:00">
+      </div>
+    </div>
+    <div class="formActions">
+      <button class="btn btnGhost" id="cancelAddListingBtn">やめる</button>
+      <button class="btn btnPrimary" id="addListingBtn">出品する</button>
     </div>
   </div>
 </div>
@@ -561,9 +571,6 @@ function renderListingSection(){
   section.hidden = false;
   var store = state.stores.find(function(s){ return s.id === selectedStoreId; });
   document.getElementById("listingSectionTitle").textContent = "出品(" + (store ? store.name : "") + ")";
-  if (!document.getElementById("lDate").value){
-    document.getElementById("lDate").value = new Date().toISOString().slice(0,10);
-  }
 
   var listings = state.listings.filter(function(l){ return l.storeId === selectedStoreId; })
     .sort(function(a,b){ return (b.date+b.pickupStart).localeCompare(a.date+a.pickupStart); });
@@ -622,22 +629,33 @@ function togglePromoted(listingId){
   }).catch(function(e){ console.warn(e); });
 }
 
-/* ③ 出品コストをほぼゼロにする一手 — 「昨日と同じ内容」を丸ごとフォームに
+/* 出品フォームは常時表示だと場所を取りすぎるので、ボタンで開くシートに
+   まとめている。新規出品(空の状態)・コピーして出品(値を入れた状態)の
+   どちらもこの1つの関数でシートを開く。 */
+var addListingOverlay = document.getElementById("addListingOverlay");
+function openAddListingSheet(prefill){
+  document.getElementById("addListingSheetTitle").textContent = prefill ? "出品する(前回の内容をコピー)" : "出品する";
+  document.getElementById("lTitle").value = prefill ? prefill.title : "";
+  document.getElementById("lDesc").value = prefill ? (prefill.description || "") : "";
+  document.getElementById("lOrig").value = prefill ? prefill.originalPrice : "";
+  document.getElementById("lDiscount").value = prefill ? prefill.discountPrice : "";
+  document.getElementById("lQty").value = prefill ? prefill.quantityTotal : 3;
+  document.getElementById("lDate").value = new Date().toISOString().slice(0,10);
+  document.getElementById("lStart").value = prefill ? prefill.pickupStart : "19:00";
+  document.getElementById("lEnd").value = prefill ? prefill.pickupEnd : "20:00";
+  setPhotoDraft((prefill && prefill.photo) || null); // 写真も引き継ぐ(同じ商品なら撮り直し不要、違えば削除して撮り直せる)
+  addListingOverlay.hidden = false;
+}
+document.getElementById("openAddListingBtn").addEventListener("click", function(){ openAddListingSheet(null); });
+document.getElementById("cancelAddListingBtn").addEventListener("click", function(){ addListingOverlay.hidden = true; });
+
+/* ③ 出品コストをほぼゼロにする一手 — 「昨日と同じ内容」をそのままシートに
    流し込み、日付だけ今日にして確認ボタンを押すだけで再出品できるようにする。
    閉店前の忙しい時間帯に毎回フル入力させないための仕掛け。 */
 function duplicateListing(listingId){
   var l = listingLookup(listingId);
   if (!l) return;
-  document.getElementById("lTitle").value = l.title;
-  document.getElementById("lDesc").value = l.description || "";
-  document.getElementById("lOrig").value = l.originalPrice;
-  document.getElementById("lDiscount").value = l.discountPrice;
-  document.getElementById("lQty").value = l.quantityTotal;
-  document.getElementById("lDate").value = new Date().toISOString().slice(0,10);
-  document.getElementById("lStart").value = l.pickupStart;
-  document.getElementById("lEnd").value = l.pickupEnd;
-  setPhotoDraft(l.photo || null); // 写真も引き継ぐ(同じ商品なら撮り直し不要、違えば削除して撮り直せる)
-  document.getElementById("lTitle").scrollIntoView({ behavior:"smooth", block:"center" });
+  openAddListingSheet(l);
 }
 
 function setListingOpen(listingId, open){
@@ -669,12 +687,8 @@ document.getElementById("addListingBtn").addEventListener("click", function(){
     });
     return { ok:true };
   }).then(function(){
-    document.getElementById("lTitle").value = "";
-    document.getElementById("lDesc").value = "";
-    document.getElementById("lOrig").value = "";
-    document.getElementById("lDiscount").value = "";
-    document.getElementById("lQty").value = "3";
     setPhotoDraft(null);
+    addListingOverlay.hidden = true;
   }).catch(function(e){ console.warn(e); });
 });
 
