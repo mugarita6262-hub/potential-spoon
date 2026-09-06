@@ -51,6 +51,14 @@
     width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-dark);
     display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;font-weight:700;
   }
+  .notifBell{position:relative;font-size:18px;cursor:pointer;line-height:1;}
+  .notifBadge{
+    position:absolute;top:-6px;right:-8px;background:var(--danger);color:#fff;
+    font-size:9px;font-weight:800;border-radius:999px;padding:1px 4px;min-width:14px;text-align:center;
+  }
+  .notifRow{padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .notifRow:last-child{border-bottom:none;}
+  .notifRow .time{font-size:11px;color:var(--muted);margin-top:2px;}
   /* バナー枠 — 実際のバナー画像が入るまでのダミー(濃いグレー)。ネイティブの
      バナーカルーセルらしく、ナビゲーションバーの下に角丸なしで全幅に置く */
   .hero{
@@ -192,6 +200,15 @@
   .viewVoucherHint{font-size:11px;color:var(--accent-dark);font-weight:700;margin-top:8px;}
   .pickupReminder{font-size:12px;color:var(--accent-dark);font-weight:700;margin-top:8px;}
   .pickupReminder.urgent{color:var(--danger);}
+  .starPicker{display:flex;gap:6px;font-size:34px;margin:16px 0;justify-content:center;line-height:1;}
+  .starPicker span{cursor:pointer;color:var(--border);}
+  .starPicker span.filled{color:#d19a3a;}
+  .reviewBtn{
+    width:100%;margin-top:10px;padding:10px;border-radius:10px;
+    background:var(--clay-soft);color:#7a4420;font-size:13px;font-weight:700;
+  }
+  .reviewedNote{font-size:11px;color:var(--muted);margin-top:8px;}
+  .storeRating{font-size:11px;color:var(--muted);}
   .historyToggle{
     width:100%;background:none;border:1px dashed var(--border);border-radius:12px;
     padding:10px;font-size:12px;color:var(--muted);margin-bottom:10px;
@@ -276,7 +293,10 @@
       <line x1="32" y1="46" x2="32" y2="52" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
     </svg>
   </span>
-  <span class="avatar" id="topBarAvatar">👤</span>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span class="notifBell" id="notifBellBtn">🔔<span class="notifBadge" id="notifBadge" hidden></span></span>
+    <span class="avatar" id="topBarAvatar">👤</span>
+  </div>
 </div>
 <header class="hero">
   <div class="heroContent">
@@ -409,6 +429,40 @@
   <div class="sheet" id="memberSheet"></div>
 </div>
 
+<!-- レビュー投稿シート。受け取り済みの予約1件につき1回だけ投稿できる。 -->
+<div class="overlay" id="reviewOverlay" hidden>
+  <div class="sheet">
+    <h2>お店を評価する</h2>
+    <p class="sub" id="reviewStoreLabel"></p>
+    <div class="starPicker" id="starPicker">
+      <span data-star="1">★</span><span data-star="2">★</span><span data-star="3">★</span><span data-star="4">★</span><span data-star="5">★</span>
+    </div>
+    <label>コメント(任意)</label>
+    <textarea id="reviewComment" placeholder="良かった点など教えてください" style="width:100%;min-height:70px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+    <div class="err" id="reviewErr"></div>
+    <div class="actions">
+      <button class="btnGhost" id="reviewCancel">やめる</button>
+      <button class="btnPrimary" id="reviewSubmit">投稿する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 通知センター(疑似プッシュ通知)。本物のプッシュはService Worker+配信
+     サーバーが要るため、ここでは「アプリを開いた時に変化を検知して積む」
+     アプリ内通知リストにしている。ブラウザ通知の許可があればOS通知も出す。 -->
+<div class="overlay" id="notifOverlay" hidden>
+  <div class="sheet">
+    <h2>通知</h2>
+    <div id="notifEnableRow" hidden style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+      <button type="button" class="btnGhost" id="notifEnableBtn" style="width:100%;padding:10px;border-radius:10px;">🔔 ブラウザ通知を有効にする(このブラウザを開いている間だけ届きます)</button>
+    </div>
+    <div id="notifList"></div>
+    <div class="actions">
+      <button class="btnGhost" id="notifClose" style="flex:none;width:100%;">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
@@ -444,7 +498,7 @@ var PICKED_UP = "picked_up";
 var NO_SHOW = "no_show";
 var CONFIRM_TIMEOUT_MS = 15 * 60 * 1000; // 15分で店舗未対応なら自動確定
 
-function defaultState(){ return { stores: [], listings: [], reservations: [] }; }
+function defaultState(){ return { stores: [], listings: [], reservations: [], reviews: [] }; }
 function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
 /* runs `mutator(data)` against the freshest copy of the shared document
@@ -462,6 +516,7 @@ function withDoc(mutator){
       if (!data.stores) data.stores = [];
       if (!data.listings) data.listings = [];
       if (!data.reservations) data.reservations = [];
+      if (!data.reviews) data.reviews = [];
       var result = mutator(data) || { ok:true };
       if (result.ok) t.set(docRef, data);
       return result;
@@ -510,7 +565,9 @@ onSnapshot(docRef, function(snap){
   if (!state.stores) state.stores = [];
   if (!state.listings) state.listings = [];
   if (!state.reservations) state.reservations = [];
+  if (!state.reviews) state.reviews = [];
   autoConfirmExpired();
+  checkForNotifications();
   render();
 }, function(err){
   console.warn("sync failed", err);
@@ -569,6 +626,15 @@ function storeImpact(storeId){
     count += r.quantity;
   });
   return count;
+}
+
+/* 平均★とレビュー件数(疑似レビュー機能)。実際のインフラは要らず、共有
+   ドキュメントの reviews 配列を集計するだけ。 */
+function storeRating(storeId){
+  var reviews = (state.reviews||[]).filter(function(rv){ return rv.storeId === storeId; });
+  if (!reviews.length) return null;
+  var sum = reviews.reduce(function(a,rv){ return a + rv.rating; }, 0);
+  return { avg: sum / reviews.length, count: reviews.length };
 }
 
 function renderAreaChips(){
@@ -752,6 +818,7 @@ function renderListings(){
       ? Math.round((1 - l.discountPrice / l.originalPrice) * 100)
       : 0;
     var impact = storeImpact(store.id);
+    var rating = storeRating(store.id);
     var dist = storeDistance(store);
     var minutesToClose = Math.round((pickupEndDate(l).getTime() - Date.now()) / 60000);
     var urgent = minutesToClose <= URGENT_THRESHOLD_MIN;
@@ -763,6 +830,7 @@ function renderListings(){
             '<div class="storeRow">' +
               '<span class="storeTag">' + escapeHtml(store.category || "店舗") + '</span>' +
               '<span class="storeName">' + escapeHtml(store.name || "不明な店舗") + (store.area ? " ・ " + escapeHtml(store.area) : "") + '</span>' +
+              (rating ? '<span class="storeRating">⭐' + rating.avg.toFixed(1) + '(' + rating.count + ')</span>' : '') +
               '<span class="favHeart' + (isFavorite(store.id) ? ' on' : '') + '" data-fav="' + store.id + '">' + (isFavorite(store.id) ? '❤️' : '🤍') + '</span>' +
             '</div>' +
             (impact > 0 ? '<div class="impactLine">🌱 このお店は累計 ' + impact + '個 のロスを削減</div>' : '') +
@@ -978,6 +1046,8 @@ function renderMyReservations(){
         (urgent ? '(あと' + fmtCountdown(minsLeft) + ')' : '') +
         '</div>';
     }
+    var alreadyReviewed = (state.reviews||[]).some(function(rv){ return rv.reservationId === r.id; });
+    var canReview = r.status === PICKED_UP && !alreadyReviewed;
     return (
       '<div class="card' + (canView ? ' myResCard' : '') + '"' + (canView ? ' data-viewvoucher="' + r.id + '"' : '') + '>' +
         '<span class="statusPill ' + st.cls + '">' + st.text + '</span>' +
@@ -989,6 +1059,8 @@ function renderMyReservations(){
         '</div>' +
         reminder +
         (canView ? '<div class="viewVoucherHint">🎫 タップして引き取り用のコードを表示</div>' : '') +
+        (canReview ? '<button class="reviewBtn" data-review="' + r.id + '">⭐ お店を評価する</button>' : '') +
+        (r.status === PICKED_UP && alreadyReviewed ? '<div class="reviewedNote">⭐ 評価済みです。ありがとうございます!</div>' : '') +
       '</div>'
     );
   }
@@ -1015,6 +1087,9 @@ function renderMyReservations(){
   }
   list.querySelectorAll("[data-viewvoucher]").forEach(function(card){
     card.addEventListener("click", function(){ showVoucher(card.getAttribute("data-viewvoucher")); });
+  });
+  list.querySelectorAll("[data-review]").forEach(function(btn){
+    btn.addEventListener("click", function(){ openReviewSheet(btn.getAttribute("data-review")); });
   });
 }
 
@@ -1174,6 +1249,67 @@ function directionsUrl(store){
   return null;
 }
 
+/* ---------- レビュー・評価(疑似) ----------
+   実際のモデレーション・スパム対策などは無い簡易版。受け取り済みの予約
+   1件につき1回だけ、★1〜5+コメントを投稿できる。 */
+var reviewOverlay = document.getElementById("reviewOverlay");
+var reviewTargetReservationId = null;
+var reviewRating = 0;
+
+function openReviewSheet(reservationId){
+  var r = (state.reservations||[]).find(function(x){ return x.id === reservationId; });
+  if (!r) return;
+  var l = (state.listings||[]).find(function(x){ return x.id === r.listingId; }) || {};
+  var store = (state.stores||[]).find(function(x){ return x.id === r.storeId; }) || {};
+  reviewTargetReservationId = reservationId;
+  reviewRating = 0;
+  document.getElementById("reviewStoreLabel").textContent = (store.name || "") + " / " + (l.title || "");
+  document.getElementById("reviewComment").value = "";
+  document.getElementById("reviewErr").textContent = "";
+  updateStarUI();
+  reviewOverlay.hidden = false;
+}
+function updateStarUI(){
+  document.querySelectorAll("#starPicker span").forEach(function(s){
+    s.classList.toggle("filled", Number(s.getAttribute("data-star")) <= reviewRating);
+  });
+}
+document.querySelectorAll("#starPicker span").forEach(function(s){
+  s.addEventListener("click", function(){
+    reviewRating = Number(s.getAttribute("data-star"));
+    updateStarUI();
+  });
+});
+document.getElementById("reviewCancel").addEventListener("click", function(){ reviewOverlay.hidden = true; });
+document.getElementById("reviewSubmit").addEventListener("click", function(){
+  var errEl = document.getElementById("reviewErr");
+  if (reviewRating < 1){ errEl.textContent = "星の数を選んでください。"; return; }
+  var r = (state.reservations||[]).find(function(x){ return x.id === reviewTargetReservationId; });
+  if (!r){ errEl.textContent = "予約情報が見つかりません。"; return; }
+  var comment = document.getElementById("reviewComment").value.trim();
+  var newReview = {
+    id: newId(),
+    storeId: r.storeId,
+    listingId: r.listingId,
+    reservationId: r.id,
+    rating: reviewRating,
+    comment: comment,
+    name: r.name,
+    createdAt: new Date().toISOString()
+  };
+  withDoc(function(data){
+    if (data.reviews.some(function(rv){ return rv.reservationId === r.id; })) return { ok:false }; // 二重投稿防止
+    data.reviews.push(newReview);
+    return { ok:true };
+  }).then(function(result){
+    if (!result.ok){ errEl.textContent = "この予約は既に評価済みです。"; return; }
+    reviewOverlay.hidden = true;
+  }).catch(function(e){
+    errEl.textContent = "通信エラーが発生しました。もう一度お試しください。";
+    console.warn(e);
+  });
+});
+
 function renderVoucher(reservationId){
   var r = (state.reservations||[]).find(function(x){ return x.id === reservationId; }) ||
     (voucherFallback && voucherFallback.id === reservationId ? voucherFallback : null);
@@ -1222,6 +1358,107 @@ function renderVoucher(reservationId){
     localStorage.setItem("foodlossInstallDismissed", "1");
   });
 })();
+
+/* ---------- 疑似プッシュ通知 ----------
+   本物のプッシュ通知はService Worker+配信サーバー(Blaze同様のインフラ
+   投資)が要るため、ここでは「アプリを開いている間に状態の変化を検知して
+   アプリ内通知センターに積む」+「ブラウザ許可があればOS通知も出す」疑似版
+   にとどめている。ブラウザ/タブを閉じている間は届かない点は正直に案内する。 */
+function getNotifications(){
+  try { return JSON.parse(localStorage.getItem("foodlossNotifications") || "[]"); }
+  catch(e){ return []; }
+}
+function saveNotifications(list){
+  localStorage.setItem("foodlossNotifications", JSON.stringify(list.slice(0, 30)));
+}
+function pushNotification(message){
+  var list = getNotifications();
+  list.unshift({ id: newId(), message: message, createdAt: new Date().toISOString(), read: false });
+  saveNotifications(list);
+  if (window.Notification && Notification.permission === "granted"){
+    try { new Notification(message); } catch(e){ console.warn(e); }
+  }
+}
+
+function checkForNotifications(){
+  // 1) 自分の予約のステータス変化(確定・拒否)を検知
+  var lastStatuses = {};
+  try { lastStatuses = JSON.parse(localStorage.getItem("foodlossLastSeenStatuses") || "{}"); } catch(e){}
+  var member = getMember();
+  var mine;
+  if (member && member.phone){
+    mine = (state.reservations||[]).filter(function(r){ return r.phone === member.phone; });
+  } else {
+    var ids = myReservationIds();
+    mine = ids.map(function(id){ return (state.reservations||[]).find(function(r){ return r.id === id; }); }).filter(Boolean);
+  }
+  var newStatuses = {};
+  mine.forEach(function(r){
+    newStatuses[r.id] = r.status;
+    var prev = lastStatuses[r.id];
+    if (prev && prev !== r.status && (r.status === CONFIRMED || r.status === AUTO_CONFIRMED || r.status === REJECTED)){
+      var l = (state.listings||[]).find(function(x){ return x.id === r.listingId; }) || {};
+      pushNotification(r.status === REJECTED
+        ? "😢「" + (l.title||"") + "」の予約は今回ご用意できませんでした(返金されます)"
+        : "✅「" + (l.title||"") + "」の予約が確定しました!");
+    }
+  });
+  localStorage.setItem("foodlossLastSeenStatuses", JSON.stringify(newStatuses));
+
+  // 2) お気に入り店舗の新着出品を検知(初回は遡って通知しない)
+  var favs = getFavorites();
+  if (favs.length){
+    var seenRaw = localStorage.getItem("foodlossSeenListingIds");
+    if (seenRaw === null){
+      var initialIds = (state.listings||[]).map(function(l){ return l.id; });
+      localStorage.setItem("foodlossSeenListingIds", JSON.stringify(initialIds));
+    } else {
+      var seenIds;
+      try { seenIds = JSON.parse(seenRaw); } catch(e){ seenIds = []; }
+      (state.listings||[]).forEach(function(l){
+        if (seenIds.indexOf(l.id) !== -1) return;
+        var store = (state.stores||[]).find(function(s){ return s.id === l.storeId; });
+        if (!store || favs.indexOf(store.id) === -1) return;
+        pushNotification("🌱 お気に入りの「" + store.name + "」に新着出品:" + l.title);
+      });
+      var allIds = (state.listings||[]).map(function(l){ return l.id; });
+      localStorage.setItem("foodlossSeenListingIds", JSON.stringify(allIds.slice(-200)));
+    }
+  }
+
+  renderNotifBell();
+}
+
+function renderNotifBell(){
+  var badge = document.getElementById("notifBadge");
+  var unread = getNotifications().filter(function(n){ return !n.read; }).length;
+  badge.hidden = unread === 0;
+  badge.textContent = unread > 9 ? "9+" : String(unread);
+}
+
+var notifOverlay = document.getElementById("notifOverlay");
+document.getElementById("notifBellBtn").addEventListener("click", function(){
+  var list = getNotifications();
+  document.getElementById("notifList").innerHTML = list.length
+    ? list.map(function(n){
+        return '<div class="notifRow">' + escapeHtml(n.message) +
+          '<div class="time">' + new Date(n.createdAt).toLocaleString("ja-JP") + '</div></div>';
+      }).join("")
+    : '<div class="empty">通知はまだありません。</div>';
+  document.getElementById("notifEnableRow").hidden = !(window.Notification && Notification.permission === "default");
+  notifOverlay.hidden = false;
+  // 開いたら既読にする
+  list.forEach(function(n){ n.read = true; });
+  saveNotifications(list);
+  renderNotifBell();
+});
+document.getElementById("notifClose").addEventListener("click", function(){ notifOverlay.hidden = true; });
+document.getElementById("notifEnableBtn").addEventListener("click", function(){
+  if (!window.Notification){ return; }
+  Notification.requestPermission().then(function(){
+    document.getElementById("notifEnableRow").hidden = !(Notification.permission === "default");
+  });
+});
 
 /* ---------- 会員登録(疑似SMS認証) ----------
    本物のFirebase Phone AuthはBlazeプラン+SMS従量課金が必要になるため、

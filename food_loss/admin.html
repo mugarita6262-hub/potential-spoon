@@ -310,7 +310,7 @@ var PR_PRICE_PER_DAY = 200;
 var PR_GRACE_MS = 5 * 60 * 1000;
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
-function defaultState(){ return { stores: [], listings: [], reservations: [] }; }
+function defaultState(){ return { stores: [], listings: [], reservations: [], reviews: [] }; }
 function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
 function withDoc(mutator){
@@ -320,6 +320,7 @@ function withDoc(mutator){
       if (!data.stores) data.stores = [];
       if (!data.listings) data.listings = [];
       if (!data.reservations) data.reservations = [];
+      if (!data.reviews) data.reviews = [];
       var result = mutator(data) || { ok:true };
       if (result.ok) t.set(docRef, data);
       return result;
@@ -379,6 +380,7 @@ onSnapshot(docRef, function(snap){
   if (!state.stores) state.stores = [];
   if (!state.listings) state.listings = [];
   if (!state.reservations) state.reservations = [];
+  if (!state.reviews) state.reviews = [];
   autoConfirmExpired();
   lockInPrCharges();
   render();
