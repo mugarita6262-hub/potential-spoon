@@ -72,7 +72,6 @@
     background:var(--card);border:1px solid var(--border);border-radius:16px;
     padding:14px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);
   }
-  .card.soldout{opacity:.55;}
   .card.promoted{border-color:var(--clay);box-shadow:0 0 0 1px var(--clay),0 2px 6px rgba(193,113,63,.25);}
   .prBadge{
     display:inline-block;font-size:11px;font-weight:800;color:#5c3a1f;
@@ -98,6 +97,7 @@
   .offPct{font-size:11px;background:var(--danger);color:#fff;border-radius:6px;padding:2px 6px;font-weight:700;}
   .metaRow{display:flex;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--muted);margin-bottom:10px;}
   .metaChip{background:#efe8d8;border-radius:8px;padding:3px 8px;}
+  .urgentChip{background:var(--danger);color:#fff;font-weight:700;}
   .qtyLeft{font-weight:700;color:var(--accent-dark);}
   button{
     font-family:inherit;cursor:pointer;border:none;
@@ -107,10 +107,6 @@
     color:#fff;font-size:15px;font-weight:700;
   }
   .reserveBtn:disabled{background:#c9c0a6;cursor:not-allowed;}
-  .soldoutLabel{
-    display:inline-block;background:var(--muted);color:#fff;font-size:11px;
-    border-radius:6px;padding:3px 8px;font-weight:700;
-  }
   /* modal */
   .overlay{
     position:fixed;inset:0;background:rgba(20,30,18,.5);
@@ -158,11 +154,20 @@
   .err{color:var(--danger);font-size:12px;margin-top:8px;min-height:16px;}
 
   /* confirmation / voucher */
+  @keyframes voucherPop{
+    0%{opacity:0;transform:scale(.9) translateY(6px);}
+    100%{opacity:1;transform:scale(1) translateY(0);}
+  }
   .voucher{
     background:var(--card);border:2px dashed var(--accent);border-radius:16px;
     padding:18px;text-align:center;margin-bottom:18px;
+    animation:voucherPop .35s ease-out;
   }
   .voucher .code{font-size:26px;font-weight:800;letter-spacing:2px;color:var(--accent-dark);margin:6px 0;}
+  .voucher .impactCheer{
+    font-size:12px;color:var(--accent-dark);background:var(--accent-soft);
+    border-radius:999px;padding:5px 12px;display:inline-block;margin-top:10px;
+  }
   .statusPill{
     display:inline-block;font-size:12px;font-weight:700;border-radius:999px;
     padding:4px 12px;margin-bottom:8px;
@@ -253,6 +258,11 @@
 </header>
 
 <main>
+  <div id="installBanner" hidden style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--accent-soft);color:var(--accent-dark);border-radius:12px;padding:10px 12px;margin-bottom:14px;font-size:12.5px;">
+    <span id="installBannerText"></span>
+    <button type="button" id="installBannerClose" style="background:none;border:none;color:inherit;font-size:16px;line-height:1;padding:0;flex:none;">✕</button>
+  </div>
+
   <div id="myReservationsWrap" hidden>
     <div class="sectionTitle">あなたの予約</div>
     <div id="myReservations"></div>
@@ -494,6 +504,19 @@ function fmtDate(dateStr){
 }
 function fmtPrice(n){ return "¥" + Number(n||0).toLocaleString(); }
 
+function pickupEndDate(l){ return new Date(l.date + "T" + l.pickupEnd + ":00"); }
+
+// 引き取り終了まで2時間以内は「急いで」の緊急表示に切り替える
+var URGENT_THRESHOLD_MIN = 120;
+function fmtCountdown(minutes){
+  minutes = Math.max(1, minutes);
+  if (minutes >= 60){
+    var h = Math.floor(minutes / 60), m = minutes % 60;
+    return h + "時間" + (m > 0 ? m + "分" : "");
+  }
+  return minutes + "分";
+}
+
 function render(){
   renderListings();
   renderMyReservations();
@@ -631,6 +654,10 @@ function renderListings(){
   var listings = (state.listings||[]).filter(function(l){
     var store = storesById[l.storeId];
     if (!store || store.active === false) return false;
+    // 「今すぐ受け取れるもの」だけを見せるアプリなので、売り切れ・受付停止・
+    // 引き取り時間が過ぎたものは一覧からそもそも消す(灰色表示で残さない)。
+    if (!l.open || l.quantityLeft <= 0) return false;
+    if (pickupEndDate(l).getTime() <= Date.now()) return false;
     if (selectedArea && store.area !== selectedArea) return false;
     if (selectedRadius && myLocation){
       var d = storeDistance(store);
@@ -666,14 +693,15 @@ function renderListings(){
 
   wrap.innerHTML = listings.map(function(l){
     var store = storesById[l.storeId] || {};
-    var soldout = !l.open || l.quantityLeft <= 0;
     var offPct = l.originalPrice > 0
       ? Math.round((1 - l.discountPrice / l.originalPrice) * 100)
       : 0;
     var impact = storeImpact(store.id);
     var dist = storeDistance(store);
+    var minutesToClose = Math.round((pickupEndDate(l).getTime() - Date.now()) / 60000);
+    var urgent = minutesToClose <= URGENT_THRESHOLD_MIN;
     return (
-      '<div class="card' + (soldout ? ' soldout' : '') + (l.promoted ? ' promoted' : '') + '">' +
+      '<div class="card' + (l.promoted ? ' promoted' : '') + '">' +
         (l.promoted ? '<div class="prBadge">📣 PR</div>' : '') +
         '<div class="cardRow">' +
           '<div class="cardMain">' +
@@ -695,14 +723,13 @@ function renderListings(){
             : '<div class="cardPhotoPlaceholder"><span class="icon">📷</span><span class="label">写真なし</span></div>') +
         '</div>' +
         '<div class="metaRow">' +
-          '<span class="metaChip">' + fmtDate(l.date) + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' 引き取り</span>' +
+          '<span class="metaChip' + (urgent ? ' urgentChip' : '') + '">' +
+            (urgent ? '⏰ あと' + fmtCountdown(minutesToClose) + 'で受付終了' : fmtDate(l.date) + ' ' + l.pickupStart + '〜' + l.pickupEnd + ' 引き取り') +
+          '</span>' +
           '<span class="metaChip">残り <span class="qtyLeft">' + Math.max(l.quantityLeft,0) + '</span>個</span>' +
           (dist !== null ? '<span class="metaChip">📍 ' + fmtDistance(dist) + '</span>' : '') +
         '</div>' +
-        (soldout
-          ? '<span class="soldoutLabel">SOLD OUT / 受付終了</span>'
-          : '<button class="reserveBtn" data-id="' + l.id + '">予約する</button>'
-        ) +
+        '<button class="reserveBtn" data-id="' + l.id + '">予約する</button>' +
       '</div>'
     );
   }).join("");
@@ -960,8 +987,32 @@ function renderVoucher(reservationId){
         : (r.status === REJECTED
           ? "大変申し訳ございません。今回はご用意できませんでした。お支払いは自動的に返金されます(テスト決済のため実際の返金処理はありません)。"
           : "このコードを引き取り時にお店へ提示してください。" + (l.pickupStart ? "引き取り時間: " + fmtDate(l.date) + " " + l.pickupStart + "〜" + l.pickupEnd : ""))) +
-    '</div>';
+    '</div>' +
+    (r.status !== REJECTED
+      ? '<div class="impactCheer">🌱 ' + r.quantity + '個分の「もったいない」を防げました。ありがとうございます!</div>'
+      : '');
 }
+
+/* ---------- ホーム画面追加の案内 ----------
+   実際のインストールプロンプトAPI(beforeinstallprompt)はAndroid Chrome
+   でしか動かず、iOS Safariには存在しないため、どの端末でも共通して案内
+   できる「手動でホーム画面に追加してください」バナーにしている。すでに
+   ホーム画面から起動している(standalone)場合や、一度閉じた後は出さない。 */
+(function(){
+  var isStandalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+  var dismissed = localStorage.getItem("foodlossInstallDismissed") === "1";
+  if (isStandalone || dismissed) return;
+  var banner = document.getElementById("installBanner");
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  document.getElementById("installBannerText").textContent = isIOS
+    ? "📲 共有ボタンから「ホーム画面に追加」すると、次からアプリのようにすぐ開けます"
+    : "📲 ブラウザのメニューから「ホーム画面に追加」すると、次からアプリのようにすぐ開けます";
+  banner.hidden = false;
+  document.getElementById("installBannerClose").addEventListener("click", function(){
+    banner.hidden = true;
+    localStorage.setItem("foodlossInstallDismissed", "1");
+  });
+})();
 
 /* ---------- 会員登録(疑似SMS認証) ----------
    本物のFirebase Phone AuthはBlazeプラン+SMS従量課金が必要になるため、
