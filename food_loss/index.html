@@ -200,6 +200,11 @@
   .viewVoucherHint{font-size:11px;color:var(--accent-dark);font-weight:700;margin-top:8px;}
   .pickupReminder{font-size:12px;color:var(--accent-dark);font-weight:700;margin-top:8px;}
   .pickupReminder.urgent{color:var(--danger);}
+  .appleSigninBtn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    width:100%;padding:13px;border-radius:10px;
+    background:#000;color:#fff;font-size:14px;font-weight:700;border:none;
+  }
   .tagPicker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
   .tagChip{
     background:#fff;border:1px solid var(--border);border-radius:999px;
@@ -1513,7 +1518,9 @@ function renderMemberSheet(){
         '<div style="font-size:13px;color:var(--muted);">電話番号</div><div style="font-weight:700;margin-bottom:8px;">' + escapeHtml(member.phone) + '</div>' +
         '<div style="font-size:13px;color:var(--muted);">メールアドレス</div><div style="font-weight:700;">' + escapeHtml(member.email || "(未登録)") + '</div>' +
       '</div>' +
-      '<div style="font-size:11px;color:var(--muted);margin-top:8px;">✅ 電話番号認証済み(疑似)。次回からの予約はこの情報が自動で使われます。</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:8px;">' +
+        (member.authMethod === "apple" ? "🍎 Appleでサインイン済み(疑似)。" : "✅ 電話番号認証済み(疑似)。") +
+        "次回からの予約はこの情報が自動で使われます。</div>" +
       '<div class="actions"><button class="btnGhost" id="memberLogoutBtn" style="flex:none;width:100%;">ログアウト</button></div>' +
       '<div class="actions"><button class="btnGhost" id="memberCloseBtn" style="flex:none;width:100%;">閉じる</button></div>';
   } else if (memberStep === "verify"){
@@ -1531,10 +1538,26 @@ function renderMemberSheet(){
         '<button class="btnGhost" id="memberBackBtn">戻る</button>' +
         '<button class="btnPrimary" id="memberVerifyBtn">認証する</button>' +
       '</div>';
+  } else if (memberStep === "appleQuick"){
+    html =
+      '<h2>🍎 Appleでサインイン</h2>' +
+      '<p class="sub">Appleの認証情報を使うので、確認コードの入力は不要です(疑似)。引き取り連絡のためお名前と電話番号だけ確認させてください。</p>' +
+      '<label>お名前</label>' +
+      '<input type="text" id="memberAppleName" placeholder="山田 花子" value="' + (memberDraft ? escapeHtml(memberDraft.name) : "") + '">' +
+      '<label>電話番号(引き取り連絡用)</label>' +
+      '<input type="tel" id="memberApplePhone" placeholder="09012345678" value="' + (memberDraft ? escapeHtml(memberDraft.phone) : "") + '">' +
+      '<div class="err" id="memberErr"></div>' +
+      '<div class="actions">' +
+        '<button class="btnGhost" id="memberBackBtn">戻る</button>' +
+        '<button class="btnPrimary" id="memberAppleSubmitBtn">登録する</button>' +
+      '</div>';
   } else {
     html =
       '<h2>会員登録</h2>' +
       '<p class="sub">登録しておくと、次回からの予約で名前・電話番号の入力が不要になります。</p>' +
+      '<button type="button" class="appleSigninBtn" id="memberAppleBtn">🍎 Appleでサインイン</button>' +
+      '<div style="font-size:10px;color:var(--muted);text-align:center;margin:4px 0 14px;">(疑似・実際のApple認証ではありません)</div>' +
+      '<div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:10px;">――― または ―――</div>' +
       '<label>お名前</label>' +
       '<input type="text" id="memberName" placeholder="山田 花子" value="' + (memberDraft ? escapeHtml(memberDraft.name) : "") + '">' +
       '<label>電話番号</label>' +
@@ -1591,6 +1614,30 @@ function wireMemberSheetEvents(){
     saveMember({ name: memberDraft.name, phone: memberDraft.phone, email: memberDraft.email, verifiedAt: new Date().toISOString() });
     memberDraft = null;
     memberFakeCode = null;
+    memberStep = "form";
+    renderMemberSheet();
+  });
+
+  /* 🍎 Appleでサインイン(疑似)。本物のSign in with AppleはApple Developer
+     Program登録(有料)+サーバー側のトークン検証が要るため、ここでは
+     「コード入力なしで即登録できる」という体験の核だけを再現している。
+     Appleは実際にメールをそのまま渡さず匿名の中継アドレスを発行するので、
+     そのふるまいも privaterelay.appleid.com 風のダミーアドレスで真似た。 */
+  var appleBtn = document.getElementById("memberAppleBtn");
+  if (appleBtn) appleBtn.addEventListener("click", function(){
+    memberStep = "appleQuick";
+    renderMemberSheet();
+  });
+  var appleSubmitBtn = document.getElementById("memberAppleSubmitBtn");
+  if (appleSubmitBtn) appleSubmitBtn.addEventListener("click", function(){
+    var errEl = document.getElementById("memberErr");
+    var name = document.getElementById("memberAppleName").value.trim();
+    var phone = document.getElementById("memberApplePhone").value.trim().replace(/[^0-9]/g,"");
+    if (!name){ errEl.textContent = "お名前を入力してください。"; return; }
+    if (phone.length < 10){ errEl.textContent = "電話番号を正しく入力してください。"; return; }
+    var fakeEmail = "appleuser" + Math.random().toString(36).slice(2,8) + "@privaterelay.appleid.com";
+    saveMember({ name:name, phone:phone, email:fakeEmail, verifiedAt: new Date().toISOString(), authMethod:"apple" });
+    memberDraft = null;
     memberStep = "form";
     renderMemberSheet();
   });
