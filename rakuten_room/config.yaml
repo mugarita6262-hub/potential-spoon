@@ -25,9 +25,9 @@ prune:
   # soldout モードのとき、反応なし(いいね0/コメント0)を優先
   prefer_zero_engagement: true
 
-  # 1回に削除する最大件数。
-  # 今は古い投稿の大量整理中なので 100。落ち着いたら 15 に戻す。
-  max_delete_per_run: 100
+  # 1回に削除する最大件数。日常の入れ替えは 15。
+  # 古い投稿を大量整理したいときは prune.bat 側で一時的に上げて使う。
+  max_delete_per_run: 15
 
   # 削除と削除の間の待ち時間（秒）。この範囲でランダム。スパム判定対策。
   delete_interval_seconds: [3, 7]

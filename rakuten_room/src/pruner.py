@@ -340,14 +340,16 @@ def _prune_soldout(page, cfg, pcfg, commit: bool) -> None:
         print(f"詳細: {PREVIEW_FILE}")
 
 
-def prune(cfg: dict, commit: bool = False) -> None:
-    pcfg = cfg.get("prune", {})
+def prune(cfg: dict, commit: bool = False, max_delete: int | None = None) -> None:
+    pcfg = dict(cfg.get("prune", {}))
     if not pcfg.get("enabled", False):
         print("prune は config.yaml で無効になっています。")
         return
     if not cfg.get("my_room_url"):
         print("config.yaml の my_room_url が未設定です。")
         return
+    if max_delete is not None:
+        pcfg["max_delete_per_run"] = max_delete
 
     mode = (pcfg.get("mode") or "oldest").strip()
     pw, ctx, _b = _launch()

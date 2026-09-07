@@ -109,7 +109,13 @@ def main() -> int:
     elif cmd == "prune":
         from .pruner import prune
 
-        prune(cfg, commit="--commit" in args)
+        max_delete = None
+        for a in args:
+            if a.startswith("--max="):
+                max_delete = int(a.split("=", 1)[1])
+            elif a == "--max" and args.index(a) + 1 < len(args):
+                max_delete = int(args[args.index(a) + 1])
+        prune(cfg, commit="--commit" in args, max_delete=max_delete)
     elif cmd == "run":
         cmd_run(cfg)
     elif cmd in ("-h", "--help", "help"):
