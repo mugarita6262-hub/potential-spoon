@@ -1,0 +1,78 @@
+# ===== 楽天ROOM 半自動投稿ツール 設定 =====
+
+# 自分のROOMのURL（room_xxxx の部分）
+my_room_url: "https://room.rakuten.co.jp/room_e36e002876/items"
+
+# 1晩に「実際に新規投稿する」件数（既存とかぶった分は次の候補で埋める）
+post_count: 10
+
+# 候補として選んでおく件数（post_count より多めに。かぶり吸収用のバッファ）
+candidate_pool: 40
+
+# 上限対策の自動削除
+prune:
+  enabled: true
+
+  # 削除の選び方:
+  #   "oldest"  … 一覧の先頭（＝古い投稿）から順に削除
+  #   "soldout" … 売切れ・販売終了の投稿だけ削除
+  mode: "oldest"
+
+  # 安全ガード: この日付より後に投稿したものは削除しない（YYYY-MM-DD）。
+  # 空にすると無制限。2023〜2024年の古い投稿だけ消すなら "2025-01-01" など。
+  only_before: "2025-01-01"
+
+  # soldout モードのとき、反応なし(いいね0/コメント0)を優先
+  prefer_zero_engagement: true
+
+  # 1回に削除する最大件数。
+  # 今は古い投稿の大量整理中なので 100。落ち着いたら 15 に戻す。
+  max_delete_per_run: 100
+
+  # 削除と削除の間の待ち時間（秒）。この範囲でランダム。スパム判定対策。
+  delete_interval_seconds: [3, 7]
+
+# 投稿と投稿の間の待ち時間（秒）。この範囲でランダムに待つ（スパム判定対策）
+post_interval_seconds: [60, 90]
+
+# 候補の集め方
+sources:
+  # 楽天市場のお気に入り商品
+  favorites:
+    enabled: true
+    # お気に入り一覧ページのURL。環境によって違う場合は変更する
+    url: "https://my.bookmark.rakuten.co.jp/"
+    # data/favorites.txt に楽天商品URLを1行ずつ書いておくと、それも候補に加える
+    manual_list_file: "data/favorites.txt"
+
+  # 楽天ランキング（売れ筋）
+  ranking:
+    enabled: true
+    # ランキングを取るジャンルID（0 = 総合）。
+    # 参考: https://webservice.rakuten.co.jp/documentation/ichiba-genre-search
+    genre_ids:
+      - 0        # 総合
+      - 100939   # 美容・コスメ・香水
+      - 100804   # 日用品雑貨・文房具・手芸
+      - 100227   # 食品
+      - 558885   # スイーツ・お菓子
+    # 各ジャンルから上位何件を候補にするか（最大30）
+    per_genre: 25
+
+# 「売れそう」スコアの重み（合計1.0が目安）
+scoring:
+  weights:
+    review_count: 0.35     # レビュー件数が多い
+    review_average: 0.20   # 評価が高い
+    ranking_rank: 0.25     # ランキング上位
+    price_fit: 0.10        # 売れやすい価格帯に近い
+    point_rate: 0.10       # ポイント倍率が高い
+  # 一番売れやすい価格帯（円）。この中なら price_fit = 1.0
+  price_band: [1000, 8000]
+  # この条件を満たさない商品は候補から除外
+  min_review_count: 5
+  min_review_average: 3.8
+
+exclude:
+  # 同じ商品をこの日数以内に再投稿しない
+  reposted_within_days: 60

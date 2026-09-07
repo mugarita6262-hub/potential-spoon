@@ -1,0 +1,3 @@
+# 楽天ROOMで紹介したいお気に入り商品の URL を1行ずつ貼ってください。
+# 例:
+# https://item.rakuten.co.jp/shopname/itemid/

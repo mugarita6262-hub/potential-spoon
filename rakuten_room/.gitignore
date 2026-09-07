@@ -1,0 +1,18 @@
+.venv/
+.env
+logs/
+__pycache__/
+*.pyc
+
+# 実行時に生成されるデータ（マシン固有）
+data/session/
+data/drafts/
+data/posted.json
+data/pruned.json
+data/prune_checked.json
+data/prune_preview.json
+data/prune_fail.txt
+data/prune_fail.png
+data/explore_report.txt
+data/debug_fill.txt
+data/favorites_cache.json
