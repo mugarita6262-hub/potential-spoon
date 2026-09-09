@@ -482,15 +482,31 @@
   var TIER_SHORT_LABEL = { common: "ノーマル", rare: "レア", super: "超レア" }; // for the collection grid chip
   var TIER_WEIGHT = { super: 5, rare: 25 }; // remainder goes to common
 
+  var STICKER_MAX_COPIES = 2; // once a character has been drawn this many times, it drops out of the pool
+
+  function ownedStickerCounts() {
+    var counts = {};
+    state.stickers.forEach(function (s) { counts[s.key] = (counts[s.key] || 0) + 1; });
+    return counts;
+  }
+
   function drawSticker() {
+    var counts = ownedStickerCounts();
+    var available = STICKER_CATALOG.filter(function (s) { return (counts[s.key] || 0) < STICKER_MAX_COPIES; });
+    // If literally everything has hit the cap (a fully-doubled collection), don't hard-block —
+    // fall back to the full catalog rather than ever failing to produce a sticker.
+    var pool = available.length ? available : STICKER_CATALOG;
     var roll = Math.random() * 100;
     var tier = roll < TIER_WEIGHT.super ? "super" : (roll < TIER_WEIGHT.super + TIER_WEIGHT.rare ? "rare" : "common");
-    var pool = STICKER_CATALOG.filter(function (s) { return s.tier === tier; });
-    return pool[Math.floor(Math.random() * pool.length)];
+    var tierPool = pool.filter(function (s) { return s.tier === tier; });
+    if (!tierPool.length) tierPool = pool; // that tier is exhausted within what's still available
+    return tierPool[Math.floor(Math.random() * tierPool.length)];
   }
 
   function drawStickerOfTier(tier) {
-    var pool = STICKER_CATALOG.filter(function (s) { return s.tier === tier; });
+    var counts = ownedStickerCounts();
+    var pool = STICKER_CATALOG.filter(function (s) { return s.tier === tier && (counts[s.key] || 0) < STICKER_MAX_COPIES; });
+    if (!pool.length) pool = STICKER_CATALOG.filter(function (s) { return s.tier === tier; });
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
