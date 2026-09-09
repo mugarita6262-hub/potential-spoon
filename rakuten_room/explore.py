@@ -1,5 +1,4 @@
-"""『削除』ボタンを押したとき、ブラウザ標準ダイアログが出るか / DOMダイアログか / 何も無いかを調べる。
-※ ダイアログは打ち消す（dismiss）ので実際には削除しない。
+"""「掲載終了商品を含む」トグルのDOMと、ON にしたときのカード数を調べる。
 出力: data/explore_report.txt
 """
 from __future__ import annotations
@@ -7,98 +6,85 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from src.pruner import _cards_now
 from src.poster import _launch, _safe_goto
 
 OUT = Path(__file__).resolve().parent / "data" / "explore_report.txt"
 MY_ROOM = "https://room.rakuten.co.jp/room_e36e002876/items"
 
+FIND_TOGGLE_JS = r"""
+() => {
+  const vis = e => { const r=e.getBoundingClientRect(); return r.width>0 && r.height>0; };
+  const results = [];
+  // 「掲載終了」を含むテキストノードの周辺を調べる
+  const walker = document.evaluate("//*[contains(text(),'掲載終了')]", document, null,
+    XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+  for (let i=0;i<walker.snapshotLength;i++){
+    const el = walker.snapshotItem(i);
+    let box = el;
+    for (let k=0;k<3 && box.parentElement;k++) box = box.parentElement;
+    results.push({
+      text: (el.innerText||'').trim().slice(0,30),
+      labelHTML: box.outerHTML.slice(0, 800),
+    });
+  }
+  // 近くの input[type=checkbox] / role=switch / toggle クラス
+  const toggles = Array.from(document.querySelectorAll(
+    "input[type=checkbox], [role=switch], [class*=toggle i], [class*=switch i], label"))
+    .filter(vis)
+    .map(e => ({ tag:e.tagName.toLowerCase(), type:e.getAttribute('type'),
+                 role:e.getAttribute('role'), cls:(e.getAttribute('class')||'').slice(0,80),
+                 checked: e.checked, text:(e.innerText||'').trim().slice(0,24) }))
+    .slice(0, 20);
+  return { results, toggles };
+}
+"""
+
 
 def main():
     pw, ctx, _b = _launch()
-    lines = []
-    dialog_events = []
+    L = []
     try:
         page = ctx.new_page()
-
-        def on_dialog(d):
-            dialog_events.append({"type": d.type, "message": d.message})
-            try:
-                d.dismiss()  # 実削除しないよう必ずキャンセル
-            except Exception:  # noqa: BLE001
-                pass
-
-        page.on("dialog", on_dialog)
-
         _safe_goto(page, MY_ROOM)
         page.wait_for_timeout(5000)
-        for _ in range(4):
-            page.mouse.wheel(0, 2500)
-            page.wait_for_timeout(1000)
+        for _ in range(3):
+            page.mouse.wheel(0, 800); page.wait_for_timeout(800)
 
-        # 売切れ投稿を探す
-        imgs = page.locator("img")
-        target_url = None
-        for i in range(min(imgs.count(), 40)):
-            el = imgs.nth(i)
+        L.append(f"トグルON前のカード数: {len(_cards_now(page))}")
+        L.append(json.dumps(page.evaluate(FIND_TOGGLE_JS), ensure_ascii=False, indent=2))
+
+        # クリックを試す
+        L.append("\n=== 『掲載終了商品を含む』をクリック試行 ===")
+        for sel in [
+            'text=掲載終了商品を含む',
+            'label:has-text("掲載終了")',
+            ':near(:text("掲載終了商品を含む"))',
+        ]:
             try:
-                box = el.bounding_box()
-                if not box or box["width"] < 110 or box["y"] < 150:
-                    continue
-                el.scroll_into_view_if_needed(timeout=3000)
-                el.click(timeout=4000)
-                page.wait_for_timeout(3000)
-            except Exception:  # noqa: BLE001
-                continue
-            info = page.evaluate(
-                "() => ({soldout: document.body.innerText.includes('売切れ'),"
-                " hasDel: !!document.querySelector('button[aria-label=\"削除\"]'), url: location.href})"
-            )
-            if info["soldout"] and info["hasDel"]:
-                target_url = info["url"]
-                break
-            _safe_goto(page, MY_ROOM)
-            page.wait_for_timeout(3000)
-            for _ in range(3):
-                page.mouse.wheel(0, 2500)
-                page.wait_for_timeout(800)
-
-        if not target_url:
-            lines.append("売切れ投稿が見つかりませんでした")
+                loc = page.locator(sel).first
+                if loc.count():
+                    loc.click(timeout=4000)
+                    L.append(f"  クリック成功: {sel}")
+                    page.wait_for_timeout(4000)
+                    break
+            except Exception as e:
+                L.append(f"  {sel}: {e}")
         else:
-            lines.append(f"対象の売切れ投稿: {target_url}")
-            page.wait_for_timeout(1000)
+            # テキストの隣にあるトグルらしき要素をクリック
+            try:
+                page.get_by_text("掲載終了商品を含む").locator("xpath=following::*[1]").click(timeout=4000)
+                L.append("  隣接要素クリック成功")
+                page.wait_for_timeout(4000)
+            except Exception as e:
+                L.append(f"  隣接クリック失敗: {e}")
 
-            before = page.evaluate("() => document.querySelectorAll('*').length")
-            lines.append("『削除』ボタンをクリックします...")
-            page.locator('button[aria-label="削除"]').first.click(timeout=5000)
-            page.wait_for_timeout(3500)
-
-            lines.append(f"\nネイティブダイアログ発生: {json.dumps(dialog_events, ensure_ascii=False)}")
-
-            after = page.evaluate(r"""
-            () => {
-              const vis = e => { const r=e.getBoundingClientRect(); return r.width>0&&r.height>0; };
-              const cand = Array.from(document.querySelectorAll('div,section,[role=dialog],[role=alertdialog]'))
-                .filter(vis)
-                .filter(e => /削除|本当に|よろしい|できません|OK|はい|いいえ/.test(e.innerText||''))
-                .filter(e => (e.innerText||'').length < 200)
-                .map(e => ({ cls:(e.getAttribute('class')||'').slice(0,120),
-                             text:(e.innerText||'').replace(/\s+/g,' ').trim().slice(0,160),
-                             html:e.outerHTML.slice(0,600) }));
-              const btns = Array.from(document.querySelectorAll('button,a,[ng-click]'))
-                .filter(vis)
-                .filter(e => /削除|OK|はい|いいえ|キャンセル|とじる|閉じる/.test((e.innerText||'')))
-                .map(e => ({ tag:e.tagName.toLowerCase(), text:(e.innerText||'').trim().slice(0,20),
-                             ngClick:e.getAttribute('ng-click'), cls:(e.getAttribute('class')||'').slice(0,90) }));
-              return { url: location.href, elemCount: document.querySelectorAll('*').length,
-                       dialogCandidates: cand, buttons: btns,
-                       bodyChunk: document.body.innerText.replace(/\s+/g,' ').slice(0,400) };
-            }
-            """)
-            lines.append(f"DOM要素数 before={before} after={after['elemCount']}")
-            lines.append(json.dumps(after, ensure_ascii=False, indent=2))
+        for _ in range(3):
+            page.mouse.wheel(0, 1500); page.wait_for_timeout(1000)
+        L.append(f"\nトグル操作後のカード数: {len(_cards_now(page))}")
+        L.append(f"URL: {page.url}")
     finally:
-        OUT.write_text("\n".join(lines), encoding="utf-8")
+        OUT.write_text("\n".join(L), encoding="utf-8")
         print("書き出しました:", OUT)
         pw.stop()
 

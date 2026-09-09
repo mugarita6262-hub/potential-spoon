@@ -25,6 +25,8 @@ PREVIEW_FILE = DATA_DIR / "prune_preview.json"
 DETAIL_RE = re.compile(r"/room_[0-9a-z]+/(\d{6,})")
 NEXT_SEL = 'button[aria-label="swipe-right"]'
 DEL_SEL = 'button[aria-label="削除"]'
+# 「掲載終了商品を含む」ON のURL。この一覧は 60件ほど一気に読み込まれて安定
+LIST_QUERY = "?unavailable_item=1"
 
 DETAIL_JS = r"""
 () => {
@@ -65,62 +67,96 @@ def _pid(s: str) -> str:
     return m.group(1) if m else ""
 
 
-LOAD_MORE_LABELS = ["さらに読み込む", "もっと見る", "続きを見る", "もっと読み込む"]
+LOAD_MORE_LABELS = ["さらに読み込む", "もっと読み込む", "もっと見る", "続きを見る"]
 
 
-def _click_load_more(page) -> bool:
+def _find_load_more(page):
+    """『さらに読み込む』ボタンを返す（無ければ None）。"""
+    selectors = []
     for lb in LOAD_MORE_LABELS:
+        selectors += [f'button:has-text("{lb}")', f'a:has-text("{lb}")',
+                      f'[role="button"]:has-text("{lb}")', f'text="{lb}"']
+    for sel in selectors:
         try:
-            b = page.get_by_text(lb, exact=False).first
-            if b.count() and b.is_visible():
-                b.scroll_into_view_if_needed(timeout=3000)
-                b.click(timeout=4000)
-                return True
+            loc = page.locator(sel).first
+            if loc.count() and loc.is_visible():
+                return loc
         except Exception:  # noqa: BLE001
             continue
-    return False
+    return None
+
+
+CARD_SEL = "a.link-image--2kguM, a[class*='link-image']"
+
+
+def _cards_now(page) -> list:
+    """クリックすると投稿詳細に飛ぶカード要素（href なし・JS onclick）。"""
+    out = []
+    try:
+        loc = page.locator(CARD_SEL)
+        n = loc.count()
+    except Exception:  # noqa: BLE001
+        return out
+    for i in range(min(n, 60)):
+        el = loc.nth(i)
+        try:
+            if el.is_visible():
+                out.append(el)
+        except Exception:  # noqa: BLE001
+            continue
+    return out
 
 
 def _thumbs_now(page) -> list:
-    thumbs = []
-    imgs = page.locator("img")
-    for i in range(min(imgs.count(), 90)):
-        el = imgs.nth(i)
-        try:
-            box = el.bounding_box()
-        except Exception:  # noqa: BLE001
-            continue
-        if box and box["width"] >= 110 and box["height"] >= 110 and box["y"] > 150:
-            thumbs.append(el)
-    return thumbs
+    return _cards_now(page)
 
 
-def _wait_grid_ready(page, timeout_s: int = 40) -> list:
-    """一覧に商品サムネが出るまで待つ。空なら「さらに読み込む」を押す。"""
+def _wait_grid_ready(page, want: int = 5, timeout_s: int = 50) -> list:
+    """一覧に投稿カードが want 件出るまで待つ。
+    『さらに読み込む』があれば押し、無ければスクロールで誘発。"""
     deadline = time.time() + timeout_s
     while time.time() < deadline:
-        thumbs = _thumbs_now(page)
-        if len(thumbs) >= 3:
-            return thumbs
-        if not _click_load_more(page):
+        cards = _cards_now(page)
+        if len(cards) >= want:
+            return cards
+        btn = _find_load_more(page)
+        if btn is not None:
             try:
-                page.mouse.wheel(0, 600)
+                btn.scroll_into_view_if_needed(timeout=3000)
+                page.wait_for_timeout(250)
+                btn.click(timeout=4000)
             except Exception:  # noqa: BLE001
-                pass
-        page.wait_for_timeout(1800)
-    return _thumbs_now(page)
+                try:
+                    btn.evaluate("el => el.click()")
+                except Exception:  # noqa: BLE001
+                    pass
+            page.wait_for_timeout(2400)
+        else:
+            # ボタンが無い＝まだ描画中 or 無限スクロール。上下に動かして誘発
+            for dy in (2500, 2500, -6000):
+                try:
+                    page.mouse.wheel(0, dy)
+                except Exception:  # noqa: BLE001
+                    pass
+                page.wait_for_timeout(1100)
+    return _cards_now(page)
+
+
+def _list_url(my_room: str) -> str:
+    base = my_room.split("?")[0]
+    return base + LIST_QUERY
 
 
 def _open_first_post(page, my_room: str, tries: int = 3) -> dict | None:
     """一覧の先頭の投稿詳細を開いて情報を返す。数回リトライ。"""
     for attempt in range(tries):
-        _safe_goto(page, my_room)
-        page.wait_for_timeout(2500)
+        _safe_goto(page, _list_url(my_room))
+        page.wait_for_timeout(3500)
         thumbs = _wait_grid_ready(page)
-        if not thumbs:
+        if len(thumbs) < 2:
             print(f"   （一覧の描画待ちリトライ {attempt + 2}/{tries}）")
             continue
-        for el in thumbs[:8]:
+        for el in thumbs[:10]:
             try:
                 el.scroll_into_view_if_needed(timeout=3000)
                 el.click(timeout=4000)
@@ -199,42 +235,37 @@ def _prune_oldest(page, cfg, pcfg, commit: bool) -> None:
     done = 0
     stopped = ""
     preview: list[dict] = []
-    guard_hits = 0
+    fail_streak = 0
 
-    for _ in range(max_delete + 40):
-        if done >= max_delete:
-            break
+    while done < max_delete and not stopped:
         info = _open_first_post(page, my_room)
         if not info:
-            stopped = "投稿を開けませんでした"
-            break
-        if not info.get("hasDelete"):
-            stopped = "削除ボタンが無い投稿（自分の投稿でない？）"
-            break
+            fail_streak += 1
+            if fail_streak >= 3:
+                stopped = "一覧を開けませんでした（3回連続）。時間をあけて再実行してください"
+                break
+            time.sleep(20)  # 一時制限の可能性 → 少し待って再挑戦
+            continue
+        fail_streak = 0
 
+        if not info.get("hasDelete"):
+            stopped = "削除ボタンが無い投稿"
+            break
         posted = info.get("postedYmd")
         rec = {"url": info["url"], "name": info.get("name", "")[:100],
-               "posted": posted, "likes": info.get("likes"),
-               "comments": info.get("comments")}
-
+               "posted": posted, "likes": info.get("likes"), "comments": info.get("comments")}
         if only_before and posted and posted >= only_before:
-            guard_hits += 1
-            print(f"  スキップ（{posted} は {only_before} 以降）: {rec['name'][:40]}")
-            # 先頭がガード対象＝それ以降は全部新しい → 終了
             stopped = f"先頭の投稿が {only_before} 以降（{posted}）。これ以上古い投稿はありません"
             break
-
         print(f"  {'[プレビュー] ' if not commit else ''}削除対象: {posted} {rec['name'][:44]}")
         preview.append(rec)
-        if commit:
-            if _delete_current(page, rec, pruned_log):
-                done += 1
-                print(f"    → 削除（{done}/{max_delete}）")
-                _sleep_between(pcfg)
-        else:
-            # プレビューは先頭しか見られないのでここで打ち切り
+        if not commit:
             stopped = "プレビューは先頭1件のみ表示（本番なら順に削除）"
             break
+        if _delete_current(page, rec, pruned_log):
+            done += 1
+            print(f"    → 削除（{done}/{max_delete}）")
+            _sleep_between(pcfg)
 
     _save(PREVIEW_FILE, {"mode": "oldest", "would_delete_or_deleted": preview})
     print("\n" + "=" * 60)
