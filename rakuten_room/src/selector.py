@@ -33,7 +33,7 @@ def gather_candidates(cfg: dict, api: RakutenAPI) -> list[dict]:
     return dedupe(candidates)
 
 
-def select_items(cfg: dict, api: RakutenAPI) -> list[dict]:
+def select_items(cfg: dict, api: RakutenAPI, pool: int | None = None) -> list[dict]:
     candidates = gather_candidates(cfg, api)
     print(f"重複除去後の候補: {len(candidates)} 件")
 
@@ -47,5 +47,6 @@ def select_items(cfg: dict, api: RakutenAPI) -> list[dict]:
     ranked = score_items(candidates, cfg["scoring"])
     print(f"スコア条件を満たした候補: {len(ranked)} 件")
 
-    pool = int(cfg.get("candidate_pool", cfg["post_count"] * 3))
+    if pool is None:
+        pool = int(cfg.get("candidate_pool", cfg["post_count"] * 3))
     return ranked[:pool]

@@ -3,11 +3,33 @@
 # 自分のROOMのURL（room_xxxx の部分）
 my_room_url: "https://room.rakuten.co.jp/room_e36e002876/items"
 
-# 1晩に「実際に新規投稿する」件数（既存とかぶった分は次の候補で埋める）
+# 1日に「実際に新規投稿する」件数（既存とかぶった分は次の候補で埋める）
 post_count: 10
 
 # 候補として選んでおく件数（post_count より多めに。かぶり吸収用のバッファ）
 candidate_pool: 40
+
+# 1回の post_now.bat で開くタブ数。post_count 以下にすると分割投稿になる。
+# 例: post_count=10, post_batch_size=4 → 朝昼夜に post_now.bat を回すと計10件。
+# 目安の時間帯（閲覧が多い）: 07:30 / 12:30 / 21:30
+post_batch_size: 4
+
+# セール・イベント日に投稿数を増やす
+sale_boost:
+  enabled: true
+  # 5と0のつく日
+  five_ten_day_multiplier: 1.3
+  # スーパーSALE・お買い物マラソン等
+  event_multiplier: 1.8
+  max_multiplier: 2.0
+  # 候補商品名にセール表記が何割あればイベント開催中とみなすか
+  auto_detect: true
+  event_name_ratio: 0.12
+  # 手動で期間を入れておきたいとき（自動検知より確実）。
+  # スーパーSALE: 3/6/9/12月上旬、お買い物マラソン: ほぼ毎月。楽天のイベントページで確認して追記。
+  manual_events:
+    - {name: "スーパーSALE", start: "2026-09-04", end: "2026-09-11"}
+    # - {name: "お買い物マラソン", start: "2026-09-19", end: "2026-09-24"}
 
 # 上限対策の自動削除
 prune:

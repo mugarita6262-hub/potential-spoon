@@ -22,9 +22,9 @@ from urllib.parse import quote
 
 import pyperclip
 
-from .captions import load_captions, load_drafts
+from .captions import load_captions, load_drafts, load_plan
 from .config import SESSION_DIR
-from .posted_log import record_posted
+from .posted_log import posted_today, record_posted
 
 MIX_URL = "https://room.rakuten.co.jp/mix?itemcode={code}"
 COMMENT_SEL = "#collect-content"
@@ -317,7 +317,21 @@ def post_drafts_tabs(cfg: dict, day: str | None = None) -> None:
         print("投稿できる商品がありません。")
         return
 
-    target_count = int(cfg.get("post_count", 10))
+    # 今日の目標数（セール倍率込み）は prepare が _plan.json に書く
+    plan = load_plan(day)
+    target_count = int(plan.get("target_count") or cfg.get("post_count", 10))
+    done_today = posted_today()
+    remaining = max(0, target_count - done_today)
+    batch = int(cfg.get("post_batch_size") or target_count)
+    this_run = min(remaining, batch)
+
+    if plan.get("reasons"):
+        print(f"今日の目標: {target_count} 件（{' / '.join(plan['reasons'])}）")
+    if this_run <= 0:
+        print(f"今日はすでに {done_today}/{target_count} 件投稿済みです。おつかれさまでした。")
+        return
+    print(f"今日 {done_today}/{target_count} 件投稿済み → この回で最大 {this_run} 件開きます。")
+
     pw, ctx, _browser = _launch()
     try:
         page0 = ctx.new_page()
@@ -331,9 +345,9 @@ def post_drafts_tabs(cfg: dict, day: str | None = None) -> None:
 
         prepared: list[dict] = []
         skipped = 0
-        print(f"新規 {target_count} 件ぶんのタブを準備します...")
+        print(f"新規 {this_run} 件ぶんのタブを準備します...")
         for it in targets:
-            if len(prepared) >= target_count:
+            if len(prepared) >= this_run:
                 break
             code = it["itemCode"]
             tab = ctx.new_page()
@@ -351,7 +365,7 @@ def post_drafts_tabs(cfg: dict, day: str | None = None) -> None:
             if _already_posted_modal(tab):
                 skipped += 1
                 print(f"  - 既にROOMにある: {it['itemName'][:40]}")
-                record_posted(it)
+                record_posted(it, kind="skipped_existing")
                 try:
                     tab.close()
                 except Exception:  # noqa: BLE001
@@ -374,10 +388,13 @@ def post_drafts_tabs(cfg: dict, day: str | None = None) -> None:
         input("> ")
 
         for it in prepared:
-            record_posted(it)
-        print(f"\n{len(prepared)} 件を投稿済みとして記録しました。")
-        if len(prepared) < target_count:
-            print(f"（{target_count} 件に届かず。candidate_pool を増やすかジャンル追加を検討）")
+            record_posted(it, kind="posted")
+        total_today = done_today + len(prepared)
+        print(f"\n{len(prepared)} 件を記録しました（今日の合計 {total_today}/{target_count} 件）。")
+        if total_today < target_count:
+            left = target_count - total_today
+            print(f"あと {left} 件。時間をおいて post_now.bat をもう一度どうぞ"
+                  "（ピーク時間帯に分けると効果的）。")
     finally:
         pw.stop()
 

@@ -53,6 +53,26 @@ def drafts_path(day: str | None = None) -> Path:
     return DRAFTS_DIR / f"{day or _today_stem()}_drafts.json"
 
 
+def plan_path(day: str | None = None) -> Path:
+    return DRAFTS_DIR / f"{day or _today_stem()}_plan.json"
+
+
+def save_plan(plan: dict, day: str | None = None) -> Path:
+    p = plan_path(day)
+    p.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+    return p
+
+
+def load_plan(day: str | None = None) -> dict:
+    p = plan_path(day)
+    if p.exists():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            return {}
+    return {}
+
+
 def write_prompt(items: list[dict]) -> Path:
     lines = [PROMPT_HEADER]
     for i, it in enumerate(items, 1):

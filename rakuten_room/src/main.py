@@ -12,11 +12,17 @@ import sys
 
 import json
 import os
+from datetime import date
+
+
+def _today_iso() -> str:
+    return date.today().isoformat()
 
 from .captions import (
     captions_path,
     load_captions,
     save_drafts,
+    save_plan,
     write_prompt,
 )
 from .config import load_config
@@ -24,6 +30,7 @@ from .rakuten_api import RakutenAPI
 
 
 def cmd_prepare(cfg: dict) -> None:
+    from .sale_calendar import sale_status
     from .selector import select_items
 
     try:
@@ -31,12 +38,28 @@ def cmd_prepare(cfg: dict) -> None:
     except RuntimeError as exc:
         print(exc)
         return
-    items = select_items(cfg, api)
+
+    base_count = int(cfg.get("post_count", 10))
+    items = select_items(cfg, api)  # candidate_pool 件（かぶり吸収 & セール判定用）
     if not items:
         print("条件を満たす候補が見つかりませんでした。config.yaml のしきい値を緩めてみてください。")
         return
 
+    # セール・イベント判定 → その日の投稿目標数
+    st = sale_status(cfg, items)
+    target_count = max(base_count, round(base_count * st["multiplier"]))
+    save_plan({
+        "date": _today_iso(),
+        "base_count": base_count,
+        "multiplier": st["multiplier"],
+        "target_count": target_count,
+        "reasons": st["reasons"],
+    })
+
     save_drafts(items)
+    if st["reasons"]:
+        print(f"\n🎯 セール検知: {' / '.join(st['reasons'])}")
+        print(f"   今日の投稿目標: {base_count} → {target_count} 件")
     print("\n--- 選定結果 ---")
     for i, it in enumerate(items, 1):
         print(f"{i:2d}. [{it['score']}] {it['itemName'][:50]}  "
