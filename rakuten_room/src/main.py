@@ -167,10 +167,11 @@ def cmd_daily(cfg: dict) -> None:
     ec = cfg.get("engage", {}) or {}
     from .engage import follow_round, like_round
 
-    print("========== 1/3 投稿 ==========")
+    batch = int(cfg.get("post_batch_size", 4))
+    print(f"━━━━━ ステップ1 / 3：投稿（この回で最大 {batch} 件）━━━━━")
     cmd_run(cfg)
 
-    print("\n========== 2/3 いいね回り ==========")
+    print(f"\n━━━━━ ステップ2 / 3：いいね回り（最大 {int(ec.get('daily_likes', 30))} 件）━━━━━")
     try:
         like_round(cfg, int(ec.get("daily_likes", 30)))
     except KeyboardInterrupt:
@@ -178,7 +179,7 @@ def cmd_daily(cfg: dict) -> None:
     except Exception as exc:  # noqa: BLE001
         print(f"いいね回りでエラー: {exc}")
 
-    print("\n========== 3/3 フォロー回り ==========")
+    print(f"\n━━━━━ ステップ3 / 3：フォロー回り（最大 {int(ec.get('daily_follows', 15))} 件）━━━━━")
     try:
         follow_round(cfg, int(ec.get("daily_follows", 15)), _room_slug(cfg))
     except KeyboardInterrupt:
@@ -186,7 +187,7 @@ def cmd_daily(cfg: dict) -> None:
     except Exception as exc:  # noqa: BLE001
         print(f"フォロー回りでエラー: {exc}")
 
-    print("\n========== おまかせ完了。おつかれさまでした ==========")
+    print("\n━━━━━ おまかせ完了。おつかれさまでした ━━━━━")
 
 
 def main() -> int:
