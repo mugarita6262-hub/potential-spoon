@@ -10,7 +10,6 @@ commit=False（プレビュー）では削除しない。
 from __future__ import annotations
 
 import json
-import random
 import re
 import time
 from datetime import datetime
@@ -221,15 +220,14 @@ def _delete_current(page, rec, pruned_log) -> bool:
         return False
 
 
-def _sleep_between(pcfg) -> None:
-    lo, hi = pcfg.get("delete_interval_seconds", [3, 7])
-    time.sleep(random.uniform(float(lo), float(hi)))
-
-
 def _prune_oldest(page, cfg, pcfg, commit: bool) -> None:
+    from .human import Pacer
+
     my_room = cfg["my_room_url"]
     max_delete = int(pcfg.get("max_delete_per_run", 12))
     only_before = (pcfg.get("only_before") or "").strip() or None
+    lo, hi = pcfg.get("delete_interval_seconds", [4, 9])
+    pacer = Pacer(base=(float(lo), float(hi)))
 
     pruned_log = _load(PRUNE_LOG, [])
     done = 0
@@ -265,7 +263,8 @@ def _prune_oldest(page, cfg, pcfg, commit: bool) -> None:
         if _delete_current(page, rec, pruned_log):
             done += 1
             print(f"    → 削除（{done}/{max_delete}）")
-            _sleep_between(pcfg)
+            if done < max_delete:
+                pacer.wait(on_rest=lambda s: print(f"    （ひと休み {int(s)}秒）"))
 
     _save(PREVIEW_FILE, {"mode": "oldest", "would_delete_or_deleted": preview})
     print("\n" + "=" * 60)

@@ -251,7 +251,9 @@ class App:
         self.cl1 = tk.Label(c, text="", bg=CARD, fg=TXT, anchor="w", padx=16,
                             font=("Yu Gothic UI", 11)); self.cl1.pack(fill="x", pady=(12, 2))
         self.cl2 = tk.Label(c, text="", bg=CARD, fg=MUTED, anchor="w", padx=16,
-                            font=("Yu Gothic UI", 10)); self.cl2.pack(fill="x", pady=(0, 6))
+                            font=("Yu Gothic UI", 10)); self.cl2.pack(fill="x", pady=(0, 2))
+        self.cl3 = tk.Label(c, text="", bg=CARD, fg="#ffd166", anchor="w", padx=16,
+                            font=("Yu Gothic UI", 10)); self.cl3.pack(fill="x", pady=(0, 6))
         pwf = tk.Frame(c, bg=LINE, height=8); pwf.pack(fill="x", padx=16, pady=(0, 14))
         pwf.pack_propagate(False)
         self.pbar = tk.Frame(pwf, bg=ACCENT); self.pbar.place(x=0, y=0, relheight=1, relwidth=0)
@@ -323,6 +325,9 @@ class App:
                               + ("   ・準備OK" if prepared else "   ・未準備")))
         self.pbar.place(relwidth=min(1.0, done / target) if target else 0)
         self.pbar.config(bg=OKC if done >= target else ACCENT)
+        adv = _advice(reasons)
+        self.cl3.config(text=("🟢 " if adv.get("good") else "・") + adv.get("hint", ""),
+                        fg=OKC if adv.get("good") else MUTED)
 
     def do_run(self):
         self.send_enter() if self.waiting else self.launch("run")
@@ -441,6 +446,14 @@ def _cfg_int(key: str, default: int) -> int:
         return int((load_cfg() or {}).get(key, default))
     except Exception:  # noqa: BLE001
         return default
+
+
+def _advice(reasons: list) -> dict:
+    try:
+        from src.timing import posting_advice
+        return posting_advice({}, {"reasons": reasons})
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 def main():

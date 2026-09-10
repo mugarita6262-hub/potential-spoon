@@ -110,8 +110,10 @@ def cmd_login() -> None:
 def cmd_status(cfg: dict) -> None:
     from .captions import captions_path, drafts_path, load_plan
     from .posted_log import posted_today
+    from .timing import posting_advice
 
     plan = load_plan()
+    adv = posting_advice(cfg, {"reasons": plan.get("reasons", [])})
     base = int(cfg.get("post_count", 10))
     target = int(plan.get("target_count") or base)
     done = posted_today()
@@ -125,6 +127,7 @@ def cmd_status(cfg: dict) -> None:
     print(f"今日の投稿済み : {done} / {target} 件"
           + ("  ✅ 目標達成" if done >= target else f"  （あと {target - done} 件）"))
     print(f"1回のタブ数    : {cfg.get('post_batch_size', target)} 件")
+    print(f"投稿タイミング : {adv['hint']}")
 
 
 def cmd_run(cfg: dict) -> None:
