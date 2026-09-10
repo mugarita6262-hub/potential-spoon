@@ -111,57 +111,55 @@ def like_round(cfg: dict, target: int, feed: str = "new") -> None:
         page.wait_for_timeout(5000)
         done = 0
         misses = 0
-        while done < can and misses < 6:
-            btns = _fresh_like_buttons(page)
-            if not btns:
-                # スクロールで読み込み
+        while done < can and misses < 8:
+            b = _next_like_button(page)
+            if b is None:
                 for _ in range(3):
-                    page.mouse.wheel(0, 2200)
-                    page.wait_for_timeout(1200)
+                    page.mouse.wheel(0, 2400)
+                    page.wait_for_timeout(1300)
                 misses += 1
                 continue
             misses = 0
-            for b in btns:
-                if done >= can:
-                    break
-                try:
-                    b.scroll_into_view_if_needed(timeout=3000)
-                    jitter(0.8)
-                    b.click(timeout=4000)
-                    done += 1
-                    _bump("like")
-                    print(f"  ♡ いいね {done}/{can}")
+            try:
+                b.scroll_into_view_if_needed(timeout=3000)
+                # 押したボタンに印をつけて二度押ししない
+                b.evaluate("el => el.setAttribute('data-tool-done','1')")
+                jitter(0.8)
+                b.click(timeout=4000)
+                page.wait_for_timeout(800)
+                done += 1
+                _bump("like")
+                print(f"  ♡ いいね {done}/{can}")
+                if done < can:
                     pacer.wait(on_rest=lambda s: print(f"    （ひと休み {int(s)}秒）"))
                     maybe_pause_long(0.04, (15, 45))
-                except Exception:  # noqa: BLE001
-                    continue
-            page.mouse.wheel(0, 1800)
-            page.wait_for_timeout(1500)
+            except Exception:  # noqa: BLE001
+                continue
         print(f"\nいいね回り完了: {done} 件（今日の累計 {_today_log()['like']} 件）")
     finally:
         pw.stop()
 
 
-def _fresh_like_buttons(page) -> list:
-    """まだ押していない（＝『いいね』表示の）ボタンを、画面内優先で返す。"""
-    out = []
-    loc = page.locator(LIKE_SEL)
+def _next_like_button(page):
+    """まだ押していない いいねボタンを1つ返す。無ければ None。
+    印(data-tool-done)・『済』表示・on クラスは除外。"""
+    loc = page.locator(f"{LIKE_SEL}:not([data-tool-done])")
     try:
         n = loc.count()
     except Exception:  # noqa: BLE001
-        return out
+        return None
     for i in range(min(n, 60)):
         el = loc.nth(i)
         try:
             if not el.is_visible():
                 continue
             txt = (el.inner_text() or "").strip()
-            cls = (el.get_attribute("class") or "")
-            if "いいね" in txt and "済" not in txt and "on" not in cls.split():
-                out.append(el)
+            cls = (el.get_attribute("class") or "").split()
+            if "いいね" in txt and "済" not in txt and "on" not in cls and "liked" not in cls:
+                return el
         except Exception:  # noqa: BLE001
             continue
-    return out
+    return None
 
 
 # ---------------- フォロー回り（お知らせ経由＝アクティブ確定） ----------------
@@ -193,40 +191,41 @@ def follow_round(cfg: dict, target: int, slug: str) -> None:
 
         done = 0
         misses = 0
-        while done < can and misses < 6:
-            targets = _unfollowed_in_notifications(page)
+        seen_names: set[str] = set()
+        while done < can and misses < 8:
+            targets = [t for t in _unfollowed_in_notifications(page)
+                       if t[1] not in seen_names]
             if not targets:
                 for _ in range(3):
-                    page.mouse.wheel(0, 2200)
-                    page.wait_for_timeout(1200)
+                    page.mouse.wheel(0, 2400)
+                    page.wait_for_timeout(1300)
                 misses += 1
                 continue
             misses = 0
-            for btn, name in targets:
-                if done >= can:
-                    break
-                try:
-                    btn.scroll_into_view_if_needed(timeout=3000)
-                    jitter(1.0)
-                    btn.click(timeout=4000)
-                    done += 1
-                    _bump("follow")
-                    flog[name] = {"at": datetime.now().isoformat(timespec="seconds"),
-                                  "back": None}
-                    _save(FOLLOW_LOG, flog)
-                    print(f"  + フォロー {done}/{can}  {name}")
+            btn, name = targets[0]  # 1件だけ処理 → 次ループで取り直す
+            seen_names.add(name)
+            try:
+                btn.scroll_into_view_if_needed(timeout=3000)
+                jitter(1.0)
+                btn.click(timeout=4000)
+                page.wait_for_timeout(2000)  # Angular の再描画待ち
+                done += 1
+                _bump("follow")
+                flog[name] = {"at": datetime.now().isoformat(timespec="seconds"),
+                              "back": None}
+                _save(FOLLOW_LOG, flog)
+                print(f"  + フォロー {done}/{can}  {name}")
+                if done < can:
                     pacer.wait(on_rest=lambda s: print(f"    （ひと休み {int(s)}秒）"))
-                except Exception:  # noqa: BLE001
-                    continue
-            page.mouse.wheel(0, 1800)
-            page.wait_for_timeout(1500)
+            except Exception as exc:  # noqa: BLE001
+                print(f"  （スキップ: {name} / {str(exc)[:50]}）")
         print(f"\nフォロー回り完了: {done} 件（今日の累計 {_today_log()['follow']} 件）")
     finally:
         pw.stop()
 
 
 def _unfollowed_in_notifications(page) -> list:
-    """「○○さんがいいね/フォロー」の行で『未フォロー』の要素を返す。"""
+    """アクティビティ行のうち『未フォロー』の (spanロケータ, 名前) を返す。"""
     out = []
     rows = page.locator('li:has(span.follow)')
     try:
@@ -236,17 +235,14 @@ def _unfollowed_in_notifications(page) -> list:
     for i in range(min(n, 40)):
         row = rows.nth(i)
         try:
-            if not row.is_visible():
-                continue
             fol = row.locator("span.follow").first
-            label = (fol.inner_text() or "").strip()
-            if label != "未フォロー":
+            if (fol.inner_text() or "").strip() != "未フォロー":
                 continue
-            name = ""
-            m = re.search(r"^(.+?)\s*さん", (row.inner_text() or "").strip())
-            if m:
-                name = m.group(1)[:40]
-            out.append((fol, name or f"row{i}"))
+            txt = (row.inner_text() or "").replace("\n", " ").strip()
+            m = re.match(r"(.+?)\s*さんが", txt)
+            if not m:
+                continue
+            out.append((fol, m.group(1)[:40]))
         except Exception:  # noqa: BLE001
             continue
     return out

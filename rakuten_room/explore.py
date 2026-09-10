@@ -1,4 +1,4 @@
-"""ROOMのフィード（新着）・いいねボタン・フォローボタン・お知らせの構造を調べる。
+"""お知らせページの構造を詳しく。タブ、アクティビティ行、フォローボタンの正体。
 出力: data/explore_report.txt
 """
 from __future__ import annotations
@@ -9,34 +9,38 @@ from pathlib import Path
 from src.poster import _launch, _safe_goto
 
 OUT = Path(__file__).resolve().parent / "data" / "explore_report.txt"
+SLUG = "room_e36e002876"
 
-URLS = [
-    "https://room.rakuten.co.jp/",
-    "https://room.rakuten.co.jp/items",
-    "https://room.rakuten.co.jp/myfollow/feed",
-    "https://room.rakuten.co.jp/search/item?sort=new",
-    "https://room.rakuten.co.jp/room_e36e002876/notifications",
-]
-
-SCAN_JS = r"""
+JS = r"""
 () => {
   const vis = e => { const r=e.getBoundingClientRect(); return r.width>0 && r.height>0; };
-  const btns = Array.from(document.querySelectorAll('button,a,[role=button],[ng-click],[class*=like i],[class*=follow i],[class*=iine i]'))
-    .filter(vis)
-    .map(e => ({ tag:e.tagName.toLowerCase(), text:(e.innerText||'').trim().slice(0,16),
-                 aria:e.getAttribute('aria-label'), ngClick:e.getAttribute('ng-click'),
-                 cls:(e.getAttribute('class')||'').slice(0,90) }))
-    .filter(b => /like|follow|iine|いいね|フォロー|♡|ハート/i.test(
-        (b.text||'')+(b.aria||'')+(b.ngClick||'')+(b.cls||'')));
-  const cards = Array.from(document.querySelectorAll('[class*=collect i],[class*=feed i],[class*=item i],li,article'))
-    .filter(vis).filter(e => e.querySelector('img') && /いいね|♡|like/i.test(e.innerText||''))
-    .slice(0,2).map(e => e.outerHTML.slice(0,1400));
-  return {
-    url: location.href, title: document.title,
-    bodyHead: document.body.innerText.replace(/\s+/g,' ').slice(0, 400),
-    likeFollowButtons: btns.slice(0, 25),
-    cardSample: cards,
-  };
+  // タブらしき要素
+  const tabs = Array.from(document.querySelectorAll('li,a,[role=tab],[ng-click]')).filter(vis)
+    .map(e => ({ tag:e.tagName.toLowerCase(), text:(e.innerText||'').trim().slice(0,20),
+                 ngClick:e.getAttribute('ng-click'), cls:(e.getAttribute('class')||'').slice(0,70) }))
+    .filter(x => x.ngClick && /tab|show|activity|official|notification/i.test(x.ngClick));
+  // 「さん」を含む行（アクティビティ）
+  const rows = Array.from(document.querySelectorAll('li')).filter(vis)
+    .filter(e => /さん.*(いいね|フォロー|コレ)/.test(e.innerText||''))
+    .slice(0, 6).map(e => ({
+      text: (e.innerText||'').replace(/\s+/g,' ').trim().slice(0,80),
+      html: e.outerHTML.slice(0, 900),
+    }));
+  // follow クラスの要素の詳細（親も）
+  const follows = Array.from(document.querySelectorAll('.follow, [class*=follow]')).filter(vis)
+    .slice(0, 8).map(e => {
+      const p = e.parentElement, pp = p && p.parentElement;
+      return {
+        self: {tag:e.tagName.toLowerCase(), text:(e.innerText||'').trim().slice(0,16),
+               ngClick:e.getAttribute('ng-click'), cls:(e.getAttribute('class')||'').slice(0,70)},
+        parent: p && {tag:p.tagName.toLowerCase(), ngClick:p.getAttribute('ng-click'),
+                      cls:(p.getAttribute('class')||'').slice(0,70)},
+        grand: pp && {tag:pp.tagName.toLowerCase(), ngClick:pp.getAttribute('ng-click'),
+                      cls:(pp.getAttribute('class')||'').slice(0,70)},
+      };
+    });
+  return { url: location.href, bodyHead: document.body.innerText.replace(/\s+/g,' ').slice(0,300),
+           tabButtons: tabs.slice(0,15), activityRows: rows, followElems: follows };
 }
 """
 
@@ -46,17 +50,28 @@ def main():
     L = []
     try:
         page = ctx.new_page()
-        for url in URLS:
+        for url in [f"https://room.rakuten.co.jp/{SLUG}/notifications",
+                    f"https://room.rakuten.co.jp/{SLUG}/notifications/activity",
+                    f"https://room.rakuten.co.jp/notifications"]:
             _safe_goto(page, url)
             page.wait_for_timeout(5000)
-            for _ in range(2):
-                page.mouse.wheel(0, 1600); page.wait_for_timeout(900)
-            L.append("=" * 78)
-            L.append(f"GOTO: {url}")
+            L.append("=" * 78); L.append(f"GOTO: {url}")
             try:
-                L.append(json.dumps(page.evaluate(SCAN_JS), ensure_ascii=False, indent=2))
+                L.append(json.dumps(page.evaluate(JS), ensure_ascii=False, indent=2))
             except Exception as e:
                 L.append(f"  失敗: {e}")
+        # notifications トップでタブを順にクリックして中身を見る
+        _safe_goto(page, f"https://room.rakuten.co.jp/{SLUG}/notifications")
+        page.wait_for_timeout(4000)
+        for lb in ["あなた", "アクティビティ", "いいね", "コレ", "フォロー", "みんな"]:
+            try:
+                t = page.get_by_text(lb, exact=False).first
+                if t.count() and t.is_visible():
+                    t.click(timeout=3000); page.wait_for_timeout(3000)
+                    L.append("=" * 78); L.append(f"タブ『{lb}』クリック後")
+                    L.append(json.dumps(page.evaluate(JS), ensure_ascii=False, indent=2))
+            except Exception as e:
+                L.append(f"  タブ {lb}: {e}")
     finally:
         OUT.write_text("\n".join(L), encoding="utf-8")
         print("書き出しました:", OUT)
