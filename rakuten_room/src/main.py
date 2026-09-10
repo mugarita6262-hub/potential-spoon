@@ -128,11 +128,14 @@ def cmd_status(cfg: dict) -> None:
 
 
 def cmd_run(cfg: dict) -> None:
-    cmd_prepare(cfg)
+    if load_captions():
+        print("今日の準備は済んでいます（紹介文あり）。投稿タブを開きます。\n")
+    else:
+        cmd_prepare(cfg)
     if load_captions():
         cmd_post(cfg)
     else:
-        print("\nキャプション待ちです。上の手順を済ませてから `post` を実行してください。")
+        print("\nキャプション待ちです。上の手順を済ませてから もう一度どうぞ。")
 
 
 def main() -> int:

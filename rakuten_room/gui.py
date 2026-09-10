@@ -1,10 +1,10 @@
 """楽天ROOM 投稿ツール — GUI（Tkinter・追加インストール不要）。
-
 起動: rakuten_room.bat をダブルクリック
 """
 from __future__ import annotations
 
 import json
+import os
 import queue
 import subprocess
 import threading
@@ -13,271 +13,434 @@ from datetime import date
 from pathlib import Path
 from tkinter import messagebox
 
+import yaml
+
 ROOT = Path(__file__).resolve().parent
 PY = ROOT / ".venv" / "Scripts" / "python.exe"
+CONFIG = ROOT / "config.yaml"
 DRAFTS = ROOT / "data" / "drafts"
 POSTED = ROOT / "data" / "posted.json"
 
-# ---- パレット ----
 BG = "#15151c"
 CARD = "#1e1e28"
-LINE = "#2c2c3a"
-TXT = "#e6e6ef"
-MUTED = "#8b8b9e"
-ACCENT = "#e10000"        # 楽天レッド
-ACCENT_HOVER = "#ff2a2a"
-OK = "#43d17a"
-TERM_BG = "#0d0d12"
-TERM_TXT = "#cfd2dc"
+LINE = "#33333f"
+TXT = "#e8e8f0"
+MUTED = "#9a9aae"
+ACCENT = "#e10000"
+ACCENT_HI = "#ff2d2d"
+GO = "#2e7d32"
+GO_HI = "#3aa03f"
+OKC = "#43d17a"
+TERM_BG = "#0c0c11"
+TERM_TXT = "#d2d5df"
+
+WAIT_HINTS = ("Enter", "enter", "押してください", "よろしければ", "完了したら")
+
+GENRES = [
+    (0, "総合ランキング"),
+    (100939, "美容・コスメ・香水"),
+    (100804, "日用品雑貨・文房具"),
+    (100227, "食品"),
+    (558885, "スイーツ・お菓子"),
+    (100371, "レディースファッション"),
+    (551177, "メンズファッション"),
+    (216131, "キッズ・ベビー・マタニティ"),
+    (558929, "靴"),
+    (100804, "インテリア・寝具・収納"),
+    (562637, "家電"),
+    (100533, "キッチン用品・食器"),
+    (510915, "ドリンク"),
+    (100804, "医薬品・コンタクト・介護"),
+]
+
+
+# ---------- config 読み書き ----------
+def load_cfg() -> dict:
+    try:
+        return yaml.safe_load(CONFIG.read_text(encoding="utf-8")) or {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def save_cfg(cfg: dict) -> None:
+    header = (
+        "# 楽天ROOM 投稿ツール 設定\n"
+        "# 主な項目は GUI の『⚙ 設定』から変更できます（このファイルを直接編集する必要はありません）\n"
+        "# scoring / per_genre / favorites などの詳細はここで調整します\n\n"
+    )
+    CONFIG.write_text(
+        header + yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False,
+                                default_flow_style=False),
+        encoding="utf-8")
+
+
+def cfg_get(cfg: dict, path: str, default):
+    cur = cfg
+    for k in path.split("."):
+        if not isinstance(cur, dict) or k not in cur:
+            return default
+        cur = cur[k]
+    return cur
+
+
+def cfg_put(cfg: dict, path: str, value) -> None:
+    keys = path.split(".")
+    cur = cfg
+    for k in keys[:-1]:
+        cur = cur.setdefault(k, {})
+    cur[keys[-1]] = value
 
 
 class Btn(tk.Label):
-    """フラットなクリック可能ボタン（ホバー付き）。"""
+    def __init__(self, master, text, command, *, kind="normal", small=False):
+        colors = {"primary": (ACCENT, ACCENT_HI, "#fff"),
+                  "go": (GO, GO_HI, "#fff"), "normal": (CARD, LINE, TXT)}
+        self.c0, self.c1, fg = colors[kind]
+        f = ("Yu Gothic UI", 10 if small else 13, "bold" if kind != "normal" else "normal")
+        super().__init__(master, text=text, bg=self.c0, fg=fg, font=f,
+                         padx=12 if small else 18, pady=6 if small else 13, cursor="hand2")
+        self._cmd, self._on, self._fg = command, True, fg
+        self.bind("<Button-1>", lambda e: self._on and self._cmd())
+        self.bind("<Enter>", lambda e: self._on and self.config(bg=self.c1))
+        self.bind("<Leave>", lambda e: self._on and self.config(bg=self.c0))
 
-    def __init__(self, master, text, command, *, primary=False, small=False):
-        self.bg = ACCENT if primary else CARD
-        self.hover = ACCENT_HOVER if primary else LINE
-        fg = "#ffffff" if primary else TXT
-        pad = (10, 6) if small else (16, 12)
-        super().__init__(master, text=text, bg=self.bg, fg=fg,
-                         font=("Yu Gothic UI", 11 if small else 13,
-                               "bold" if primary else "normal"),
-                         padx=pad[0], pady=pad[1], cursor="hand2")
-        self._cmd = command
-        self._on = True
-        self._fg_on = fg
-        self.bind("<Button-1>", self._click)
-        self.bind("<Enter>", lambda e: self._on and self.config(bg=self.hover))
-        self.bind("<Leave>", lambda e: self._on and self.config(bg=self.bg))
-
-    def _click(self, _e):
-        if self._on:
-            self._cmd()
-
-    def set_enabled(self, on: bool):
+    def enable(self, on: bool):
         self._on = on
-        self.config(bg=self.bg, fg=self._fg_on if on else MUTED)
+        self.config(bg=self.c0, fg=self._fg if on else MUTED,
+                    cursor="hand2" if on else "arrow")
 
 
-class App:
-    def __init__(self, master: tk.Tk):
-        self.m = master
-        master.title("楽天ROOM 投稿ツール")
-        master.geometry("880x640")
-        master.minsize(720, 520)
-        master.configure(bg=BG)
+def spin(master, var, lo, hi, inc=1, w=5):
+    return tk.Spinbox(master, from_=lo, to=hi, increment=inc, width=w, textvariable=var,
+                      bg=CARD, fg=TXT, relief="flat", buttonbackground=LINE,
+                      insertbackground=TXT, font=("Consolas", 10), highlightthickness=0)
 
-        self.proc: subprocess.Popen | None = None
-        self.q: queue.Queue[str] = queue.Queue()
-        self.buttons: list[Btn] = []
 
-        # ===== ヘッダー =====
-        head = tk.Frame(master, bg=BG)
-        head.pack(fill="x", padx=20, pady=(16, 4))
-        tk.Label(head, text="楽天ROOM 投稿ツール", bg=BG, fg=TXT,
-                 font=("Yu Gothic UI", 17, "bold")).pack(side="left")
-        tk.Frame(head, bg=ACCENT, width=4, height=22).pack(side="left", padx=12)
-        self.acct = tk.Label(head, text="", bg=BG, fg=MUTED, font=("Yu Gothic UI", 10))
-        self.acct.pack(side="left")
+# ======================= 設定ウィンドウ =======================
+class SettingsWin(tk.Toplevel):
+    def __init__(self, master):
+        super().__init__(master)
+        self.title("設定")
+        self.configure(bg=BG)
+        self.geometry("560x680")
+        self.transient(master)
+        self.grab_set()
+        cfg = load_cfg()
 
-        # ===== 状況カード =====
-        self.card = tk.Frame(master, bg=CARD)
-        self.card.pack(fill="x", padx=20, pady=8)
-        self.card_line1 = tk.Label(self.card, text="", bg=CARD, fg=TXT, anchor="w",
-                                   font=("Yu Gothic UI", 11), padx=14)
-        self.card_line1.pack(fill="x", pady=(10, 2))
-        self.card_line2 = tk.Label(self.card, text="", bg=CARD, fg=MUTED, anchor="w",
-                                   font=("Yu Gothic UI", 10), padx=14)
-        self.card_line2.pack(fill="x", pady=(0, 4))
-        pbar_wrap = tk.Frame(self.card, bg=LINE, height=8)
-        pbar_wrap.pack(fill="x", padx=14, pady=(0, 12))
-        pbar_wrap.pack_propagate(False)
-        self.pbar = tk.Frame(pbar_wrap, bg=OK)
-        self.pbar.place(x=0, y=0, relheight=1, relwidth=0)
+        wrap = tk.Frame(self, bg=BG)
+        wrap.pack(fill="both", expand=True, padx=18, pady=14)
 
-        # ===== 主ボタン =====
-        main = tk.Frame(master, bg=BG)
-        main.pack(fill="x", padx=20, pady=(4, 2))
-        b = Btn(main, "▶  今日の投稿をする  (準備 → タブを開く)", lambda: self.run("run"),
-                primary=True)
-        b.pack(fill="x", ipady=2)
-        self.buttons.append(b)
+        self.vars: dict[str, tk.Variable] = {}
 
-        row2 = tk.Frame(master, bg=BG)
-        row2.pack(fill="x", padx=20, pady=6)
-        self.del_count = tk.IntVar(value=100)
-        del_wrap = tk.Frame(row2, bg=CARD)
-        del_wrap.pack(side="left")
-        b = Btn(del_wrap, "🗑  古い投稿を削除", self.run_prune, small=True)
-        b.pack(side="left"); self.buttons.append(b)
-        tk.Spinbox(del_wrap, from_=5, to=500, increment=5, width=5,
-                   textvariable=self.del_count, bg=CARD, fg=TXT, buttonbackground=LINE,
-                   relief="flat", highlightthickness=0, font=("Consolas", 11),
-                   insertbackground=TXT).pack(side="left", padx=(0, 8), pady=6)
-        for txt, cmd in [("プレビュー", lambda: self.run("prune")),
-                         ("状況を更新", self.refresh_status),
-                         ("設定を開く", self.open_config)]:
-            bb = Btn(row2, txt, cmd, small=True)
-            bb.pack(side="left", padx=(8, 0)); self.buttons.append(bb)
+        def section(title):
+            tk.Label(wrap, text=title, bg=BG, fg=ACCENT_HI,
+                     font=("Yu Gothic UI", 11, "bold")).pack(anchor="w", pady=(12, 4))
 
-        row3 = tk.Frame(master, bg=BG)
-        row3.pack(fill="x", padx=20, pady=(0, 6))
-        tk.Label(row3, text="個別:", bg=BG, fg=MUTED,
-                 font=("Yu Gothic UI", 9)).pack(side="left", padx=(0, 6))
-        for txt, args in [("初回ログイン", ("login",)), ("準備だけ", ("prepare",)),
-                          ("投稿だけ", ("post",))]:
-            bb = Btn(row3, txt, lambda a=args: self.run(*a), small=True)
-            bb.pack(side="left", padx=4); self.buttons.append(bb)
-        self.stop_btn = Btn(row3, "■ 中断", self.stop, small=True)
-        self.stop_btn.pack(side="right"); self.stop_btn.set_enabled(False)
+        def row(label, path, default, lo, hi, inc=1, hint=""):
+            r = tk.Frame(wrap, bg=BG); r.pack(fill="x", pady=2)
+            tk.Label(r, text=label, bg=BG, fg=TXT, width=16, anchor="w",
+                     font=("Yu Gothic UI", 10)).pack(side="left")
+            v = tk.DoubleVar(value=float(cfg_get(cfg, path, default))) if inc < 1 \
+                else tk.IntVar(value=int(cfg_get(cfg, path, default)))
+            self.vars[path] = v
+            spin(r, v, lo, hi, inc).pack(side="left")
+            if hint:
+                tk.Label(r, text=hint, bg=BG, fg=MUTED,
+                         font=("Yu Gothic UI", 8)).pack(side="left", padx=6)
 
-        # ===== ログ =====
-        logwrap = tk.Frame(master, bg=LINE)
-        logwrap.pack(fill="both", expand=True, padx=20, pady=8)
-        self.log = tk.Text(logwrap, wrap="word", bg=TERM_BG, fg=TERM_TXT,
-                           font=("Consolas", 10), relief="flat", padx=12, pady=10,
-                           insertbackground=TERM_TXT, highlightthickness=0)
-        sb = tk.Scrollbar(logwrap, command=self.log.yview, bg=CARD,
-                          troughcolor=TERM_BG, relief="flat", width=12)
-        self.log.config(yscrollcommand=sb.set)
-        sb.pack(side="right", fill="y")
-        self.log.pack(side="left", fill="both", expand=True)
-        self.log.tag_config("dim", foreground=MUTED)
-        self.log.tag_config("ok", foreground=OK)
+        section("投稿")
+        row("1日に投稿する数", "post_count", 10, 1, 50, hint="1日で新しく紹介する商品の数")
+        row("一度に開くタブ数", "post_batch_size", 4, 1, 50,
+            hint="ボタン1回で開く数。少なくすると朝昼夜など数回に分けて投稿できます")
 
-        # ===== 入力バー =====
-        bar = tk.Frame(master, bg=BG)
-        bar.pack(fill="x", padx=20, pady=(0, 14))
-        tk.Label(bar, text="ログが『Enter待ち』で止まったら →", bg=BG, fg=MUTED,
+        section("セール日の増量")
+        self.v_sale = tk.BooleanVar(value=bool(cfg_get(cfg, "sale_boost.enabled", True)))
+        tk.Checkbutton(wrap, text="セール・イベント日に投稿数を増やす", variable=self.v_sale,
+                       bg=BG, fg=TXT, selectcolor=CARD, activebackground=BG,
+                       font=("Yu Gothic UI", 10)).pack(anchor="w")
+        row("5と0のつく日 倍率", "sale_boost.five_ten_day_multiplier", 1.3, 1.0, 3.0, 0.1)
+        row("SALE/マラソン 倍率", "sale_boost.event_multiplier", 1.8, 1.0, 3.0, 0.1)
+        tk.Label(wrap, text="セール期間（1行に「名前, 開始日, 終了日」 例: SALE, 2026-09-04, 2026-09-11）",
+                 bg=BG, fg=MUTED, font=("Yu Gothic UI", 8)).pack(anchor="w", pady=(6, 2))
+        self.ev_text = tk.Text(wrap, height=4, bg=CARD, fg=TXT, relief="flat",
+                               font=("Consolas", 9), insertbackground=TXT,
+                               highlightthickness=1, highlightbackground=LINE)
+        self.ev_text.pack(fill="x")
+        for e in cfg_get(cfg, "sale_boost.manual_events", []) or []:
+            self.ev_text.insert("end",
+                                f"{e.get('name','SALE')}, {e.get('start','')}, {e.get('end','')}\n")
+
+        section("対象ジャンル（候補を集める楽天ランキング）")
+        cur_g = set(int(x) for x in cfg_get(cfg, "sources.ranking.genre_ids", []) or [])
+        self.g_vars = {}
+        grid = tk.Frame(wrap, bg=BG); grid.pack(fill="x")
+        seen = set()
+        i = 0
+        for gid, name in GENRES:
+            if gid in seen:
+                continue
+            seen.add(gid)
+            v = tk.BooleanVar(value=(gid in cur_g))
+            self.g_vars[gid] = v
+            tk.Checkbutton(grid, text=name, variable=v, bg=BG, fg=TXT, selectcolor=CARD,
+                           activebackground=BG, font=("Yu Gothic UI", 9), anchor="w"
+                           ).grid(row=i // 2, column=i % 2, sticky="w", padx=2)
+            i += 1
+
+        section("古い投稿の削除")
+        r = tk.Frame(wrap, bg=BG); r.pack(fill="x", pady=2)
+        tk.Label(r, text="この日付より後は消さない", bg=BG, fg=TXT, width=20, anchor="w",
                  font=("Yu Gothic UI", 10)).pack(side="left")
-        self.entry = tk.Entry(bar, bg=CARD, fg=TXT, relief="flat", font=("Consolas", 11),
-                              insertbackground=TXT, highlightthickness=1,
-                              highlightbackground=LINE, highlightcolor=ACCENT)
-        self.entry.pack(side="left", fill="x", expand=True, padx=8, ipady=5)
-        self.entry.bind("<Return>", lambda e: self.send())
-        Btn(bar, "送信 (Enter)", self.send, small=True).pack(side="left")
+        self.v_before = tk.StringVar(value=str(cfg_get(cfg, "prune.only_before", "2025-01-01")))
+        tk.Entry(r, textvariable=self.v_before, width=12, bg=CARD, fg=TXT, relief="flat",
+                 font=("Consolas", 10), insertbackground=TXT).pack(side="left")
+        row("1回の削除数", "prune.max_delete_per_run", 15, 5, 500, 5)
 
-        self._log("『▶ 今日の投稿をする』で準備〜投稿まで一気に進みます。\n", "dim")
-        self._log("初回は『初回ログイン』を先に。削除は空きを作るため定期的に。\n\n", "dim")
-        self.refresh_status()
-        self.m.after(80, self._drain)
+        btns = tk.Frame(self, bg=BG); btns.pack(fill="x", padx=18, pady=(0, 14))
+        Btn(btns, "保存して閉じる", self.save, kind="primary", small=True).pack(side="right")
+        Btn(btns, "キャンセル", self.destroy, small=True).pack(side="right", padx=8)
 
-    # ---------- 状況カード ----------
-    def refresh_status(self):
-        today = date.today().isoformat()
-        plan = _read_json(DRAFTS / f"{today}_plan.json") or {}
-        target = int(plan.get("target_count") or 10)
-        done = _posted_today(today)
-        drafts_ok = (DRAFTS / f"{today}_drafts.json").exists()
-        caps_ok = (DRAFTS / f"{today}_captions.json").exists()
+    def save(self):
+        cfg = load_cfg()
+        for path, v in self.vars.items():
+            val = v.get()
+            cfg_put(cfg, path, round(val, 2) if isinstance(val, float) else int(val))
+        cfg_put(cfg, "sale_boost.enabled", bool(self.v_sale.get()))
+        cfg_put(cfg, "prune.only_before", self.v_before.get().strip())
 
-        reasons = plan.get("reasons") or []
-        tag = "  🎯 " + " / ".join(reasons) if reasons else ""
-        self.card_line1.config(text=f"今日 {today}{tag}")
-        state = "準備OK" if (drafts_ok and caps_ok) else "未準備"
-        left = max(0, target - done)
-        self.card_line2.config(
-            text=f"投稿 {done} / {target} 件"
-                 + (f"（あと {left}）" if left else "  ✅ 目標達成")
-                 + f"   ・ {state}")
-        self.pbar.place(relwidth=min(1.0, done / target if target else 0))
-        self.pbar.config(bg=OK if done >= target else ACCENT)
+        events = []
+        for ln in self.ev_text.get("1.0", "end").splitlines():
+            parts = [p.strip() for p in ln.split(",")]
+            if len(parts) >= 3 and parts[1] and parts[2]:
+                events.append({"name": parts[0] or "SALE",
+                               "start": parts[1], "end": parts[2]})
+        cfg_put(cfg, "sale_boost.manual_events", events)
 
-    # ---------- コマンド実行 ----------
-    def run_prune(self):
-        self.run("prune", "--commit", "--max", str(self.del_count.get()))
+        gids = [gid for gid, v in self.g_vars.items() if v.get()]
+        if gids:
+            cfg_put(cfg, "sources.ranking.genre_ids", gids)
 
-    def run(self, *args: str):
-        if self.proc and self.proc.poll() is None:
-            self._log("\n[!] 前の処理がまだ動いています。『中断』するか終了を待ってください。\n")
+        try:
+            save_cfg(cfg)
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror("保存失敗", str(exc))
             return
-        self._log(f"\n$ {' '.join(args)}\n", "dim")
-        self._log("─" * 64 + "\n", "dim")
-        import os
+        self.destroy()
+
+
+# ======================= メイン画面 =======================
+class App:
+    def __init__(self, m: tk.Tk):
+        self.m = m
+        m.title("楽天ROOM 投稿ツール")
+        m.geometry("860x640")
+        m.minsize(700, 540)
+        m.configure(bg=BG)
+        self.proc: subprocess.Popen | None = None
+        self.q: queue.Queue = queue.Queue()
+        self.waiting = False
+        self._tail = ""
+        self._idle = 0
+
+        h = tk.Frame(m, bg=BG); h.pack(fill="x", padx=22, pady=(16, 2))
+        tk.Label(h, text="楽天ROOM 投稿ツール", bg=BG, fg=TXT,
+                 font=("Yu Gothic UI", 17, "bold")).pack(side="left")
+        Btn(h, "⚙ 設定", self.open_settings, small=True).pack(side="right")
+
+        c = tk.Frame(m, bg=CARD); c.pack(fill="x", padx=22, pady=10)
+        self.cl1 = tk.Label(c, text="", bg=CARD, fg=TXT, anchor="w", padx=16,
+                            font=("Yu Gothic UI", 11)); self.cl1.pack(fill="x", pady=(12, 2))
+        self.cl2 = tk.Label(c, text="", bg=CARD, fg=MUTED, anchor="w", padx=16,
+                            font=("Yu Gothic UI", 10)); self.cl2.pack(fill="x", pady=(0, 6))
+        pwf = tk.Frame(c, bg=LINE, height=8); pwf.pack(fill="x", padx=16, pady=(0, 14))
+        pwf.pack_propagate(False)
+        self.pbar = tk.Frame(pwf, bg=ACCENT); self.pbar.place(x=0, y=0, relheight=1, relwidth=0)
+
+        pa = tk.Frame(m, bg=BG); pa.pack(fill="x", padx=22)
+        self.primary = Btn(pa, "▶  今日の投稿をする", self.do_run, kind="primary")
+        self.primary.pack(fill="x", ipady=3)
+        tk.Label(pa, text="商品を選んで紹介文を作り、投稿タブを開きます（2回目以降は準備をスキップ）",
+                 bg=BG, fg=MUTED, font=("Yu Gothic UI", 9)).pack(anchor="w", pady=(2, 0))
+
+        sa = tk.Frame(m, bg=BG); sa.pack(fill="x", padx=22, pady=12)
+        self.spin = tk.IntVar(value=100)
+        wr = tk.Frame(sa, bg=CARD); wr.pack(side="left")
+        self.prune_btn = Btn(wr, "🗑 古い投稿を削除", self.do_prune, small=True)
+        self.prune_btn.pack(side="left")
+        spin(wr, self.spin, 10, 500, 10).pack(side="left", padx=(2, 8))
+        tk.Label(sa, text="件（登録上限の余裕づくり。定期的に）", bg=BG, fg=MUTED,
+                 font=("Yu Gothic UI", 9)).pack(side="left", padx=(4, 0))
+        self.sub_btns = [self.prune_btn]
+
+        adv = tk.Frame(m, bg=BG); adv.pack(fill="x", padx=22)
+        b = Btn(adv, "初回ログイン", lambda: self.launch("login"), small=True)
+        b.pack(side="left"); self.sub_btns.append(b)
+        self.stop_btn = Btn(adv, "■ 中断", self.stop, small=True)
+        self.stop_btn.pack(side="right"); self.stop_btn.enable(False)
+
+        lw = tk.Frame(m, bg=LINE); lw.pack(fill="both", expand=True, padx=22, pady=10)
+        self.log = tk.Text(lw, wrap="word", bg=TERM_BG, fg=TERM_TXT, font=("Consolas", 10),
+                           relief="flat", padx=12, pady=10, insertbackground=TERM_TXT,
+                           highlightthickness=0)
+        sc = tk.Scrollbar(lw, command=self.log.yview, width=12)
+        self.log.config(yscrollcommand=sc.set)
+        sc.pack(side="right", fill="y"); self.log.pack(side="left", fill="both", expand=True)
+        self.log.tag_config("dim", foreground=MUTED)
+        self.log.tag_config("ok", foreground=OKC)
+
+        self.wait_bar = tk.Frame(m, bg=BG)
+        self.wait_lbl = tk.Label(self.wait_bar, text="", bg=BG, fg="#ffd166",
+                                 font=("Yu Gothic UI", 10))
+        self.wait_lbl.pack(side="left", padx=(22, 8), pady=(0, 12))
+        self.cont_btn = Btn(self.wait_bar, "▶  続ける", self.send_enter, kind="go", small=True)
+        self.cont_btn.pack(side="left", pady=(0, 12))
+
+        self._say("『▶ 今日の投稿をする』で 準備 → 投稿タブ まで進みます。\n", "dim")
+        self._say("2回目以降は準備を自動でスキップ。初回のみ『初回ログイン』を先に。\n\n", "dim")
+        self.refresh()
+        self.m.after(80, self._drain)
+        self._auto_refresh()
+
+    def open_settings(self):
+        SettingsWin(self.m)
+
+    def _auto_refresh(self):
+        if not (self.proc and self.proc.poll() is None):
+            self.refresh()
+        self.m.after(4000, self._auto_refresh)
+
+    def refresh(self):
+        t = date.today().isoformat()
+        plan = _json(DRAFTS / f"{t}_plan.json") or {}
+        target = int(plan.get("target_count") or _cfg_int("post_count", 10))
+        done = _posted_today(t)
+        reasons = plan.get("reasons") or []
+        self.cl1.config(text=f"今日 {t}" + ("   🎯 " + " / ".join(reasons) if reasons else ""))
+        prepared = (DRAFTS / f"{t}_captions.json").exists()
+        left = max(0, target - done)
+        self.cl2.config(text=(f"投稿 {done} / {target} 件"
+                              + (f"（あと {left}）" if left else "  ✅ 目標達成")
+                              + ("   ・準備OK" if prepared else "   ・未準備")))
+        self.pbar.place(relwidth=min(1.0, done / target) if target else 0)
+        self.pbar.config(bg=OKC if done >= target else ACCENT)
+
+    def do_run(self):
+        self.send_enter() if self.waiting else self.launch("run")
+
+    def do_prune(self):
+        self.launch("prune", "--commit", "--max", str(self.spin.get()))
+
+    def launch(self, *args):
+        if self.proc and self.proc.poll() is None:
+            self._say("\n[!] まだ処理中です。『中断』するか完了を待ってください。\n", "dim")
+            return
+        self._set_running(True)
+        self._say(f"\n$ {' '.join(args) or 'run'}\n" + "─" * 60 + "\n実行中...\n", "dim")
         try:
             self.proc = subprocess.Popen(
                 [str(PY), "-u", "-m", "src.main", *args], cwd=str(ROOT),
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, text=True, encoding="utf-8",
-                errors="replace", bufsize=1,
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, encoding="utf-8", errors="replace", bufsize=1,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8",
-                     "PYTHONUNBUFFERED": "1"},
-            )
+                     "PYTHONUNBUFFERED": "1"})
         except Exception as exc:  # noqa: BLE001
-            self._log(f"[起動失敗] {exc}\n")
-            return
-        self._log("実行中...\n", "dim")
-        for b in self.buttons:
-            b.set_enabled(False)
-        self.stop_btn.set_enabled(True)
+            self._say(f"[起動失敗] {exc}\n"); self._set_running(False); return
         threading.Thread(target=self._reader, args=(self.proc,), daemon=True).start()
 
-    def _reader(self, proc: subprocess.Popen):
-        assert proc.stdout is not None
-        for line in proc.stdout:
+    def _reader(self, p):
+        for line in p.stdout:
             self.q.put(line)
-        proc.wait()
-        self.q.put(f"\x00DONE:{proc.returncode}")
+        p.wait()
+        self.q.put(f"\x00DONE:{p.returncode}")
 
-    def send(self):
+    def send_enter(self):
         if self.proc and self.proc.poll() is None and self.proc.stdin:
-            txt = self.entry.get()
             try:
-                self.proc.stdin.write(txt + "\n")
-                self.proc.stdin.flush()
-                self._log(f"> {txt}\n", "dim")
+                self.proc.stdin.write("\n"); self.proc.stdin.flush()
+                self._say("[続行]\n", "dim")
             except Exception as exc:  # noqa: BLE001
-                self._log(f"[送信失敗] {exc}\n")
-            self.entry.delete(0, "end")
+                self._say(f"[送信失敗] {exc}\n")
+        self._set_waiting(False)
 
     def stop(self):
         if self.proc and self.proc.poll() is None:
             self.proc.terminate()
-            self._log("\n[中断しました]\n")
+            self._say("\n[中断しました]\n", "dim")
 
-    def open_config(self):
-        import os
+    def open_cfg(self):
         try:
-            os.startfile(str(ROOT / "config.yaml"))  # noqa: S606
+            os.startfile(str(CONFIG))  # noqa: S606
         except Exception as exc:  # noqa: BLE001
-            self._log(f"[開けませんでした] {exc}\n")
+            self._say(f"[開けません] {exc}\n")
 
-    # ---------- ログ描画 ----------
+    def _set_running(self, on):
+        for b in self.sub_btns:
+            b.enable(not on)
+        self.stop_btn.enable(on)
+        if on:
+            self._set_waiting(False)
+        else:
+            self.primary.enable(True)
+
+    def _set_waiting(self, on):
+        self.waiting = on
+        if on:
+            self.wait_bar.pack(fill="x")
+            self.wait_lbl.config(text="ブラウザのタブで『完了』を押し終えたら →")
+            self.primary.c0, self.primary.c1 = GO, GO_HI
+            self.primary.config(bg=GO, text="▶  投稿できた（続ける）")
+            self.primary.enable(True)
+        else:
+            self.wait_bar.pack_forget()
+            self.primary.c0, self.primary.c1 = ACCENT, ACCENT_HI
+            self.primary.config(bg=ACCENT, text="▶  今日の投稿をする")
+
     def _drain(self):
+        got = False
         try:
             while True:
-                item = self.q.get_nowait()
-                if item.startswith("\x00DONE:"):
-                    code = item.split(":", 1)[1]
-                    self._log(f"\n[完了 code={code}]\n",
+                it = self.q.get_nowait()
+                got = True
+                if it.startswith("\x00DONE:"):
+                    code = it.split(":", 1)[1]
+                    self._say("\n[完了]\n" if code == "0" else f"\n[終了 code={code}]\n",
                               "ok" if code == "0" else "dim")
-                    for b in self.buttons:
-                        b.set_enabled(True)
-                    self.stop_btn.set_enabled(False)
-                    self.refresh_status()
+                    self._set_running(False); self.refresh()
                 else:
-                    self._log(item)
+                    self._say(it)
+                    self._tail = (self._tail + it)[-400:]
         except queue.Empty:
             pass
-        self.m.after(80, self._drain)
+        self._idle = 0 if got else self._idle + 1
+        alive = self.proc and self.proc.poll() is None
+        if (alive and not self.waiting and self._idle >= 4
+                and any(hh in self._tail[-250:] for hh in WAIT_HINTS)):
+            self._set_waiting(True)
+        self.m.after(120, self._drain)
 
-    def _log(self, text: str, tag: str | None = None):
+    def _say(self, text, tag=None):
         self.log.insert("end", text, tag or ())
         self.log.see("end")
 
 
-def _read_json(p: Path):
+def _json(p: Path):
     try:
         return json.loads(p.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001
         return None
 
 
-def _posted_today(today: str) -> int:
-    data = _read_json(POSTED) or []
-    return sum(1 for r in data
-              if r.get("kind") == "posted" and str(r.get("posted_at", "")).startswith(today))
+def _posted_today(t: str) -> int:
+    return sum(1 for r in (_json(POSTED) or [])
+              if r.get("kind") == "posted" and str(r.get("posted_at", "")).startswith(t))
+
+
+def _cfg_int(key: str, default: int) -> int:
+    try:
+        return int((load_cfg() or {}).get(key, default))
+    except Exception:  # noqa: BLE001
+        return default
 
 
 def main():
