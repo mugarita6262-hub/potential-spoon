@@ -192,25 +192,24 @@ def follow_round(cfg: dict, target: int, slug: str) -> None:
                 page.mouse.wheel(0, 2200)
                 page.wait_for_timeout(900)
 
-            names = _activity_names(page)
-            if idx >= len(names):
-                # もっとスクロールして読み込む
+            rows = _unfollowed_rows(page)
+            if idx >= len(rows):
                 for _ in range(4):
                     page.mouse.wheel(0, 3000)
                     page.wait_for_timeout(1200)
-                names = _activity_names(page)
-                if idx >= len(names):
+                rows = _unfollowed_rows(page)
+                if idx >= len(rows):
                     misses += 1
                     continue
             misses = 0
-            name = names[idx]
+            name, row_i = rows[idx]
             idx += 1
             if not name or name in flog:
                 continue
 
             # そのユーザーのアイコンをクリック → ROOMページへ
             try:
-                row = page.locator(ACTIVITY_ROW).nth(idx - 1)
+                row = page.locator(ACTIVITY_ROW).nth(row_i)
                 row.locator(".left-img").click(timeout=5000)
                 page.wait_for_timeout(3500)
             except Exception:  # noqa: BLE001
@@ -242,22 +241,27 @@ def follow_round(cfg: dict, target: int, slug: str) -> None:
         pw.stop()
 
 
-def _activity_names(page) -> list[str]:
-    """アクティビティ行（いいね/コレ）の相手の名前を上から順に。"""
-    names: list[str] = []
+def _unfollowed_rows(page) -> list[tuple[str, int]]:
+    """『未フォロー』バッジが見えているアクティビティ行の (名前, 行index)。"""
+    out: list[tuple[str, int]] = []
     rows = page.locator(ACTIVITY_ROW)
     try:
         n = rows.count()
     except Exception:  # noqa: BLE001
-        return names
+        return out
     for i in range(min(n, 60)):
+        row = rows.nth(i)
         try:
-            nm = (rows.nth(i).locator("span.strong, .notice-name").first
+            fol = row.locator("span.follow").first
+            if not fol.count() or not fol.is_visible():
+                continue  # 既フォロー（ng-hide）や バッジ無し はスキップ
+            nm = (row.locator("span.strong, .notice-name").first
                   .inner_text(timeout=2000) or "").strip()
         except Exception:  # noqa: BLE001
-            nm = ""
-        names.append(nm[:40])
-    return names
+            continue
+        if nm:
+            out.append((nm[:40], i))
+    return out
 
 
 # ---------------- フォロー整理 ----------------
