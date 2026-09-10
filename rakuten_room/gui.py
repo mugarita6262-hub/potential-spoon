@@ -264,15 +264,34 @@ class App:
         tk.Label(pa, text="商品を選んで紹介文を作り、投稿タブを開きます（2回目以降は準備をスキップ）",
                  bg=BG, fg=MUTED, font=("Yu Gothic UI", 9)).pack(anchor="w", pady=(2, 0))
 
-        sa = tk.Frame(m, bg=BG); sa.pack(fill="x", padx=22, pady=12)
+        # いいね回り・フォロー回り
+        eg = tk.Frame(m, bg=BG); eg.pack(fill="x", padx=22, pady=(10, 2))
+        self.v_like = tk.IntVar(value=30)
+        self.v_follow = tk.IntVar(value=15)
+        w1 = tk.Frame(eg, bg=CARD); w1.pack(side="left")
+        self.like_btn = Btn(w1, "♡ いいね回り", lambda: self.launch("like", "--n",
+                            str(self.v_like.get())), small=True)
+        self.like_btn.pack(side="left")
+        spin(w1, self.v_like, 5, 200, 5, w=4).pack(side="left", padx=(2, 8))
+        w2 = tk.Frame(eg, bg=CARD); w2.pack(side="left", padx=(10, 0))
+        self.follow_btn = Btn(w2, "＋ フォロー回り", lambda: self.launch("follow", "--n",
+                              str(self.v_follow.get())), small=True)
+        self.follow_btn.pack(side="left")
+        spin(w2, self.v_follow, 3, 80, 3, w=4).pack(side="left", padx=(2, 8))
+        self.unf_btn = Btn(eg, "フォロー整理", lambda: self.launch("unfollow"), small=True)
+        self.unf_btn.pack(side="left", padx=(10, 0))
+        self.eg_lbl = tk.Label(eg, text="", bg=BG, fg=MUTED, font=("Yu Gothic UI", 9))
+        self.eg_lbl.pack(side="left", padx=(12, 0))
+
+        sa = tk.Frame(m, bg=BG); sa.pack(fill="x", padx=22, pady=(6, 8))
         self.spin = tk.IntVar(value=100)
         wr = tk.Frame(sa, bg=CARD); wr.pack(side="left")
         self.prune_btn = Btn(wr, "🗑 古い投稿を削除", self.do_prune, small=True)
         self.prune_btn.pack(side="left")
         spin(wr, self.spin, 10, 500, 10).pack(side="left", padx=(2, 8))
-        tk.Label(sa, text="件（登録上限の余裕づくり。定期的に）", bg=BG, fg=MUTED,
+        tk.Label(sa, text="件（登録上限の余裕づくり）", bg=BG, fg=MUTED,
                  font=("Yu Gothic UI", 9)).pack(side="left", padx=(4, 0))
-        self.sub_btns = [self.prune_btn]
+        self.sub_btns = [self.prune_btn, self.like_btn, self.follow_btn, self.unf_btn]
 
         adv = tk.Frame(m, bg=BG); adv.pack(fill="x", padx=22)
         b = Btn(adv, "初回ログイン", lambda: self.launch("login"), small=True)
@@ -328,6 +347,10 @@ class App:
         adv = _advice(reasons)
         self.cl3.config(text=("🟢 " if adv.get("good") else "・") + adv.get("hint", ""),
                         fg=OKC if adv.get("good") else MUTED)
+        es = _engage_status()
+        if es:
+            self.eg_lbl.config(text="今日: ♡{}/{}  ＋{}/{}".format(
+                *es["like"], *es["follow"]))
 
     def do_run(self):
         self.send_enter() if self.waiting else self.launch("run")
@@ -452,6 +475,14 @@ def _advice(reasons: list) -> dict:
     try:
         from src.timing import posting_advice
         return posting_advice({}, {"reasons": reasons})
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _engage_status() -> dict:
+    try:
+        from src.engage import engage_status
+        return engage_status(load_cfg())
     except Exception:  # noqa: BLE001
         return {}
 

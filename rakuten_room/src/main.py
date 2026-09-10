@@ -18,6 +18,27 @@ from datetime import date
 def _today_iso() -> str:
     return date.today().isoformat()
 
+
+def _room_slug(cfg: dict) -> str:
+    import re
+    m = re.search(r"/(room_[0-9a-z]+|[A-Za-z0-9_.-]+)/items", cfg.get("my_room_url", ""))
+    return m.group(1) if m else ""
+
+
+def _arg_int(args, flag: str, default: int) -> int:
+    for i, a in enumerate(args):
+        if a == flag and i + 1 < len(args):
+            try:
+                return int(args[i + 1])
+            except ValueError:
+                pass
+        if a.startswith(flag + "="):
+            try:
+                return int(a.split("=", 1)[1])
+            except ValueError:
+                pass
+    return default
+
 from .captions import (
     captions_path,
     load_captions,
@@ -157,6 +178,17 @@ def main() -> int:
         cmd_post(cfg, dry_run=dry_run, serial="--serial" in args)
     elif cmd == "status":
         cmd_status(cfg)
+    elif cmd in ("like", "follow", "unfollow"):
+        from .engage import follow_round, like_round, unfollow_round
+
+        slug = _room_slug(cfg)
+        n = _arg_int(args, "--n", 20)
+        if cmd == "like":
+            like_round(cfg, n, feed=("home" if "--home" in args else "new"))
+        elif cmd == "follow":
+            follow_round(cfg, n, slug)
+        else:
+            unfollow_round(cfg, slug)
     elif cmd == "prune":
         from .pruner import prune
 

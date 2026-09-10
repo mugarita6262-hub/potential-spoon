@@ -98,3 +98,15 @@ scoring:
 exclude:
   # 同じ商品をこの日数以内に再投稿しない
   reposted_within_days: 60
+
+# いいね回り・フォロー回り（慎重な半自動。楽天ROOMの公称上限よりかなり低く設定）
+engage:
+  caps:
+    like_per_day: 200
+    like_per_hour: 35
+    follow_per_day: 80
+    follow_per_hour: 15
+    unfollow_per_day: 60
+  like_interval: [5, 13]      # いいねの間隔（秒・ランダム）
+  follow_interval: [8, 20]
+  unfollow_after_days: 10     # フォローしてこの日数フォロバが無ければ整理対象
