@@ -162,6 +162,33 @@ def cmd_run(cfg: dict) -> None:
         print("\nキャプション待ちです。上の手順を済ませてから もう一度どうぞ。")
 
 
+def cmd_daily(cfg: dict) -> None:
+    """投稿 → いいね回り → フォロー回り を順番に。"""
+    ec = cfg.get("engage", {}) or {}
+    from .engage import follow_round, like_round
+
+    print("========== 1/3 投稿 ==========")
+    cmd_run(cfg)
+
+    print("\n========== 2/3 いいね回り ==========")
+    try:
+        like_round(cfg, int(ec.get("daily_likes", 30)))
+    except KeyboardInterrupt:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        print(f"いいね回りでエラー: {exc}")
+
+    print("\n========== 3/3 フォロー回り ==========")
+    try:
+        follow_round(cfg, int(ec.get("daily_follows", 15)), _room_slug(cfg))
+    except KeyboardInterrupt:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        print(f"フォロー回りでエラー: {exc}")
+
+    print("\n========== おまかせ完了。おつかれさまでした ==========")
+
+
 def main() -> int:
     args = sys.argv[1:]
     cmd = args[0] if args else "run"
@@ -201,6 +228,8 @@ def main() -> int:
         prune(cfg, commit="--commit" in args, max_delete=max_delete)
     elif cmd == "run":
         cmd_run(cfg)
+    elif cmd == "daily":
+        cmd_daily(cfg)
     elif cmd in ("-h", "--help", "help"):
         print(__doc__)
     else:

@@ -110,3 +110,5 @@ engage:
   like_interval: [5, 13]      # いいねの間隔（秒・ランダム）
   follow_interval: [8, 20]
   unfollow_after_days: 10     # フォローしてこの日数フォロバが無ければ整理対象
+  daily_likes: 30             # 「おまかせ」1回のいいね数
+  daily_follows: 15           # 「おまかせ」1回のフォロー数

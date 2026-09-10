@@ -259,10 +259,14 @@ class App:
         self.pbar = tk.Frame(pwf, bg=ACCENT); self.pbar.place(x=0, y=0, relheight=1, relwidth=0)
 
         pa = tk.Frame(m, bg=BG); pa.pack(fill="x", padx=22)
-        self.primary = Btn(pa, "▶  今日の投稿をする", self.do_run, kind="primary")
+        self.primary = Btn(pa, "▶  おまかせ（投稿 → いいね回り → フォロー回り）",
+                           self.do_run, kind="primary")
         self.primary.pack(fill="x", ipady=3)
-        tk.Label(pa, text="商品を選んで紹介文を作り、投稿タブを開きます（2回目以降は準備をスキップ）",
-                 bg=BG, fg=MUTED, font=("Yu Gothic UI", 9)).pack(anchor="w", pady=(2, 0))
+        prow = tk.Frame(pa, bg=BG); prow.pack(fill="x", pady=(2, 0))
+        tk.Label(prow, text="この1つで1日ぶんの作業が順番に進みます。",
+                 bg=BG, fg=MUTED, font=("Yu Gothic UI", 9)).pack(side="left")
+        self.postonly_btn = Btn(prow, "投稿だけ", lambda: self.launch("run"), small=True)
+        self.postonly_btn.pack(side="right")
 
         # いいね回り・フォロー回り
         eg = tk.Frame(m, bg=BG); eg.pack(fill="x", padx=22, pady=(10, 2))
@@ -291,7 +295,8 @@ class App:
         spin(wr, self.spin, 10, 500, 10).pack(side="left", padx=(2, 8))
         tk.Label(sa, text="件（登録上限の余裕づくり）", bg=BG, fg=MUTED,
                  font=("Yu Gothic UI", 9)).pack(side="left", padx=(4, 0))
-        self.sub_btns = [self.prune_btn, self.like_btn, self.follow_btn, self.unf_btn]
+        self.sub_btns = [self.prune_btn, self.like_btn, self.follow_btn, self.unf_btn,
+                         self.postonly_btn]
 
         adv = tk.Frame(m, bg=BG); adv.pack(fill="x", padx=22)
         b = Btn(adv, "初回ログイン", lambda: self.launch("login"), small=True)
@@ -353,7 +358,7 @@ class App:
                 *es["like"], *es["follow"]))
 
     def do_run(self):
-        self.send_enter() if self.waiting else self.launch("run")
+        self.send_enter() if self.waiting else self.launch("daily")
 
     def do_prune(self):
         self.launch("prune", "--commit", "--max", str(self.spin.get()))
