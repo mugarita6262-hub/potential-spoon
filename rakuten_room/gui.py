@@ -187,13 +187,15 @@ class SettingsWin(tk.Toplevel):
                            ).grid(row=i // 2, column=i % 2, sticky="w", padx=2)
             i += 1
 
-        section("いいね回り・フォロー回り（「おまかせ」1回ぶん）")
-        row("いいね数", "engage.daily_likes", 40, 5, 150,
-            hint="1日1回運用なら 40〜80。上限200/日・35/時で自動ストップ")
-        row("フォロー数", "engage.daily_follows", 18, 3, 60,
-            hint="1日1回運用なら 15〜25。上限80/日・15/時")
+        section("「おまかせ」1回ぶんの件数")
+        row("いいね数", "engage.daily_likes", 50, 5, 150,
+            hint="上限200/日・35/時で自動ストップ")
+        row("フォロー数", "engage.daily_follows", 20, 3, 60,
+            hint="上限80/日・15/時")
+        row("古い投稿の削除数", "engage.daily_prune", 100, 0, 300,
+            hint="0 で削除なし。登録上限の余裕づくり")
 
-        section("古い投稿の削除")
+        section("削除の設定")
         r = tk.Frame(wrap, bg=BG); r.pack(fill="x", pady=2)
         tk.Label(r, text="この日付より後は消さない", bg=BG, fg=TXT, width=20, anchor="w",
                  font=("Yu Gothic UI", 10)).pack(side="left")
@@ -265,11 +267,11 @@ class App:
         self.pbar = tk.Frame(pwf, bg=ACCENT); self.pbar.place(x=0, y=0, relheight=1, relwidth=0)
 
         pa = tk.Frame(m, bg=BG); pa.pack(fill="x", padx=22)
-        self.primary = Btn(pa, "▶  おまかせ（投稿 → いいね回り → フォロー回り）",
+        self.primary = Btn(pa, "▶  おまかせ（投稿 → いいね → フォロー → 削除）",
                            self.do_run, kind="primary")
         self.primary.pack(fill="x", ipady=3)
         prow = tk.Frame(pa, bg=BG); prow.pack(fill="x", pady=(2, 0))
-        tk.Label(prow, text="この1つで1日ぶんの作業が順番に進みます。",
+        tk.Label(prow, text="夜に1回押せば1日ぶん完了。手を動かすのは投稿の「完了」ボタンだけ。",
                  bg=BG, fg=MUTED, font=("Yu Gothic UI", 9)).pack(side="left")
         self.postonly_btn = Btn(prow, "投稿だけ", lambda: self.launch("run"), small=True)
         self.postonly_btn.pack(side="right")

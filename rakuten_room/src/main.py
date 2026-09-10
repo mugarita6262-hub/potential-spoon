@@ -198,6 +198,18 @@ def cmd_daily(cfg: dict) -> None:
     except Exception as exc:  # noqa: BLE001
         print(f"フォロー回りでエラー: {exc}")
 
+    n_prune = int(ec.get("daily_prune", 0))
+    if n_prune > 0:
+        _rest()
+        print(f"━━━━━ おまけ：古い投稿を {n_prune} 件削除（登録上限の余裕づくり）━━━━━")
+        try:
+            from .pruner import prune
+            prune(cfg, commit=True, max_delete=n_prune)
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            print(f"削除でエラー: {exc}")
+
     print("\n━━━━━ おまかせ完了。おつかれさまでした ━━━━━")
 
 

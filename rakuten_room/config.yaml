@@ -9,10 +9,9 @@ post_count: 10
 # 候補として選んでおく件数（post_count より多めに。かぶり吸収用のバッファ）
 candidate_pool: 40
 
-# 1回の post_now.bat で開くタブ数。post_count 以下にすると分割投稿になる。
-# 例: post_count=10, post_batch_size=4 → 朝昼夜に post_now.bat を回すと計10件。
-# 目安の時間帯（閲覧が多い）: 07:30 / 12:30 / 21:30
-post_batch_size: 4
+# 「おまかせ」1回で開く投稿タブ数。1日1回運用なら post_count と同じでOK。
+# 朝昼夜に分けたいなら 4 などに下げる。
+post_batch_size: 10
 
 # セール・イベント日に投稿数を増やす
 sale_boost:
@@ -110,6 +109,7 @@ engage:
   like_interval: [5, 13]      # いいねの間隔（秒・ランダム）
   follow_interval: [8, 20]
   unfollow_after_days: 10     # フォローしてこの日数フォロバが無ければ整理対象
-  daily_likes: 40             # 「おまかせ」1回のいいね数
-  daily_follows: 18           # 「おまかせ」1回のフォロー数
+  daily_likes: 50             # 「おまかせ」1回のいいね数
+  daily_follows: 20           # 「おまかせ」1回のフォロー数
+  daily_prune: 100            # 「おまかせ」1回で削除する古い投稿の数（0 で削除なし）
   daily_gap_minutes: [2, 6]   # おまかせのステップ間の休憩（分・ランダム）
