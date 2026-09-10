@@ -178,16 +178,13 @@ def follow_round(cfg: dict, target: int, slug: str) -> None:
         page = ctx.new_page()
         _safe_goto(page, NOTIF.format(slug=slug))
         page.wait_for_timeout(5000)
-        # 「あなたへのお知らせ / アクティビティ」タブへ
-        for lb in ["あなたへ", "アクティビティ", "いいね", "フォロー"]:
-            try:
-                t = page.get_by_text(lb, exact=False).first
-                if t.count() and t.is_visible():
-                    t.click(timeout=3000)
-                    page.wait_for_timeout(2500)
-                    break
-            except Exception:  # noqa: BLE001
-                pass
+        # アクティビティは公式お知らせの下。少しスクロールして読み込む
+        for _ in range(4):
+            page.mouse.wheel(0, 2200)
+            page.wait_for_timeout(1000)
+
+        first = _unfollowed_in_notifications(page)
+        print(f"  （未フォローの相手 {len(first)} 人を検出）")
 
         done = 0
         misses = 0
@@ -197,8 +194,8 @@ def follow_round(cfg: dict, target: int, slug: str) -> None:
                        if t[1] not in seen_names]
             if not targets:
                 for _ in range(3):
-                    page.mouse.wheel(0, 2400)
-                    page.wait_for_timeout(1300)
+                    page.mouse.wheel(0, 2600)
+                    page.wait_for_timeout(1400)
                 misses += 1
                 continue
             misses = 0
@@ -236,13 +233,12 @@ def _unfollowed_in_notifications(page) -> list:
         row = rows.nth(i)
         try:
             fol = row.locator("span.follow").first
-            if (fol.inner_text() or "").strip() != "未フォロー":
+            if "未フォロー" not in (fol.inner_text() or ""):
                 continue
             txt = (row.inner_text() or "").replace("\n", " ").strip()
-            m = re.match(r"(.+?)\s*さんが", txt)
-            if not m:
-                continue
-            out.append((fol, m.group(1)[:40]))
+            m = re.search(r"(.+?)\s*さん\s*が", txt)
+            name = m.group(1).strip()[:40] if m else f"user{i}"
+            out.append((fol, name))
         except Exception:  # noqa: BLE001
             continue
     return out
