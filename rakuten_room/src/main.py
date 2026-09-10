@@ -107,6 +107,26 @@ def cmd_login() -> None:
     login()
 
 
+def cmd_status(cfg: dict) -> None:
+    from .captions import captions_path, drafts_path, load_plan
+    from .posted_log import posted_today
+
+    plan = load_plan()
+    base = int(cfg.get("post_count", 10))
+    target = int(plan.get("target_count") or base)
+    done = posted_today()
+    print(f"日付           : {_today_iso()}")
+    print(f"今日の準備     : {'済み' if drafts_path().exists() else 'まだ（① を実行）'}"
+          + ("／紹介文あり" if captions_path().exists() else "／紹介文なし"))
+    if plan.get("reasons"):
+        print(f"セール判定     : {' / '.join(plan['reasons'])}  → 目標 {target} 件")
+    else:
+        print(f"投稿目標       : {target} 件")
+    print(f"今日の投稿済み : {done} / {target} 件"
+          + ("  ✅ 目標達成" if done >= target else f"  （あと {target - done} 件）"))
+    print(f"1回のタブ数    : {cfg.get('post_batch_size', target)} 件")
+
+
 def cmd_run(cfg: dict) -> None:
     cmd_prepare(cfg)
     if load_captions():
@@ -129,6 +149,8 @@ def main() -> int:
         cmd_prepare(cfg)
     elif cmd == "post":
         cmd_post(cfg, dry_run=dry_run, serial="--serial" in args)
+    elif cmd == "status":
+        cmd_status(cfg)
     elif cmd == "prune":
         from .pruner import prune
 
