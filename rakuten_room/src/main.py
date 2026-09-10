@@ -163,15 +163,25 @@ def cmd_run(cfg: dict) -> None:
 
 
 def cmd_daily(cfg: dict) -> None:
-    """投稿 → いいね回り → フォロー回り を順番に。"""
+    """投稿 → いいね回り → フォロー回り を順番に。ステップ間に自然な休憩。"""
+    import random
+    import time
+
     ec = cfg.get("engage", {}) or {}
     from .engage import follow_round, like_round
+
+    def _rest():
+        lo, hi = ec.get("daily_gap_minutes", [2, 6])
+        s = random.uniform(float(lo) * 60, float(hi) * 60)
+        print(f"\n（{int(s / 60)}分ほど休憩してから次へ…）")
+        time.sleep(s)
 
     batch = int(cfg.get("post_batch_size", 4))
     print(f"━━━━━ ステップ1 / 3：投稿（この回で最大 {batch} 件）━━━━━")
     cmd_run(cfg)
 
-    print(f"\n━━━━━ ステップ2 / 3：いいね回り（最大 {int(ec.get('daily_likes', 30))} 件）━━━━━")
+    _rest()
+    print(f"━━━━━ ステップ2 / 3：いいね回り（最大 {int(ec.get('daily_likes', 30))} 件）━━━━━")
     try:
         like_round(cfg, int(ec.get("daily_likes", 30)))
     except KeyboardInterrupt:
@@ -179,7 +189,8 @@ def cmd_daily(cfg: dict) -> None:
     except Exception as exc:  # noqa: BLE001
         print(f"いいね回りでエラー: {exc}")
 
-    print(f"\n━━━━━ ステップ3 / 3：フォロー回り（最大 {int(ec.get('daily_follows', 15))} 件）━━━━━")
+    _rest()
+    print(f"━━━━━ ステップ3 / 3：フォロー回り（最大 {int(ec.get('daily_follows', 15))} 件）━━━━━")
     try:
         follow_round(cfg, int(ec.get("daily_follows", 15)), _room_slug(cfg))
     except KeyboardInterrupt:

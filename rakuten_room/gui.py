@@ -187,6 +187,12 @@ class SettingsWin(tk.Toplevel):
                            ).grid(row=i // 2, column=i % 2, sticky="w", padx=2)
             i += 1
 
+        section("いいね回り・フォロー回り（「おまかせ」1回ぶん）")
+        row("いいね数", "engage.daily_likes", 40, 5, 150,
+            hint="1日1回運用なら 40〜80。上限200/日・35/時で自動ストップ")
+        row("フォロー数", "engage.daily_follows", 18, 3, 60,
+            hint="1日1回運用なら 15〜25。上限80/日・15/時")
+
         section("古い投稿の削除")
         r = tk.Frame(wrap, bg=BG); r.pack(fill="x", pady=2)
         tk.Label(r, text="この日付より後は消さない", bg=BG, fg=TXT, width=20, anchor="w",
