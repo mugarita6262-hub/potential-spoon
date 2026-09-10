@@ -163,6 +163,11 @@ def _next_like_button(page):
 
 
 # ---------------- フォロー回り（お知らせ経由＝アクティブ確定） ----------------
+ACTIVITY_ROW = 'li[ng-repeat*="activityNotification"]'
+FOLLOW_BTN_SEL = ('button[aria-label="フォローする"], button[aria-label="フォロー"], '
+                  'a:has-text("フォローする"), button:has-text("フォローする")')
+
+
 def follow_round(cfg: dict, target: int, slug: str) -> None:
     day_left, hour_left = _remaining(cfg, "follow")
     can = min(target, day_left, hour_left)
@@ -172,76 +177,87 @@ def follow_round(cfg: dict, target: int, slug: str) -> None:
 
     pacer = Pacer(base=tuple(cfg.get("engage", {}).get("follow_interval", [8, 20])))
     flog = _load(FOLLOW_LOG, {})
+    notif_url = NOTIF.format(slug=slug)
 
     pw, ctx, _b = _launch()
     try:
         page = ctx.new_page()
-        _safe_goto(page, NOTIF.format(slug=slug))
-        page.wait_for_timeout(5000)
-        # アクティビティは公式お知らせの下。少しスクロールして読み込む
-        for _ in range(4):
-            page.mouse.wheel(0, 2200)
-            page.wait_for_timeout(1000)
-
-        first = _unfollowed_in_notifications(page)
-        print(f"  （未フォローの相手 {len(first)} 人を検出）")
-
         done = 0
+        idx = 0          # 何番目のアクティビティ行まで見たか
         misses = 0
-        seen_names: set[str] = set()
-        while done < can and misses < 8:
-            targets = [t for t in _unfollowed_in_notifications(page)
-                       if t[1] not in seen_names]
-            if not targets:
-                for _ in range(3):
-                    page.mouse.wheel(0, 2600)
-                    page.wait_for_timeout(1400)
-                misses += 1
-                continue
+        while done < can and misses < 6:
+            _safe_goto(page, notif_url)
+            page.wait_for_timeout(4500)
+            for _ in range(3):
+                page.mouse.wheel(0, 2200)
+                page.wait_for_timeout(900)
+
+            names = _activity_names(page)
+            if idx >= len(names):
+                # もっとスクロールして読み込む
+                for _ in range(4):
+                    page.mouse.wheel(0, 3000)
+                    page.wait_for_timeout(1200)
+                names = _activity_names(page)
+                if idx >= len(names):
+                    misses += 1
+                    continue
             misses = 0
-            btn, name = targets[0]  # 1件だけ処理 → 次ループで取り直す
-            seen_names.add(name)
+            name = names[idx]
+            idx += 1
+            if not name or name in flog:
+                continue
+
+            # そのユーザーのアイコンをクリック → ROOMページへ
             try:
-                btn.scroll_into_view_if_needed(timeout=3000)
-                jitter(1.0)
-                btn.click(timeout=4000)
-                page.wait_for_timeout(2000)  # Angular の再描画待ち
-                done += 1
-                _bump("follow")
-                flog[name] = {"at": datetime.now().isoformat(timespec="seconds"),
-                              "back": None}
-                _save(FOLLOW_LOG, flog)
-                print(f"  + フォロー {done}/{can}  {name}")
-                if done < can:
-                    pacer.wait(on_rest=lambda s: print(f"    （ひと休み {int(s)}秒）"))
+                row = page.locator(ACTIVITY_ROW).nth(idx - 1)
+                row.locator(".left-img").click(timeout=5000)
+                page.wait_for_timeout(3500)
+            except Exception:  # noqa: BLE001
+                continue
+
+            fb = page.locator(FOLLOW_BTN_SEL).first
+            try:
+                if fb.count() and fb.is_visible():
+                    jitter(1.2)
+                    fb.click(timeout=4000)
+                    page.wait_for_timeout(1500)
+                    done += 1
+                    _bump("follow")
+                    flog[name] = {"at": datetime.now().isoformat(timespec="seconds"),
+                                  "back": None}
+                    _save(FOLLOW_LOG, flog)
+                    print(f"  + フォロー {done}/{can}  {name}")
+                    if done < can:
+                        pacer.wait(on_rest=lambda s: print(f"    （ひと休み {int(s)}秒）"))
+                else:
+                    print(f"  （{name}: 既にフォロー済み or ボタン無し）")
+                    flog[name] = {"at": datetime.now().isoformat(timespec="seconds"),
+                                  "back": True}
+                    _save(FOLLOW_LOG, flog)
             except Exception as exc:  # noqa: BLE001
-                print(f"  （スキップ: {name} / {str(exc)[:50]}）")
+                print(f"  （スキップ {name}: {str(exc)[:40]}）")
         print(f"\nフォロー回り完了: {done} 件（今日の累計 {_today_log()['follow']} 件）")
     finally:
         pw.stop()
 
 
-def _unfollowed_in_notifications(page) -> list:
-    """アクティビティ行のうち『未フォロー』の (spanロケータ, 名前) を返す。"""
-    out = []
-    rows = page.locator('li:has(span.follow)')
+def _activity_names(page) -> list[str]:
+    """アクティビティ行（いいね/コレ）の相手の名前を上から順に。"""
+    names: list[str] = []
+    rows = page.locator(ACTIVITY_ROW)
     try:
         n = rows.count()
     except Exception:  # noqa: BLE001
-        return out
-    for i in range(min(n, 40)):
-        row = rows.nth(i)
+        return names
+    for i in range(min(n, 60)):
         try:
-            fol = row.locator("span.follow").first
-            if "未フォロー" not in (fol.inner_text() or ""):
-                continue
-            txt = (row.inner_text() or "").replace("\n", " ").strip()
-            m = re.search(r"(.+?)\s*さん\s*が", txt)
-            name = m.group(1).strip()[:40] if m else f"user{i}"
-            out.append((fol, name))
+            nm = (rows.nth(i).locator("span.strong, .notice-name").first
+                  .inner_text(timeout=2000) or "").strip()
         except Exception:  # noqa: BLE001
-            continue
-    return out
+            nm = ""
+        names.append(nm[:40])
+    return names
 
 
 # ---------------- フォロー整理 ----------------
