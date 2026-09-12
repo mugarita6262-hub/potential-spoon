@@ -74,6 +74,33 @@ def post_to_threads(access_token: str, user_id: str, text: str,
     return post_id
 
 
+def get_media_insights(access_token: str, media_id: str) -> dict:
+    """投稿の反応（閲覧数・いいね数など）を取得する。要 threads_manage_insights 権限。
+
+    {"views": N, "likes": N, "replies": N, "reposts": N, "quotes": N} のような dict を返す。
+    """
+    resp = requests.get(
+        f"{API_BASE}/{media_id}/insights",
+        params={"metric": "views,likes,replies,reposts,quotes",
+                "access_token": access_token},
+        timeout=20,
+    )
+    if not resp.ok:
+        raise RuntimeError(f"インサイト取得に失敗しました: {resp.status_code} {resp.text}")
+    out: dict[str, int] = {}
+    for row in resp.json().get("data", []):
+        name = row.get("name")
+        if not name:
+            continue
+        if "total_value" in row:
+            value = row["total_value"].get("value")
+        else:
+            values = row.get("values") or [{}]
+            value = values[0].get("value")
+        out[name] = int(value or 0)
+    return out
+
+
 def refresh_long_lived_token(access_token: str) -> dict:
     """長期トークンを延長する（有効期限60日、24時間以上経過していればいつでも延長可）。
 

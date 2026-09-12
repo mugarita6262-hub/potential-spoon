@@ -7,6 +7,7 @@
   python -m src.main run         prepare を実行し、キャプションがあれば post まで
   python -m src.main sns         値下がり・過去最安値の商品を検知してThreadsに自動投稿
   python -m src.main a8          A8アフィリリンクをローテーションでThreadsに自動投稿
+  python -m src.main insights    Threads投稿の反応をジャンル・商品別に集計して表示
   python -m src.main daily       投稿→いいね回り→フォロー回り→(削除)→(SNS投稿) を一括実行
 """
 from __future__ import annotations
@@ -253,7 +254,8 @@ def cmd_sns(cfg: dict) -> None:
                 cfg["_threads_token"], cfg["_threads_user_id"], text,
                 image_url=it.get("imageUrl") or None,
             )
-            sns_record_posted(it, platform="threads")
+            sns_record_posted(it, platform="threads", post_id=post_id,
+                               category=it.get("genreId", ""))
             posted += 1
             print(f"✅ Threads投稿完了: {it['itemName'][:40]} -> id={post_id}")
         except Exception as exc:  # noqa: BLE001
@@ -311,13 +313,42 @@ def cmd_a8(cfg: dict) -> None:
         sns_record_posted(
             {"itemCode": link["program_id"], "itemUrl": link["url"],
              "itemName": link["program_name"]},
-            platform="threads",
+            platform="threads", post_id=post_id,
+            category=link["program_name"][:30],
         )
         print(f"✅ Threads投稿完了: {link['program_name'][:40]} -> id={post_id}")
     except Exception as exc:  # noqa: BLE001
         print(f"❌ 投稿失敗: {link['program_name'][:40]}: {exc}")
 
     print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
+
+
+def cmd_insights(cfg: dict) -> None:
+    """Threads投稿の反応（いいね・閲覧数）をジャンル・商品別に集計して表示する。"""
+    from .insights import report_by_category, sync_insights
+
+    if not cfg.get("_threads_token"):
+        print(".env の THREADS_ACCESS_TOKEN が未設定です。")
+        return
+
+    print("投稿から24時間以上経ったものの反応を取得しています…")
+    try:
+        n = sync_insights(cfg["_threads_token"])
+        print(f"  {n}件のインサイトを更新しました。\n")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  インサイト取得でエラー: {exc}\n")
+
+    rows = report_by_category()
+    if not rows:
+        print("まだ反応データがありません（投稿から24時間以上、かつ`threads_manage_insights`"
+              "権限付きトークンが必要です）。")
+        return
+
+    print("反応が良い順（平均いいね数）:")
+    print(f"{'カテゴリ':<28} {'平均いいね':>8} {'平均閲覧':>8} {'平均リポスト':>10} {'件数':>4}")
+    for r in rows:
+        print(f"{r['category'][:28]:<28} {r['avg_likes']:>8} {r['avg_views']:>8} "
+              f"{r['avg_reposts']:>10} {r['count']:>4}")
 
 
 def cmd_daily(cfg: dict) -> None:
@@ -437,6 +468,8 @@ def main() -> int:
         cmd_sns(cfg)
     elif cmd == "a8":
         cmd_a8(cfg)
+    elif cmd == "insights":
+        cmd_insights(cfg)
     elif cmd in ("-h", "--help", "help"):
         print(__doc__)
     else:

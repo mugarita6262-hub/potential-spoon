@@ -33,7 +33,9 @@ def recently_posted_keys(within_days: int, platform: str | None = None) -> set[s
     return keys
 
 
-def record_posted(item: dict, platform: str) -> None:
+def record_posted(item: dict, platform: str, post_id: str = "",
+                   category: str = "") -> None:
+    """post_id・category を渡しておくと、後で insights コマンドが反応を集計できる。"""
     log = load_posted()
     log.append({
         "itemCode": item.get("itemCode", ""),
@@ -42,6 +44,8 @@ def record_posted(item: dict, platform: str) -> None:
         "platform": platform,
         "drop_pct": item.get("drop_pct", 0),
         "is_all_time_low": item.get("is_all_time_low", False),
+        "post_id": post_id,
+        "category": category,
         "posted_at": datetime.now().isoformat(timespec="seconds"),
     })
     SNS_POSTED_FILE.write_text(
