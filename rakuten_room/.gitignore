@@ -8,6 +8,8 @@ __pycache__/
 data/session/
 data/drafts/
 data/posted.json
+data/sns_posted.json
+data/price_history.json
 data/pruned.json
 data/prune_checked.json
 data/prune_preview.json

@@ -5,6 +5,8 @@
   python -m src.main prepare     商品を選定してキャプション用プロンプトを書き出す
   python -m src.main post        キャプションを読み込んで投稿画面に流し込む（最後は手動）
   python -m src.main run         prepare を実行し、キャプションがあれば post まで
+  python -m src.main sns         値下がり・過去最安値の商品を検知してThreadsに自動投稿
+  python -m src.main daily       投稿→いいね回り→フォロー回り→(削除)→(Threads投稿) を一括実行
 """
 from __future__ import annotations
 
@@ -113,13 +115,14 @@ def cmd_prepare(cfg: dict) -> None:
     print("そのあと `python -m src.main post` を実行します。")
 
 
-def cmd_post(cfg: dict, dry_run: bool = False, serial: bool = False) -> None:
+def cmd_post(cfg: dict, dry_run: bool = False, serial: bool = False,
+             full_day: bool = False) -> None:
     from .poster import post_drafts, post_drafts_tabs
 
     if serial or dry_run:
         post_drafts(cfg, dry_run=dry_run)
     else:
-        post_drafts_tabs(cfg)
+        post_drafts_tabs(cfg, full_day=full_day)
 
 
 def cmd_login() -> None:
@@ -151,15 +154,103 @@ def cmd_status(cfg: dict) -> None:
     print(f"投稿タイミング : {adv['hint']}")
 
 
-def cmd_run(cfg: dict) -> None:
+def cmd_run(cfg: dict, full_day: bool = False) -> None:
     if load_captions():
         print("今日の準備は済んでいます（紹介文あり）。投稿タブを開きます。\n")
     else:
         cmd_prepare(cfg)
     if load_captions():
-        cmd_post(cfg)
+        cmd_post(cfg, full_day=full_day)
     else:
         print("\nキャプション待ちです。上の手順を済ませてから もう一度どうぞ。")
+
+
+def cmd_sns(cfg: dict) -> None:
+    """値下がり・過去最安値の商品を検知して Threads に自動投稿する（完全自動）。"""
+    import random
+    import time as _time
+
+    from .rakuten_api import RakutenAPI
+    from .selector import gather_candidates
+    from .sns_captions import build_post_text, generate_sns_captions
+    from .sns_posted_log import posted_today as sns_posted_today
+    from .sns_posted_log import record_posted as sns_record_posted
+    from .sns_selector import select_sale_items
+    from .threads_poster import post_to_threads, refresh_long_lived_token
+
+    sc = cfg.get("sns", {}) or {}
+    if not sc.get("enabled", True):
+        print("SNS投稿は設定(sns.enabled)で無効になっています。")
+        return
+    th = sc.get("threads", {}) or {}
+    if not th.get("enabled", True):
+        print("Threads投稿は設定(sns.threads.enabled)で無効になっています。")
+        return
+    if not cfg.get("_threads_token") or not cfg.get("_threads_user_id"):
+        print(".env の THREADS_ACCESS_TOKEN / THREADS_USER_ID が未設定です。"
+              "SETUP_THREADS.md の手順で取得してください。")
+        return
+
+    # 長期トークンは60日で失効。毎回延長しておくことで完全自動運用でも切れない。
+    try:
+        data = refresh_long_lived_token(cfg["_threads_token"])
+        if data["access_token"] != cfg["_threads_token"]:
+            from .config import update_env_value
+            update_env_value("THREADS_ACCESS_TOKEN", data["access_token"])
+            cfg["_threads_token"] = data["access_token"]
+            print("  Threadsアクセストークンを延長しました。")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  トークン延長に失敗（既存トークンで続行）: {exc}")
+
+    try:
+        api = RakutenAPI(cfg["_app_id"], cfg["_access_key"], cfg["_affiliate_id"])
+    except RuntimeError as exc:
+        print(exc)
+        return
+
+    print("値下がり・過去最安値の商品を探しています…")
+    candidates = gather_candidates(cfg, api)
+    picked = select_sale_items(
+        candidates,
+        top_n=int(th.get("post_count", 3)),
+        min_discount_pct=float(sc.get("min_discount_pct", 10)),
+        lookback_days=int(sc.get("lookback_days", 30)),
+        cooldown_days=int(sc.get("repost_cooldown_days", 30)),
+        platform="threads",
+    )
+    if not picked:
+        print("今日は値下がり・過去最安値の商品が見つかりませんでした（対象なし）。")
+        return
+
+    print(f"対象 {len(picked)} 件:")
+    for it in picked:
+        tag = "過去最安" if it["is_all_time_low"] else f"{it['drop_pct']:.0f}%OFF"
+        print(f"  - [{tag}] {it['itemName'][:40]}  {it['price']:,}円")
+
+    caps = generate_sns_captions(picked)
+    disclosure = sc.get("disclosure") or th.get("disclosure") or "【PR】"
+    lo, hi = th.get("interval_seconds", [20, 45])
+    posted = 0
+    for i, it in enumerate(picked):
+        cap = caps.get(it["itemUrl"])
+        if not cap:
+            print(f"  告知文なし、スキップ: {it['itemName'][:40]}")
+            continue
+        text = build_post_text(it, cap, disclosure=disclosure)
+        try:
+            post_id = post_to_threads(
+                cfg["_threads_token"], cfg["_threads_user_id"], text,
+                image_url=it.get("imageUrl") or None,
+            )
+            sns_record_posted(it, platform="threads")
+            posted += 1
+            print(f"✅ Threads投稿完了: {it['itemName'][:40]} -> id={post_id}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"❌ 投稿失敗: {it['itemName'][:40]}: {exc}")
+        if i < len(picked) - 1:
+            _time.sleep(random.uniform(float(lo), float(hi)))
+
+    print(f"\nThreads投稿 {posted}/{len(picked)} 件完了（本日累計 {sns_posted_today('threads')} 件）")
 
 
 def cmd_daily(cfg: dict) -> None:
@@ -176,9 +267,8 @@ def cmd_daily(cfg: dict) -> None:
         print(f"\n（{int(s / 60)}分ほど休憩してから次へ…）")
         time.sleep(s)
 
-    batch = int(cfg.get("post_batch_size", 4))
-    print(f"━━━━━ ステップ1 / 3：投稿（この回で最大 {batch} 件）━━━━━")
-    cmd_run(cfg)
+    print("━━━━━ ステップ1 / 3：投稿（今日ぶん）━━━━━")
+    cmd_run(cfg, full_day=True)
 
     _rest()
     print(f"━━━━━ ステップ2 / 3：いいね回り（最大 {int(ec.get('daily_likes', 30))} 件）━━━━━")
@@ -209,6 +299,17 @@ def cmd_daily(cfg: dict) -> None:
             raise
         except Exception as exc:  # noqa: BLE001
             print(f"削除でエラー: {exc}")
+
+    sc = cfg.get("sns", {}) or {}
+    if sc.get("enabled", True) and sc.get("run_in_daily", True):
+        _rest()
+        print("━━━━━ おまけ：値下がり品をThreadsへ自動投稿 ━━━━━")
+        try:
+            cmd_sns(cfg)
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            print(f"SNS投稿でエラー: {exc}")
 
     print("\n━━━━━ おまかせ完了。おつかれさまでした ━━━━━")
 
@@ -254,6 +355,8 @@ def main() -> int:
         cmd_run(cfg)
     elif cmd == "daily":
         cmd_daily(cfg)
+    elif cmd == "sns":
+        cmd_sns(cfg)
     elif cmd in ("-h", "--help", "help"):
         print(__doc__)
     else:

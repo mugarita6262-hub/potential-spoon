@@ -113,3 +113,23 @@ engage:
   daily_follows: 20           # 「おまかせ」1回のフォロー数
   daily_prune: 100            # 「おまかせ」1回で削除する古い投稿の数（0 で削除なし）
   daily_gap_minutes: [2, 6]   # おまかせのステップ間の休憩（分・ランダム）
+
+# 値下がり・過去最安値の商品を見つけてSNSに自動投稿する（完全自動、人の確認なし）
+sns:
+  enabled: true
+  # 「おまかせ」実行時に自動でこのステップも回すか
+  run_in_daily: true
+  # 値下がり判定の参照期間（直近何日の最高値と比べて%OFFを計算するか）
+  lookback_days: 30
+  # 何%以上安ければ対象にするか（記録上の過去最安値ならこの%未満でも対象）
+  min_discount_pct: 10
+  # 同じ商品を再度SNS投稿するまでの間隔（日）
+  repost_cooldown_days: 30
+  threads:
+    enabled: true
+    # 1回に投稿する件数
+    post_count: 3
+    # 投稿と投稿の間隔（秒）。この範囲でランダム（スパム判定対策）
+    interval_seconds: [20, 45]
+    # 投稿文の先頭に必ず付けるPR表記（景品表示法のステマ規制対応。削除しないこと）
+    disclosure: "【PR】"

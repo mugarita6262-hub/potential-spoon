@@ -34,7 +34,30 @@ def load_config() -> dict:
     cfg["_app_id"] = os.environ.get("RAKUTEN_APP_ID", "").strip()
     cfg["_access_key"] = os.environ.get("RAKUTEN_ACCESS_KEY", "").strip()
     cfg["_affiliate_id"] = os.environ.get("RAKUTEN_AFFILIATE_ID", "").strip()
+    cfg["_threads_token"] = os.environ.get("THREADS_ACCESS_TOKEN", "").strip()
+    cfg["_threads_user_id"] = os.environ.get("THREADS_USER_ID", "").strip()
 
     for d in (DATA_DIR, DRAFTS_DIR, SESSION_DIR):
         d.mkdir(parents=True, exist_ok=True)
     return cfg
+
+
+def update_env_value(key: str, value: str) -> None:
+    """.env の1行を書き換える（無ければ末尾に追加）。トークン自動延長などで使う。"""
+    env_path = ROOT / ".env"
+    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    out: list[str] = []
+    found = False
+    for line in lines:
+        stripped = line.strip()
+        if not found and stripped and not stripped.startswith("#") and "=" in stripped:
+            k = stripped.split("=", 1)[0].strip()
+            if k == key:
+                out.append(f"{key}={value}")
+                found = True
+                continue
+        out.append(line)
+    if not found:
+        out.append(f"{key}={value}")
+    env_path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    os.environ[key] = value
