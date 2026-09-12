@@ -10,6 +10,9 @@ data/drafts/
 data/posted.json
 data/sns_posted.json
 data/price_history.json
+
+# 個人のアフィリエイト登録情報など、コミット不要な資料
+docs/
 data/pruned.json
 data/prune_checked.json
 data/prune_preview.json
