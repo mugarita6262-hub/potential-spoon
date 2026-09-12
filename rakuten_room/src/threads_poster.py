@@ -12,6 +12,30 @@ import requests
 API_BASE = "https://graph.threads.net/v1.0"
 
 
+def _is_transient(resp: requests.Response) -> bool:
+    if resp.status_code >= 500:
+        return True
+    try:
+        return bool(resp.json().get("error", {}).get("is_transient"))
+    except ValueError:
+        return False
+
+
+def _post_with_retry(url: str, data: dict, retries: int = 2, backoff: float = 5.0):
+    """Meta側の一時的なエラー（is_transient / 5xx）は少し待って自動リトライする。"""
+    last = None
+    for attempt in range(retries + 1):
+        resp = requests.post(url, data=data, timeout=20)
+        if resp.ok:
+            return resp
+        last = resp
+        if attempt < retries and _is_transient(resp):
+            time.sleep(backoff * (attempt + 1))
+            continue
+        break
+    return last
+
+
 def post_to_threads(access_token: str, user_id: str, text: str,
                      image_url: str | None = None) -> str:
     """投稿を作成して公開し、投稿IDを返す（2段階: 作成→公開、Meta公式の手順）。"""
@@ -28,7 +52,7 @@ def post_to_threads(access_token: str, user_id: str, text: str,
     else:
         create_params["media_type"] = "TEXT"
 
-    resp = requests.post(f"{API_BASE}/{user_id}/threads", data=create_params, timeout=20)
+    resp = _post_with_retry(f"{API_BASE}/{user_id}/threads", create_params)
     if not resp.ok:
         raise RuntimeError(f"投稿の作成に失敗しました: {resp.status_code} {resp.text}")
     creation_id = resp.json().get("id")
@@ -38,10 +62,9 @@ def post_to_threads(access_token: str, user_id: str, text: str,
     # Meta推奨: publish前にコンテナ処理の反映を少し待つ
     time.sleep(5)
 
-    pub = requests.post(
+    pub = _post_with_retry(
         f"{API_BASE}/{user_id}/threads_publish",
-        data={"creation_id": creation_id, "access_token": access_token},
-        timeout=20,
+        {"creation_id": creation_id, "access_token": access_token},
     )
     if not pub.ok:
         raise RuntimeError(f"投稿の公開に失敗しました: {pub.status_code} {pub.text}")

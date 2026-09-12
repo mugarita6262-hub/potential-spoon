@@ -133,3 +133,14 @@ sns:
     interval_seconds: [20, 45]
     # 投稿文の先頭に必ず付けるPR表記（景品表示法のステマ規制対応。削除しないこと）
     disclosure: "【PR】"
+
+# A8アフィリリンク（data/a8_links.yaml に登録したもの）をローテーションでThreadsに自動投稿
+# 値下がり検知ではなく「使ってみて良かった」トーンの通常紹介投稿
+a8:
+  enabled: true
+  # 「おまかせ」実行時に自動でこのステップも回すか
+  run_in_daily: true
+  # 同じリンクを再度投稿するまでの間隔（日）。リンク件数が少ないので長めに設定
+  repost_cooldown_days: 10
+  # 投稿文の先頭に必ず付けるPR表記
+  disclosure: "【PR】"

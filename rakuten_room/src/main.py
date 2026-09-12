@@ -6,7 +6,8 @@
   python -m src.main post        キャプションを読み込んで投稿画面に流し込む（最後は手動）
   python -m src.main run         prepare を実行し、キャプションがあれば post まで
   python -m src.main sns         値下がり・過去最安値の商品を検知してThreadsに自動投稿
-  python -m src.main daily       投稿→いいね回り→フォロー回り→(削除)→(Threads投稿) を一括実行
+  python -m src.main a8          A8アフィリリンクをローテーションでThreadsに自動投稿
+  python -m src.main daily       投稿→いいね回り→フォロー回り→(削除)→(SNS投稿) を一括実行
 """
 from __future__ import annotations
 
@@ -15,6 +16,16 @@ import sys
 import json
 import os
 from datetime import date
+
+# コンソールの既定コードページ（Windowsのcp932等）だと絵文字（✅❌🎯など）の
+# print()がUnicodeEncodeErrorで落ちるため、標準出力/エラーをUTF-8化しておく。
+# GUI（gui.py）はサブプロセスにPYTHONIOENCODING=utf-8を渡すため元々問題ないが、
+# ターミナルから直接CLIを叩いた場合の保険として。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 
 
 def _today_iso() -> str:
@@ -253,6 +264,62 @@ def cmd_sns(cfg: dict) -> None:
     print(f"\nThreads投稿 {posted}/{len(picked)} 件完了（本日累計 {sns_posted_today('threads')} 件）")
 
 
+def cmd_a8(cfg: dict) -> None:
+    """A8アフィリリンクをローテーションでThreadsに自動投稿する（値下がり検知とは無関係）。"""
+    from .a8_captions import build_post_text, generate_a8_captions
+    from .a8_selector import pick_next
+    from .sns_posted_log import posted_today as sns_posted_today
+    from .sns_posted_log import record_posted as sns_record_posted
+    from .threads_poster import post_to_threads, refresh_long_lived_token
+
+    ac = cfg.get("a8", {}) or {}
+    if not ac.get("enabled", True):
+        print("A8投稿は設定(a8.enabled)で無効になっています。")
+        return
+    if not cfg.get("_threads_token") or not cfg.get("_threads_user_id"):
+        print(".env の THREADS_ACCESS_TOKEN / THREADS_USER_ID が未設定です。"
+              "SETUP_THREADS.md の手順で取得してください。")
+        return
+
+    try:
+        data = refresh_long_lived_token(cfg["_threads_token"])
+        if data["access_token"] != cfg["_threads_token"]:
+            from .config import update_env_value
+            update_env_value("THREADS_ACCESS_TOKEN", data["access_token"])
+            cfg["_threads_token"] = data["access_token"]
+            print("  Threadsアクセストークンを延長しました。")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  トークン延長に失敗（既存トークンで続行）: {exc}")
+
+    link = pick_next(cooldown_days=int(ac.get("repost_cooldown_days", 10)))
+    if not link:
+        print("投稿できるA8リンクがありません"
+              "（data/a8_links.yaml が空、またはすべてクールダウン中）。")
+        return
+
+    print(f"今回のA8紹介: {link['program_name'][:40]}")
+    caps = generate_a8_captions([link])
+    cap = caps.get(link["program_id"])
+    if not cap:
+        print("紹介文の生成に失敗しました。今回はスキップします。")
+        return
+
+    disclosure = ac.get("disclosure") or "【PR】"
+    text = build_post_text(link, cap, disclosure=disclosure)
+    try:
+        post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text)
+        sns_record_posted(
+            {"itemCode": link["program_id"], "itemUrl": link["url"],
+             "itemName": link["program_name"]},
+            platform="threads",
+        )
+        print(f"✅ Threads投稿完了: {link['program_name'][:40]} -> id={post_id}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"❌ 投稿失敗: {link['program_name'][:40]}: {exc}")
+
+    print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
+
+
 def cmd_daily(cfg: dict) -> None:
     """投稿 → いいね回り → フォロー回り を順番に。ステップ間に自然な休憩。"""
     import random
@@ -311,6 +378,17 @@ def cmd_daily(cfg: dict) -> None:
         except Exception as exc:  # noqa: BLE001
             print(f"SNS投稿でエラー: {exc}")
 
+    ac = cfg.get("a8", {}) or {}
+    if ac.get("enabled", True) and ac.get("run_in_daily", True):
+        _rest()
+        print("━━━━━ おまけ：A8リンクをThreadsへローテーション投稿 ━━━━━")
+        try:
+            cmd_a8(cfg)
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            print(f"A8投稿でエラー: {exc}")
+
     print("\n━━━━━ おまかせ完了。おつかれさまでした ━━━━━")
 
 
@@ -357,6 +435,8 @@ def main() -> int:
         cmd_daily(cfg)
     elif cmd == "sns":
         cmd_sns(cfg)
+    elif cmd == "a8":
+        cmd_a8(cfg)
     elif cmd in ("-h", "--help", "help"):
         print(__doc__)
     else:

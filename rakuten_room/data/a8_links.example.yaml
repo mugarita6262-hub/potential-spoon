@@ -1,0 +1,8 @@
+# data/a8_links.yaml のひな形。実データは a8_links.yaml に置く（コミットしない）。
+# program_id / program_name / advertiser は docs/A8アフィリリンク取得依頼.md の表と対応。
+
+- program_id: s00000000000000
+  program_name: "プログラム名（A8の一覧に出ている名前）"
+  advertiser: "広告主名"
+  note: "紹介するページの一言メモ（商品名やページの内容）"
+  url: "https://px.a8.net/svt/ejp?a8mat=XXXXXX"
