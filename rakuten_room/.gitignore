@@ -11,6 +11,8 @@ data/posted.json
 data/sns_posted.json
 data/price_history.json
 data/a8_links.yaml
+data/engage_log.json
+data/follow_log.json
 
 # 個人のアフィリエイト登録情報など、コミット不要な資料
 docs/

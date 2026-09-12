@@ -302,9 +302,10 @@ def _limit_reached(page) -> bool:
     return "登録上限に達しました" in _modal_text(page)
 
 
-def post_drafts_tabs(cfg: dict, day: str | None = None) -> None:
-    """新規10件ぶんのタブを一気に開き、コメント入力済みにする。
-    ユーザーは各タブで『完了』を押すだけ。"""
+def post_drafts_tabs(cfg: dict, day: str | None = None, full_day: bool = False) -> None:
+    """新規の投稿タブを一気に開き、コメント入力済みにする。
+    ユーザーは各タブで『完了』を押すだけ。
+    full_day=True なら post_batch_size を無視して今日の残り全部。"""
     drafts = load_drafts(day)
     captions = load_captions(day)
     if not captions:
@@ -322,7 +323,7 @@ def post_drafts_tabs(cfg: dict, day: str | None = None) -> None:
     target_count = int(plan.get("target_count") or cfg.get("post_count", 10))
     done_today = posted_today()
     remaining = max(0, target_count - done_today)
-    batch = int(cfg.get("post_batch_size") or target_count)
+    batch = remaining if full_day else int(cfg.get("post_batch_size") or target_count)
     this_run = min(remaining, batch)
 
     if plan.get("reasons"):
@@ -393,8 +394,7 @@ def post_drafts_tabs(cfg: dict, day: str | None = None) -> None:
         print(f"\n{len(prepared)} 件を記録しました（今日の合計 {total_today}/{target_count} 件）。")
         if total_today < target_count:
             left = target_count - total_today
-            print(f"あと {left} 件。時間をおいて post_now.bat をもう一度どうぞ"
-                  "（ピーク時間帯に分けると効果的）。")
+            print(f"あと {left} 件。もう一度『投稿だけ』（または『おまかせ』）を押すと続きを投稿します。")
     finally:
         pw.stop()
 
@@ -405,10 +405,7 @@ def post_drafts(cfg: dict, day: str | None = None, dry_run: bool = False) -> Non
     if not captions:
         print(
             "キャプション（紹介文）がまだありません。\n"
-            f"  1) data/drafts/(日付)_prompt.md の中身を Claude に貼る\n"
-            f"  2) 返ってきた JSON を data/drafts/(日付)_captions.json に保存\n"
-            "  3) もう一度 post_now.bat を実行\n"
-            "  ※ Claude Code と一緒に作業しているなら、Claude に作ってもらえます"
+            "  『準備だけ』を先に実行してください（ANTHROPIC_API_KEY があれば自動生成）。"
         )
         return
 
