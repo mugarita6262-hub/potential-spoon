@@ -401,12 +401,18 @@ def cmd_insights(cfg: dict) -> None:
 
 
 def cmd_daily(cfg: dict) -> None:
-    """投稿 → いいね回り → フォロー回り を順番に。ステップ間に自然な休憩。"""
+    """サーバーとの差分同期 → 投稿 → いいね回り → フォロー回り を順番に。ステップ間に自然な休憩。"""
     import random
     import time
 
     ec = cfg.get("engage", {}) or {}
     from .engage import follow_round, like_round
+    from .server_sync import sync_with_server
+
+    try:
+        sync_with_server()
+    except Exception as exc:  # noqa: BLE001
+        print(f"サーバー同期でエラー（無視して続行）: {exc}")
 
     def _rest():
         lo, hi = ec.get("daily_gap_minutes", [2, 6])
