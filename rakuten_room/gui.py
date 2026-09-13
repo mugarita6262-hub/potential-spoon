@@ -309,8 +309,6 @@ class App:
         adv = tk.Frame(m, bg=BG); adv.pack(fill="x", padx=22)
         b = Btn(adv, "初回ログイン", lambda: self.launch("login"), small=True)
         b.pack(side="left"); self.sub_btns.append(b)
-        sns_btn = Btn(adv, "📈 値下がり品をThreadsへ", lambda: self.launch("sns"), small=True)
-        sns_btn.pack(side="left", padx=(8, 0)); self.sub_btns.append(sns_btn)
         self.stop_btn = Btn(adv, "■ 中断", self.stop, small=True)
         self.stop_btn.pack(side="right"); self.stop_btn.enable(False)
 
