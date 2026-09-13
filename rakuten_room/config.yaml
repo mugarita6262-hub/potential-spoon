@@ -134,6 +134,25 @@ sns:
     # 投稿文の先頭に必ず付けるPR表記（景品表示法のステマ規制対応。削除しないこと）
     disclosure: "【PR】"
 
+# 調査専用（`collect`コマンド）: Claude APIもThreads投稿も使わず、価格スナップショットだけ
+# 広いジャンルで集める。何度実行しても楽天APIの呼び出し回数が増えるだけで金銭コストはゼロ。
+# ここで集めたデータは insights と組み合わせて「反応が良さそうなジャンル」探しに使う。
+research:
+  enabled: true
+  # sources.ranking.genre_ids に追加して価格収集の対象にするジャンル
+  # （投稿対象の選定には影響しない。ジャンルIDは楽天ジャンル検索APIで調べられる）
+  extra_genre_ids:
+    - 101070   # 家電
+    - 100371   # レディースファッション
+    - 551177   # メンズファッション
+    - 216131   # キッズ・ベビー・マタニティ
+    - 100533   # キッチン用品・食器
+    - 100132   # ダイエット・健康
+    - 101213   # スポーツ・アウトドア
+    - 100026   # 本・雑誌・コミック
+    - 211742   # ペット・ペットグッズ
+    - 101164   # インテリア・寝具・収納
+
 # A8アフィリリンク（data/a8_links.yaml に登録したもの）をローテーションでThreadsに自動投稿
 # 値下がり検知ではなく「使ってみて良かった」トーンの通常紹介投稿
 a8:
@@ -144,3 +163,19 @@ a8:
   repost_cooldown_days: 10
   # 投稿文の先頭に必ず付けるPR表記
   disclosure: "【PR】"
+
+# サーバー常駐（src/webapp.py）でのスケジュール。1日の中でランダムな時刻に自動実行する。
+# collect/insightsはClaude APIを使わない無料の調査なので高頻度に、
+# prepare/sns/a8はClaude課金＆投稿を伴うので今までの運用頻度のままにしてある。
+server:
+  enabled: true
+  collect_window: ["06:00", "23:00"]
+  collect_runs_per_day: 12
+  insights_window: ["06:00", "23:00"]
+  insights_runs_per_day: 6
+  prepare_window: ["06:00", "08:00"]
+  prepare_runs_per_day: 1
+  sns_window: ["08:00", "22:00"]
+  sns_runs_per_day: 3
+  a8_window: ["08:00", "22:00"]
+  a8_runs_per_day: 1

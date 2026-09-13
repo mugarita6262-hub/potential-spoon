@@ -5,6 +5,7 @@
   python -m src.main prepare     商品を選定してキャプション用プロンプトを書き出す
   python -m src.main post        キャプションを読み込んで投稿画面に流し込む（最後は手動）
   python -m src.main run         prepare を実行し、キャプションがあれば post まで
+  python -m src.main collect     調査専用: 広いジャンルの価格スナップショットだけ集める（無料）
   python -m src.main sns         値下がり・過去最安値の商品を検知してThreadsに自動投稿
   python -m src.main a8          A8アフィリリンクをローテーションでThreadsに自動投稿
   python -m src.main insights    Threads投稿の反応をジャンル・商品別に集計して表示
@@ -175,6 +176,43 @@ def cmd_run(cfg: dict, full_day: bool = False) -> None:
         cmd_post(cfg, full_day=full_day)
     else:
         print("\nキャプション待ちです。上の手順を済ませてから もう一度どうぞ。")
+
+
+def cmd_collect(cfg: dict) -> None:
+    """調査専用: Claude APIもThreads投稿も使わず、広いジャンルの価格スナップショットだけ集める。
+
+    値下がり検知の精度を上げるための下ごしらえ。何度・何ジャンル実行してもコストは
+    楽天APIの呼び出し回数だけ（実質無料）。
+    """
+    import copy
+
+    from .rakuten_api import RakutenAPI
+    from .selector import gather_candidates
+    from . import price_history
+
+    rc = cfg.get("research", {}) or {}
+    if not rc.get("enabled", True):
+        print("調査収集は設定(research.enabled)で無効になっています。")
+        return
+
+    try:
+        api = RakutenAPI(cfg["_app_id"], cfg["_access_key"], cfg["_affiliate_id"])
+    except RuntimeError as exc:
+        print(exc)
+        return
+
+    # sources.ranking.genre_ids に research.extra_genre_ids を足した広いジャンルで集める
+    # （投稿対象の選定ロジックには影響させないよう、cfgのコピー上で拡張する）
+    wide_cfg = copy.deepcopy(cfg)
+    base_ids = list(wide_cfg["sources"]["ranking"]["genre_ids"])
+    extra_ids = list(rc.get("extra_genre_ids", []) or [])
+    wide_cfg["sources"]["ranking"]["genre_ids"] = sorted(set(base_ids + extra_ids))
+
+    print(f"調査ジャンル数: {len(wide_cfg['sources']['ranking']['genre_ids'])}"
+          f"（内訳: 通常{len(base_ids)} + 調査専用{len(extra_ids)}）")
+    candidates = gather_candidates(wide_cfg, api)
+    price_history.record_snapshot(candidates)
+    print(f"価格スナップショットを記録しました: {len(candidates)} 件")
 
 
 def cmd_sns(cfg: dict) -> None:
@@ -464,6 +502,8 @@ def main() -> int:
         cmd_run(cfg)
     elif cmd == "daily":
         cmd_daily(cfg)
+    elif cmd == "collect":
+        cmd_collect(cfg)
     elif cmd == "sns":
         cmd_sns(cfg)
     elif cmd == "a8":

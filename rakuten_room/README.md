@@ -32,6 +32,68 @@
 ジャンル・商品別の平均いいね数がランキング表示される。反応が良いジャンルが見つかったら、
 そのジャンルでA8の新規プログラムを探して追加する（`docs/`にコワーカー依頼テンプレあり）。
 
+## サーバー運用（任意）
+
+1日中ノーリスクな調査（価格収集・反応集計）を回しつつ、Claude課金が発生する投稿系は
+今までと同じ頻度に抑えたい場合、`prepare`/`sns`/`a8`/`insights`/`collect` はサーバーに
+出せる（**ROOMの`post`/`like`/`follow`/`prune`は実Chrome必須なのでローカルのまま**）。
+
+### 全体像
+```
+[サーバー]  collect（調査・無料・高頻度） ─┐
+            insights（反応集計・無料・高頻度）├─ data/ フォルダに書き込む
+            prepare（ROOM準備・Claude課金・1日1回）─┘
+            sns / a8（Threads投稿・Claude課金・既存頻度）
+                          │
+                 Dropbox/OneDrive等で同期
+                          │
+[ローカルPC]  data/ フォルダを見て、GUIで「投稿する」「いいね回り」等を実行
+```
+`data/`フォルダ（`drafts/`・`price_history.json`・`a8_links.yaml`等）と`.env`を、
+サーバーとローカル両方からアクセスできるクラウド同期フォルダ（Dropbox/OneDrive等）に
+置く。サーバーの`prepare`が書いた下書き・キャプションがローカルに届けば、GUIは今まで
+通り「準備済み」を検知して「投稿する」が押せる（追加の実装は不要）。
+`data/session/`（Chromeログインセッション）は同期対象から外してよい（ローカル専用）。
+
+### コスト
+Claude APIは`prepare`/`sns`/`a8`（＝実際に投稿する時）だけで使う。`collect`/`insights`は
+楽天API・Threads APIへの素の問い合わせのみでClaude不使用＝実質無料。目安：
+
+| 処理 | 頻度 | 1回のコスト |
+|---|---|---|
+| `collect` / `insights` | 何回でも | $0 |
+| ROOM `prepare`（約40件） | 1日1回 | 約$0.005 |
+| Threads `sns`（最大3件） | 1日数回（該当があった時のみ課金） | 約$0.003 |
+| Threads `a8`（1件） | 1日1回 | 約$0.001 |
+
+**合計で1日1〜2円、月30〜60円程度**。サーバー代（月額500〜1000円程度の小規模VPSで十分）
+の方が支配的なコスト。
+
+### セットアップ
+1. サーバーにこのリポジトリを配置し、`.env`に`RAKUTEN_*` / `ANTHROPIC_API_KEY` /
+   `THREADS_ACCESS_TOKEN` / `THREADS_USER_ID` を設定（ローカルと同じ値でOK）
+2. `.env`に`WEBAPP_USER` / `WEBAPP_PASSWORD`（ダッシュボードの認証、必須） / `WEBAPP_PORT`（既定8080）を追加
+3. 依存関係インストール後、起動：
+   ```
+   .venv/bin/python -m src.webapp
+   ```
+4. ブラウザで `http://サーバーのIP:8080/` を開き、Basic認証でログイン
+5. **必ずHTTPS化する**（Basic認証は平文同然のため）。手軽なのは
+   [Caddy](https://caddyserver.com/) を前段に置く方法（自動でLet's Encrypt証明書を取得）：
+   ```
+   your-domain.example.com {
+       reverse_proxy localhost:8080
+   }
+   ```
+6. `config.yaml`の`server:`セクションで、各ジョブを1日に何回・何時〜何時の間で実行するか調整
+7. 常駐させるには`systemd`（Linux）等でサービス化し、再起動時も自動起動するようにする
+
+### ダッシュボードでできること
+- `collect`/`insights`/`prepare`/`sns`/`a8`の手動実行ボタン
+- 直近の実行結果・ログ表示
+- 裏側のスケジューラが`config.yaml`の`server:`設定に従い、1日の中でランダムな時刻に
+  自動実行し続ける（人間がクリックする必要は無い）
+
 ## 使い方（GUI）
 
 **`rakuten_room.bat` をダブルクリック** すると操作ウィンドウが開きます。
@@ -62,6 +124,7 @@ GUIを使わず直接実行する場合（`.venv\Scripts\python.exe -m src.main 
 | `prune` | 古い投稿の削除（`--commit --max N`） |
 | **`sns`** | 楽天の値下がり・過去最安値をThreadsに自動投稿 |
 | **`a8`** | A8アフィリリンクをローテーションでThreadsに自動投稿 |
+| **`collect`** | 調査専用。広いジャンルの価格スナップショットだけ集める（Claude不使用・実質無料） |
 | **`insights`** | Threads投稿の反応をジャンル・商品別に集計して表示 |
 | `daily` | 上記フロー1〜5を一括実行（GUIの「おまかせ」と同じ） |
 
@@ -111,6 +174,8 @@ GUIを使わず直接実行する場合（`.venv\Scripts\python.exe -m src.main 
 - `a8.enabled` / `a8.run_in_daily` … A8ローテーション投稿の有効化／おまかせへの組み込み
 - `a8.repost_cooldown_days` … 同じA8リンクを再投稿するまでの間隔
 - `sns.threads.disclosure` / `a8.disclosure` … PR表記（景品表示法対応。削除しないこと）
+- `research.extra_genre_ids` … `collect`で価格収集する追加ジャンル（投稿対象には影響しない）
+- `server.*_window` / `server.*_runs_per_day` … サーバー常駐時、各ジョブを1日に何回・何時台に自動実行するか
 
 ## しくみ（要点）
 
