@@ -30,8 +30,15 @@ def _read_manual_list(path: str) -> list[str]:
 
 
 def _scrape(url: str, limit: int = 60) -> list[str]:
-    """お気に入りページから item.rakuten.co.jp のリンクを拾う。"""
-    from playwright.sync_api import sync_playwright
+    """お気に入りページから item.rakuten.co.jp のリンクを拾う。
+
+    Playwrightが無い環境（サーバー等、ブラウザ操作が不要な用途）では
+    黙ってスキップする（手動リストだけで動作を続ける）。
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return []
 
     urls: list[str] = []
     with sync_playwright() as p:
