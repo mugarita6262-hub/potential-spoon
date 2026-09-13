@@ -352,7 +352,7 @@ def cmd_a8(cfg: dict) -> None:
             {"itemCode": link["program_id"], "itemUrl": link["url"],
              "itemName": link["program_name"]},
             platform="threads", post_id=post_id,
-            category=link["program_name"][:30],
+            category=link.get("genre") or link["program_name"][:30],
         )
         print(f"✅ Threads投稿完了: {link['program_name'][:40]} -> id={post_id}")
     except Exception as exc:  # noqa: BLE001
@@ -387,6 +387,17 @@ def cmd_insights(cfg: dict) -> None:
     for r in rows:
         print(f"{r['category'][:28]:<28} {r['avg_likes']:>8} {r['avg_views']:>8} "
               f"{r['avg_reposts']:>10} {r['count']:>4}")
+
+    # ここから先は「調査結果を自分で解釈しなくていい」ようにする自動判定。
+    # 楽天ジャンルは反応が良ければconfig.yamlを書き換えて投稿候補に自動昇格、
+    # A8は自動申請できないのでdocs/A8アフィリリンク取得依頼.mdに依頼を自動追記する。
+    from .optimizer import auto_promote_rakuten_genres, suggest_a8_expansion
+
+    actions = auto_promote_rakuten_genres(rows) + suggest_a8_expansion(rows)
+    if actions:
+        print("\n次のアクション:")
+        for msg in actions:
+            print(f"  {msg}")
 
 
 def cmd_daily(cfg: dict) -> None:

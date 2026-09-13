@@ -85,6 +85,7 @@ def report_by_category() -> list[dict]:
     for cat, b in buckets.items():
         n = b["count"]
         rows.append({
+            "category_key": cat,  # 生のキー（Rakutenジャンルidの文字列 or A8のgenreタグ）
             "category": _label(cat),
             "count": n,
             "avg_likes": round(b["likes"] / n, 1),

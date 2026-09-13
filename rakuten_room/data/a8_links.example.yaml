@@ -6,3 +6,4 @@
   advertiser: "広告主名"
   note: "紹介するページの一言メモ（商品名やページの内容）"
   url: "https://px.a8.net/svt/ejp?a8mat=XXXXXX"
+  genre: "ジャンルの自由記述タグ（例: 飲料・カフェ）。反応集計と自動昇格の提案に使う"
