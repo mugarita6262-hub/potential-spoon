@@ -226,14 +226,19 @@ server:
   prepare_window: ["06:00", "08:00"]
   prepare_runs_per_day: 1
   sns_window: ["08:00", "22:00"]
-  sns_runs_per_day: 3
+  sns_runs_per_day: 2
   a8_window: ["08:00", "22:00"]
   a8_runs_per_day: 1
   digest_window: ["08:00", "22:00"]
-  digest_runs_per_day: 2
+  digest_runs_per_day: 1
   trend_window: ["08:00", "22:00"]
-  trend_runs_per_day: 2
+  trend_runs_per_day: 1
   calendar_window: ["07:00", "09:00"]
   calendar_runs_per_day: 1
   trivia_window: ["08:00", "22:00"]
-  trivia_runs_per_day: 2
+  trivia_runs_per_day: 1
+
+# Threads投稿全体（sns/a8/digest/trend/calendar/trivia合計）の1日あたり上限。
+# 個別ジョブが同じ日にたまたま重なって投稿数が想定以上に増えないよう、ここで一括管理する
+posting_limits:
+  max_per_day: 4

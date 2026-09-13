@@ -183,10 +183,25 @@ def cmd_run(cfg: dict, full_day: bool = False) -> None:
 
 
 def _ensure_threads_ready(cfg: dict) -> bool:
-    """Threadsトークンの存在確認＋自動延長。使えない場合はFalseを返す（呼び出し側は中断する）。"""
+    """Threadsトークンの存在確認＋自動延長＋1日の投稿数上限チェック。
+    使えない/上限到達の場合はFalseを返す（呼び出し側は中断する）。
+
+    sns/a8/digest/trend/calendar/triviaの6種が個別にスケジュールされているため、
+    複数が同じ日にたまたま重なっても確実に1日の投稿数を抑えられるよう、
+    ジョブごとの頻度ではなくここで全体の上限を一括管理する。
+    """
     if not cfg.get("_threads_token") or not cfg.get("_threads_user_id"):
         print(".env の THREADS_ACCESS_TOKEN / THREADS_USER_ID が未設定です。"
               "SETUP_THREADS.md の手順で取得してください。")
+        return False
+
+    from .sns_posted_log import posted_today as _sns_posted_today
+
+    max_per_day = int(cfg.get("posting_limits", {}).get("max_per_day", 5))
+    done_today = _sns_posted_today("threads")
+    if done_today >= max_per_day:
+        print(f"  本日の投稿数が上限（{max_per_day}件）に達しているためスキップします"
+              f"（本日 {done_today} 件）。")
         return False
 
     from .threads_poster import refresh_long_lived_token
