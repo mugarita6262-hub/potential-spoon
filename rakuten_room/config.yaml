@@ -133,8 +133,8 @@ sns:
     post_count: 3
     # 投稿と投稿の間隔（秒）。この範囲でランダム（スパム判定対策）
     interval_seconds: [20, 45]
-    # 投稿文の先頭に必ず付けるPR表記（景品表示法のステマ規制対応。削除しないこと）
-    disclosure: "【PR】"
+    # PR表記（#として末尾ハッシュタグの先頭に付ける。景品表示法のステマ規制対応。削除しないこと）
+    disclosure: "PR"
 
 # 調査専用（`collect`コマンド）: Claude APIもThreads投稿も使わず、価格スナップショットだけ
 # 広いジャンルで集める。何度実行しても楽天APIの呼び出し回数が増えるだけで金銭コストはゼロ。
@@ -165,8 +165,8 @@ a8:
   run_in_daily: false
   # 同じリンクを再度投稿するまでの間隔（日）。リンク件数が少ないので長めに設定
   repost_cooldown_days: 10
-  # 投稿文の先頭に必ず付けるPR表記
-  disclosure: "【PR】"
+  # PR表記（#として末尾ハッシュタグの先頭に付ける）
+  disclosure: "PR"
 
 # サーバー常駐（src/webapp.py）でのスケジュール。1日の中でランダムな時刻に自動実行する。
 # collect/insightsはClaude APIを使わない無料の調査なので高頻度に、

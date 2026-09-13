@@ -278,7 +278,7 @@ def cmd_sns(cfg: dict) -> None:
         print(f"  - [{tag}] {it['itemName'][:40]}  {it['price']:,}円")
 
     caps = generate_sns_captions(picked)
-    disclosure = sc.get("disclosure") or th.get("disclosure") or "【PR】"
+    disclosure = sc.get("disclosure") or th.get("disclosure") or "PR"
     lo, hi = th.get("interval_seconds", [20, 45])
     posted = 0
     for i, it in enumerate(picked):
@@ -344,7 +344,7 @@ def cmd_a8(cfg: dict) -> None:
         print("紹介文の生成に失敗しました。今回はスキップします。")
         return
 
-    disclosure = ac.get("disclosure") or "【PR】"
+    disclosure = ac.get("disclosure") or "PR"
     text = build_post_text(link, cap, disclosure=disclosure)
     try:
         post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text)
