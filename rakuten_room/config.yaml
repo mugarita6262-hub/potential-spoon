@@ -118,7 +118,9 @@ engage:
 sns:
   enabled: true
   # 「おまかせ」実行時に自動でこのステップも回すか
-  run_in_daily: true
+  # サーバー常駐運用にしてからはサーバー側(src/webapp.py)が担当するため false。
+  # サーバーを使わずローカル運用だけに戻す場合は true に。
+  run_in_daily: false
   # 値下がり判定の参照期間（直近何日の最高値と比べて%OFFを計算するか）
   lookback_days: 30
   # 何%以上安ければ対象にするか（記録上の過去最安値ならこの%未満でも対象）
@@ -158,7 +160,9 @@ research:
 a8:
   enabled: true
   # 「おまかせ」実行時に自動でこのステップも回すか
-  run_in_daily: true
+  # サーバー常駐運用にしてからはサーバー側(src/webapp.py)が担当するため false。
+  # サーバーを使わずローカル運用だけに戻す場合は true に。
+  run_in_daily: false
   # 同じリンクを再度投稿するまでの間隔（日）。リンク件数が少ないので長めに設定
   repost_cooldown_days: 10
   # 投稿文の先頭に必ず付けるPR表記
