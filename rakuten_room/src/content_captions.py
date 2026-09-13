@@ -112,6 +112,22 @@ def generate_calendar_caption(event_name: str, hint: str) -> str:
     return _call(instruction)
 
 
+def generate_trivia_caption(topic: str) -> str:
+    """ミニ知識・あるあるネタ（リンクなし・PR不要の情報発信）。
+
+    値下がり・A8リンクなど外部データに一切依存しないので、一番身軽に投稿できるネタ。
+    """
+    instruction = f"""\
+「{topic}」にまつわる、ちょっとした豆知識か「あるある」を1つ、Threads投稿として
+シェアしてください。誇張せず、へえと思えるくらいの軽い内容でOK。
+特定の商品名やブランド名、リンクには触れない（雑学・共感ネタとして）。
+最後に「みんなはどう？」のような軽い問いかけを1つ添えると、コメントが来やすい。
+
+{HOOK_RULES}
+"""
+    return _call(instruction)
+
+
 def build_digest_post_text(item: dict, caption: str, disclosure: str = "PR") -> str:
     """digest用: リンクありなのでPR表記あり。"""
     link = item.get("affiliateUrl") or item.get("itemUrl", "")

@@ -43,6 +43,7 @@ JOBS = {
     "digest": ("Threads: ジャンル別売れ筋ダイジェスト（Claude課金・リンクあり）", True),
     "trend": ("Threads: ジャンル価格トレンド速報（Claude課金・リンクなし）", True),
     "calendar": ("Threads: セール・お得日リマインド（Claude課金・リンクなし）", True),
+    "trivia": ("Threads: ミニ知識・あるあるネタ（Claude課金・リンクなし）", True),
 }
 
 
@@ -82,6 +83,8 @@ def run_job(name: str) -> str:
                     cli.cmd_trend(cfg)
                 elif name == "calendar":
                     cli.cmd_calendar(cfg)
+                elif name == "trivia":
+                    cli.cmd_trivia(cfg)
                 elif name == "insights":
                     cli.cmd_insights(cfg)
                 else:

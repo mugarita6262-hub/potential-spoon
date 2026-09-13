@@ -197,6 +197,23 @@ calendar:
   enabled: true
   run_in_daily: false
 
+# ④ミニ知識・あるあるネタ（リンクなし・PR不要）。外部データに依存しない一番身軽なネタ
+trivia:
+  enabled: true
+  run_in_daily: false
+  # 同じトピックを再度扱うまでの間隔（日）
+  repost_cooldown_days: 7
+  # 扱うトピック（自由に追加・編集可）
+  topics:
+    - コーヒー
+    - お茶
+    - 美容・スキンケア
+    - 日用品雑貨
+    - 食品・スイーツ
+    - キッチン家電
+    - ダイエット・健康
+    - インテリア・収納
+
 # サーバー常駐（src/webapp.py）でのスケジュール。1日の中でランダムな時刻に自動実行する。
 # collect/insightsはClaude APIを使わない無料の調査なので高頻度に、
 # prepare/sns/a8/digest/trend/calendarはClaude課金＆投稿を伴うので抑えめにしてある。
@@ -218,3 +235,5 @@ server:
   trend_runs_per_day: 2
   calendar_window: ["07:00", "09:00"]
   calendar_runs_per_day: 1
+  trivia_window: ["08:00", "22:00"]
+  trivia_runs_per_day: 2

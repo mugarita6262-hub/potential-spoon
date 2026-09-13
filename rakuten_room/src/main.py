@@ -11,6 +11,7 @@
   python -m src.main digest      ジャンル別売れ筋ダイジェストをThreadsに投稿（リンクあり）
   python -m src.main trend       ジャンルの価格トレンド速報をThreadsに投稿（リンクなし）
   python -m src.main calendar    セール・お得日のリマインドをThreadsに投稿（リンクなし）
+  python -m src.main trivia      ミニ知識・あるあるネタをThreadsに投稿（リンクなし）
   python -m src.main insights    Threads投稿の反応をジャンル・商品別に集計して表示
   python -m src.main daily       投稿→いいね回り→フォロー回り→(削除)→(SNS投稿) を一括実行
 """
@@ -579,6 +580,59 @@ def cmd_calendar(cfg: dict) -> None:
     print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
 
 
+def cmd_trivia(cfg: dict) -> None:
+    """条件に依存しないネタ④: ミニ知識・あるあるネタ（リンクなし・PR不要）。
+
+    値下がり・A8リンクなど外部データに一切依存しないので、4つの中で一番身軽。
+    """
+    import random
+
+    from .content_captions import build_info_post_text, generate_trivia_caption
+    from .sns_posted_log import posted_today as sns_posted_today
+    from .sns_posted_log import record_posted as sns_record_posted
+    from .sns_posted_log import recently_posted_keys
+    from .threads_poster import post_to_threads
+
+    tvc = cfg.get("trivia", {}) or {}
+    if not tvc.get("enabled", True):
+        print("trivia投稿は設定(trivia.enabled)で無効になっています。")
+        return
+    if not _ensure_threads_ready(cfg):
+        return
+
+    topics = list(tvc.get("topics", []) or [])
+    if not topics:
+        print("config.yaml の trivia.topics が空です。")
+        return
+
+    cooldown_days = int(tvc.get("repost_cooldown_days", 7))
+    skip = recently_posted_keys(cooldown_days, platform="threads")
+    eligible = [t for t in topics if f"trivia:{t}" not in skip]
+    if not eligible:
+        print("紹介できるトピックがありません（すべてクールダウン中）。")
+        return
+
+    topic = random.choice(eligible)
+    print(f"今回のtrivia: {topic}")
+    caption = generate_trivia_caption(topic)
+    if not caption:
+        print("告知文の生成に失敗しました。")
+        return
+
+    text = build_info_post_text(caption, tags="#暮らしの豆知識")
+    try:
+        post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text)
+        sns_record_posted(
+            {"itemCode": f"trivia:{topic}", "itemUrl": "", "itemName": topic},
+            platform="threads", post_id=post_id, category=f"trivia:{topic}",
+        )
+        print(f"✅ Threads投稿完了（trivia: {topic}） -> id={post_id}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"❌ 投稿失敗: {exc}")
+
+    print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
+
+
 def cmd_insights(cfg: dict) -> None:
     """Threads投稿の反応（いいね・閲覧数）をジャンル・商品別に集計して表示する。"""
     from .insights import report_by_category, sync_insights
@@ -749,6 +803,8 @@ def main() -> int:
         cmd_trend(cfg)
     elif cmd == "calendar":
         cmd_calendar(cfg)
+    elif cmd == "trivia":
+        cmd_trivia(cfg)
     elif cmd == "insights":
         cmd_insights(cfg)
     elif cmd in ("-h", "--help", "help"):
