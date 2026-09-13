@@ -198,11 +198,20 @@ GUIを使わず直接実行する場合（`.venv\Scripts\python.exe -m src.main 
 | `run` | prepare→post |
 | `like` / `follow` / `unfollow` | ROOM内エンゲージメント（`--n N`で件数指定） |
 | `prune` | 古い投稿の削除（`--commit --max N`） |
-| **`sns`** | 楽天の値下がり・過去最安値をThreadsに自動投稿 |
-| **`a8`** | A8アフィリリンクをローテーションでThreadsに自動投稿 |
+| **`sns`** | 楽天の値下がり・過去最安値をThreadsに自動投稿（リンクあり・PRあり） |
+| **`a8`** | A8アフィリリンクをローテーションでThreadsに自動投稿（リンクあり・PRあり） |
+| **`digest`** | ジャンル別売れ筋トップ3ダイジェストをThreadsに投稿（リンクあり・PRあり） |
+| **`trend`** | ジャンルの週間価格トレンド速報をThreadsに投稿（リンクなし・PR不要） |
+| **`calendar`** | セール・お得日のリマインドをThreadsに投稿（リンクなし・PR不要） |
+| **`trivia`** | ミニ知識・あるあるネタをThreadsに投稿（リンクなし・PR不要） |
 | **`collect`** | 調査専用。広いジャンルの価格スナップショットだけ集める（Claude不使用・実質無料） |
 | **`insights`** | Threads投稿の反応をジャンル・商品別に集計して表示 |
 | `daily` | 上記フロー1〜5を一括実行（GUIの「おまかせ」と同じ） |
+
+**sns/a8は「値下がり・A8リンクが見つかった時だけ」しか投稿できず出現頻度が低いため、
+digest/trend/calendar/triviaは条件に依存しない（値下がりが無くても投稿できる）ネタとして
+追加した。投稿数を増やしたい時はこちらの頻度（`config.yaml`の`server.*_runs_per_day`）を
+上げるとよい。**
 
 ## セットアップ（初回のみ）
 
