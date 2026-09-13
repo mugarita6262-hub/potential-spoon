@@ -40,6 +40,9 @@ JOBS = {
     "prepare": ("ROOM: 商品選定＋キャプション生成（Claude課金・1日1回想定）", True),
     "sns": ("Threads: 値下がり検知投稿（Claude課金・1日数回想定）", True),
     "a8": ("Threads: A8ローテーション投稿（Claude課金・1日1回想定）", True),
+    "digest": ("Threads: ジャンル別売れ筋ダイジェスト（Claude課金・リンクあり）", True),
+    "trend": ("Threads: ジャンル価格トレンド速報（Claude課金・リンクなし）", True),
+    "calendar": ("Threads: セール・お得日リマインド（Claude課金・リンクなし）", True),
 }
 
 
@@ -73,6 +76,12 @@ def run_job(name: str) -> str:
                     cli.cmd_sns(cfg)
                 elif name == "a8":
                     cli.cmd_a8(cfg)
+                elif name == "digest":
+                    cli.cmd_digest(cfg)
+                elif name == "trend":
+                    cli.cmd_trend(cfg)
+                elif name == "calendar":
+                    cli.cmd_calendar(cfg)
                 elif name == "insights":
                     cli.cmd_insights(cfg)
                 else:

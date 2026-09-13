@@ -8,6 +8,9 @@
   python -m src.main collect     調査専用: 広いジャンルの価格スナップショットだけ集める（無料）
   python -m src.main sns         値下がり・過去最安値の商品を検知してThreadsに自動投稿
   python -m src.main a8          A8アフィリリンクをローテーションでThreadsに自動投稿
+  python -m src.main digest      ジャンル別売れ筋ダイジェストをThreadsに投稿（リンクあり）
+  python -m src.main trend       ジャンルの価格トレンド速報をThreadsに投稿（リンクなし）
+  python -m src.main calendar    セール・お得日のリマインドをThreadsに投稿（リンクなし）
   python -m src.main insights    Threads投稿の反応をジャンル・商品別に集計して表示
   python -m src.main daily       投稿→いいね回り→フォロー回り→(削除)→(SNS投稿) を一括実行
 """
@@ -178,6 +181,27 @@ def cmd_run(cfg: dict, full_day: bool = False) -> None:
         print("\nキャプション待ちです。上の手順を済ませてから もう一度どうぞ。")
 
 
+def _ensure_threads_ready(cfg: dict) -> bool:
+    """Threadsトークンの存在確認＋自動延長。使えない場合はFalseを返す（呼び出し側は中断する）。"""
+    if not cfg.get("_threads_token") or not cfg.get("_threads_user_id"):
+        print(".env の THREADS_ACCESS_TOKEN / THREADS_USER_ID が未設定です。"
+              "SETUP_THREADS.md の手順で取得してください。")
+        return False
+
+    from .threads_poster import refresh_long_lived_token
+
+    try:
+        data = refresh_long_lived_token(cfg["_threads_token"])
+        if data["access_token"] != cfg["_threads_token"]:
+            from .config import update_env_value
+            update_env_value("THREADS_ACCESS_TOKEN", data["access_token"])
+            cfg["_threads_token"] = data["access_token"]
+            print("  Threadsアクセストークンを延長しました。")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  トークン延長に失敗（既存トークンで続行）: {exc}")
+    return True
+
+
 def cmd_collect(cfg: dict) -> None:
     """調査専用: Claude APIもThreads投稿も使わず、広いジャンルの価格スナップショットだけ集める。
 
@@ -226,7 +250,7 @@ def cmd_sns(cfg: dict) -> None:
     from .sns_posted_log import posted_today as sns_posted_today
     from .sns_posted_log import record_posted as sns_record_posted
     from .sns_selector import select_sale_items
-    from .threads_poster import post_to_threads, refresh_long_lived_token
+    from .threads_poster import post_to_threads
 
     sc = cfg.get("sns", {}) or {}
     if not sc.get("enabled", True):
@@ -236,21 +260,8 @@ def cmd_sns(cfg: dict) -> None:
     if not th.get("enabled", True):
         print("Threads投稿は設定(sns.threads.enabled)で無効になっています。")
         return
-    if not cfg.get("_threads_token") or not cfg.get("_threads_user_id"):
-        print(".env の THREADS_ACCESS_TOKEN / THREADS_USER_ID が未設定です。"
-              "SETUP_THREADS.md の手順で取得してください。")
+    if not _ensure_threads_ready(cfg):
         return
-
-    # 長期トークンは60日で失効。毎回延長しておくことで完全自動運用でも切れない。
-    try:
-        data = refresh_long_lived_token(cfg["_threads_token"])
-        if data["access_token"] != cfg["_threads_token"]:
-            from .config import update_env_value
-            update_env_value("THREADS_ACCESS_TOKEN", data["access_token"])
-            cfg["_threads_token"] = data["access_token"]
-            print("  Threadsアクセストークンを延長しました。")
-    except Exception as exc:  # noqa: BLE001
-        print(f"  トークン延長に失敗（既存トークンで続行）: {exc}")
 
     try:
         api = RakutenAPI(cfg["_app_id"], cfg["_access_key"], cfg["_affiliate_id"])
@@ -310,26 +321,14 @@ def cmd_a8(cfg: dict) -> None:
     from .a8_selector import pick_next
     from .sns_posted_log import posted_today as sns_posted_today
     from .sns_posted_log import record_posted as sns_record_posted
-    from .threads_poster import post_to_threads, refresh_long_lived_token
+    from .threads_poster import post_to_threads
 
     ac = cfg.get("a8", {}) or {}
     if not ac.get("enabled", True):
         print("A8投稿は設定(a8.enabled)で無効になっています。")
         return
-    if not cfg.get("_threads_token") or not cfg.get("_threads_user_id"):
-        print(".env の THREADS_ACCESS_TOKEN / THREADS_USER_ID が未設定です。"
-              "SETUP_THREADS.md の手順で取得してください。")
+    if not _ensure_threads_ready(cfg):
         return
-
-    try:
-        data = refresh_long_lived_token(cfg["_threads_token"])
-        if data["access_token"] != cfg["_threads_token"]:
-            from .config import update_env_value
-            update_env_value("THREADS_ACCESS_TOKEN", data["access_token"])
-            cfg["_threads_token"] = data["access_token"]
-            print("  Threadsアクセストークンを延長しました。")
-    except Exception as exc:  # noqa: BLE001
-        print(f"  トークン延長に失敗（既存トークンで続行）: {exc}")
 
     link = pick_next(cooldown_days=int(ac.get("repost_cooldown_days", 10)))
     if not link:
@@ -357,6 +356,225 @@ def cmd_a8(cfg: dict) -> None:
         print(f"✅ Threads投稿完了: {link['program_name'][:40]} -> id={post_id}")
     except Exception as exc:  # noqa: BLE001
         print(f"❌ 投稿失敗: {link['program_name'][:40]}: {exc}")
+
+    print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
+
+
+def _all_genre_ids(cfg: dict) -> list[int]:
+    """sources.ranking.genre_ids ＋ research.extra_genre_ids（重複除去）。"""
+    base = list(cfg["sources"]["ranking"]["genre_ids"])
+    extra = list((cfg.get("research", {}) or {}).get("extra_genre_ids", []) or [])
+    return sorted(set(base + extra))
+
+
+def cmd_digest(cfg: dict) -> None:
+    """条件に依存しないネタ①: ジャンル別売れ筋ダイジェスト（リンクあり・PRあり）。
+
+    値下がりが無くても、ランキング自体をネタにできるので出現頻度が高い。
+    """
+    import random
+
+    from .content_captions import build_digest_post_text, generate_digest_caption
+    from .insights import GENRE_NAMES
+    from .rakuten_api import RakutenAPI
+    from .sns_posted_log import posted_today as sns_posted_today
+    from .sns_posted_log import record_posted as sns_record_posted
+    from .sns_posted_log import recently_posted_keys
+    from .threads_poster import post_to_threads
+
+    dc = cfg.get("digest", {}) or {}
+    if not dc.get("enabled", True):
+        print("digest投稿は設定(digest.enabled)で無効になっています。")
+        return
+    if not _ensure_threads_ready(cfg):
+        return
+
+    try:
+        api = RakutenAPI(cfg["_app_id"], cfg["_access_key"], cfg["_affiliate_id"])
+    except RuntimeError as exc:
+        print(exc)
+        return
+
+    cooldown_days = int(dc.get("repost_cooldown_days", 5))
+    skip = recently_posted_keys(cooldown_days, platform="threads")
+    candidates_genres = [g for g in _all_genre_ids(cfg) if f"digest:{g}" not in skip]
+    if not candidates_genres:
+        print("紹介できるジャンルがありません（すべてクールダウン中）。")
+        return
+
+    genre_id = random.choice(candidates_genres)
+    genre_name = GENRE_NAMES.get(str(genre_id), f"ジャンル{genre_id}")
+
+    try:
+        items = api.ranking(int(genre_id), 5)
+    except Exception as exc:  # noqa: BLE001
+        print(f"ランキング取得に失敗: {exc}")
+        return
+    if len(items) < 3:
+        print("ランキング件数が足りません。")
+        return
+
+    print(f"今回のdigest: {genre_name}")
+    caption = generate_digest_caption(genre_name, items)
+    if not caption:
+        print("紹介文の生成に失敗しました。")
+        return
+
+    disclosure = dc.get("disclosure") or "PR"
+    text = build_digest_post_text(items[0], caption, disclosure=disclosure)
+    try:
+        post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text)
+        sns_record_posted(
+            {"itemCode": f"digest:{genre_id}", "itemUrl": items[0].get("itemUrl", ""),
+             "itemName": f"{genre_name}ダイジェスト"},
+            platform="threads", post_id=post_id, category=f"digest:{genre_name}",
+        )
+        print(f"✅ Threads投稿完了（digest: {genre_name}） -> id={post_id}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"❌ 投稿失敗: {exc}")
+
+    print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
+
+
+def cmd_trend(cfg: dict) -> None:
+    """条件に依存しないネタ②: ジャンルの価格トレンド速報（リンクなし・PR不要）。
+
+    個別商品の値下がりより出現条件が緩く（ジャンル全体の平均変化で判定）、
+    投稿頻度を上げやすい。リンクを含まないためPR表記も不要。
+    """
+    import copy
+
+    from .content_captions import build_info_post_text, generate_trend_caption
+    from .insights import GENRE_NAMES
+    from .rakuten_api import RakutenAPI
+    from .selector import gather_candidates
+    from .sns_posted_log import posted_today as sns_posted_today
+    from .sns_posted_log import record_posted as sns_record_posted
+    from .sns_posted_log import recently_posted_keys
+    from .threads_poster import post_to_threads
+    from .trend import genre_trend
+
+    tc = cfg.get("trend", {}) or {}
+    if not tc.get("enabled", True):
+        print("trend投稿は設定(trend.enabled)で無効になっています。")
+        return
+    if not _ensure_threads_ready(cfg):
+        return
+
+    try:
+        api = RakutenAPI(cfg["_app_id"], cfg["_access_key"], cfg["_affiliate_id"])
+    except RuntimeError as exc:
+        print(exc)
+        return
+
+    wide_cfg = copy.deepcopy(cfg)
+    wide_cfg["sources"]["ranking"]["genre_ids"] = _all_genre_ids(cfg)
+    candidates = gather_candidates(wide_cfg, api)
+
+    trends = genre_trend(candidates, lookback_days=int(tc.get("lookback_days", 7)),
+                          min_sample=int(tc.get("min_sample", 3)))
+    if not trends:
+        print("トレンドを計算できるジャンルがありません（データ不足。collectを数日回してください）。")
+        return
+
+    cooldown_days = int(tc.get("repost_cooldown_days", 5))
+    skip = recently_posted_keys(cooldown_days, platform="threads")
+    min_pct = float(tc.get("min_pct_change", 3.0))
+    eligible = [t for t in trends if f"trend:{t['genre_id']}" not in skip
+                and abs(t["pct_change"]) >= min_pct]
+    if not eligible:
+        print("紹介できるトレンドがありません（変化が小さいか、すべてクールダウン中）。")
+        return
+
+    top = eligible[0]
+    genre_name = GENRE_NAMES.get(top["genre_id"], f"ジャンル{top['genre_id']}")
+    print(f"今回のtrend: {genre_name} ({top['pct_change']:+.1f}%)")
+
+    caption = generate_trend_caption(genre_name, top["pct_change"], top["direction"])
+    if not caption:
+        print("告知文の生成に失敗しました。")
+        return
+
+    text = build_info_post_text(caption)
+    try:
+        post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text)
+        sns_record_posted(
+            {"itemCode": f"trend:{top['genre_id']}", "itemUrl": "",
+             "itemName": f"{genre_name}トレンド"},
+            platform="threads", post_id=post_id, category=f"trend:{genre_name}",
+        )
+        print(f"✅ Threads投稿完了（trend: {genre_name}） -> id={post_id}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"❌ 投稿失敗: {exc}")
+
+    print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
+
+
+def cmd_calendar(cfg: dict) -> None:
+    """条件に依存しないネタ③: セール・お得日のリマインド（リンクなし・PR不要）。
+
+    既存のsale_calendar.pyのイベント判定をそのまま流用する。
+    """
+    from datetime import date, timedelta
+
+    from .content_captions import build_info_post_text, generate_calendar_caption
+    from .sns_posted_log import posted_today as sns_posted_today
+    from .sns_posted_log import record_posted as sns_record_posted
+    from .sns_posted_log import recently_posted_keys
+    from .threads_poster import post_to_threads
+
+    cc = cfg.get("calendar", {}) or {}
+    if not cc.get("enabled", True):
+        print("calendar投稿は設定(calendar.enabled)で無効になっています。")
+        return
+    if not _ensure_threads_ready(cfg):
+        return
+
+    today = date.today()
+    tomorrow = today + timedelta(days=1)
+
+    event_name = None
+    hint = None
+    for e in (cfg.get("sale_boost", {}) or {}).get("manual_events", []) or []:
+        try:
+            start = date.fromisoformat(str(e["start"]))
+            end = date.fromisoformat(str(e["end"]))
+        except (KeyError, ValueError, TypeError):
+            continue
+        if today <= start <= tomorrow + timedelta(days=2):
+            event_name = e.get("name", "セール")
+            hint = f"{start.month}/{start.day}〜{end.month}/{end.day}"
+            break
+
+    if not event_name and tomorrow.day % 5 == 0:
+        event_name = "5と0のつく日"
+        hint = f"{tomorrow.month}月{tomorrow.day}日"
+
+    if not event_name:
+        print("今日・明日は特にお知らせできるイベントがありません。")
+        return
+
+    key = f"calendar:{event_name}:{tomorrow.isoformat()}"
+    if key in recently_posted_keys(2, platform="threads"):
+        print("このイベントは既に案内済みです。")
+        return
+
+    print(f"今回のcalendar: {event_name}（{hint}）")
+    caption = generate_calendar_caption(event_name, hint)
+    if not caption:
+        print("告知文の生成に失敗しました。")
+        return
+
+    text = build_info_post_text(caption, tags="#楽天セール情報 #お得情報")
+    try:
+        post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text)
+        sns_record_posted(
+            {"itemCode": key, "itemUrl": "", "itemName": event_name},
+            platform="threads", post_id=post_id, category="calendar",
+        )
+        print(f"✅ Threads投稿完了（calendar: {event_name}） -> id={post_id}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"❌ 投稿失敗: {exc}")
 
     print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
 
@@ -525,6 +743,12 @@ def main() -> int:
         cmd_sns(cfg)
     elif cmd == "a8":
         cmd_a8(cfg)
+    elif cmd == "digest":
+        cmd_digest(cfg)
+    elif cmd == "trend":
+        cmd_trend(cfg)
+    elif cmd == "calendar":
+        cmd_calendar(cfg)
     elif cmd == "insights":
         cmd_insights(cfg)
     elif cmd in ("-h", "--help", "help"):

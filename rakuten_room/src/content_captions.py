@@ -1,0 +1,124 @@
+"""投稿数を増やすための「条件に依存しない」コンテンツ生成。
+
+sns/a8は「値下がりが見つかった時だけ」「A8リンクがある時だけ」しか投稿できず
+出現頻度が低い。こちらはジャンル単位の情報発信で、ほぼ毎回投稿できるネタ。
+- digest: ジャンル別の売れ筋ダイジェスト（リンクあり・PRあり）
+- trend : ジャンルの価格トレンド速報（リンクなし・PR不要の情報発信）
+- calendar: セール・お得日のお知らせ（リンクなし・PR不要の情報発信）
+"""
+from __future__ import annotations
+
+import json
+
+MODEL = "claude-haiku-4-5"
+
+SYSTEM = """\
+あなたは楽天の売れ筋・お得情報を追いかけているThreads運用者。
+データに基づいた気づきを、押し付けがましくなく短くシェアするのが得意。"""
+
+
+def _extract_json_array(text: str) -> list[dict]:
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("```", 2)[1]
+        if text.lower().startswith("json"):
+            text = text[4:]
+    start = text.find("[")
+    end = text.rfind("]")
+    if start == -1 or end == -1:
+        raise ValueError("JSON配列が見つかりませんでした")
+    return json.loads(text[start : end + 1])
+
+
+def _call(instruction: str) -> str:
+    import anthropic
+
+    client = anthropic.Anthropic()
+    resp = client.messages.create(
+        model=MODEL,
+        max_tokens=1000,
+        system=SYSTEM,
+        messages=[{"role": "user", "content": instruction}],
+    )
+    text = "".join(b.text for b in resp.content if b.type == "text")
+    rows = _extract_json_array(text)
+    usage = resp.usage
+    cost = usage.input_tokens * 1e-6 + usage.output_tokens * 5e-6
+    print(f"  告知文生成: 入力{usage.input_tokens}・出力{usage.output_tokens}トークン"
+          f"（約${cost:.4f}）")
+    caption = (rows[0].get("caption") or "").strip() if rows else ""
+    return caption
+
+
+HOOK_RULES = """\
+# 構成（最重要）
+1文目は「フック」にする。パッと目に入る短くカジュアルな一文から始め、
+フック文の直後に空行を1つ入れて（captionの文字列内に改行を2つ）、2文目以降の
+本文と視覚的に分ける。フックは敬体を保ちつつ「え」「まって」「地味に」のような
+口語的な相槌もOK。
+
+# 条件
+- 敬体・フレンドリー（「〜です・ます」中心）
+- 全体で70〜120字
+- 絵文字は1個まで
+- ハッシュタグは付けない（システム側で付与）
+- AI臭い紋切り型の褒め方（「〜なのが嬉しいポイントです」等）は避け、
+  友達にふと話すような自然な言い回しにする
+- 出力はこれ以外何も含めないJSON配列のみ: [{"caption": "本文"}]
+"""
+
+
+def generate_digest_caption(genre_name: str, items: list[dict]) -> str:
+    """ジャンル売れ筋トップ3の紹介文（リンクあり想定なのでPRは呼び出し側で付与）。"""
+    lines = []
+    for i, it in enumerate(items[:3], 1):
+        lines.append(f"{i}位: {it['itemName'][:60]}（{it['price']:,}円、"
+                      f"レビュー{it['reviewCount']}件 平均{it['reviewAverage']}）")
+    instruction = f"""\
+楽天市場の「{genre_name}」ジャンルの現在の売れ筋ランキングです。
+これを見て気づいたこと・意外だったことを含めて、Threads投稿用の紹介文を書いてください。
+
+{HOOK_RULES}
+
+# ランキング情報
+{chr(10).join(lines)}
+"""
+    return _call(instruction)
+
+
+def generate_trend_caption(genre_name: str, pct_change: float, direction: str) -> str:
+    """ジャンルの価格トレンド速報（リンクなし・PR不要の情報発信）。"""
+    instruction = f"""\
+楽天市場の「{genre_name}」ジャンルで、直近1週間の平均価格が
+{abs(pct_change):.0f}%{direction}という変化がありました。
+これをThreads投稿でシェアする短い文章を書いてください。値下がりなら
+「買い時かも」というニュアンス、値上がりなら「今のうちに」というニュアンスでOK。
+特定の商品名やリンクには触れない（ジャンル全体の話として）。
+
+{HOOK_RULES}
+"""
+    return _call(instruction)
+
+
+def generate_calendar_caption(event_name: str, hint: str) -> str:
+    """セール・お得日のリマインド投稿（リンクなし・PR不要の情報発信）。"""
+    instruction = f"""\
+楽天市場で「{event_name}」（{hint}）というタイミングが近づいています。
+これをThreads投稿でシェアする短いリマインド文を書いてください。
+特定の商品名やリンクには触れない（日付・イベントの話として）。
+
+{HOOK_RULES}
+"""
+    return _call(instruction)
+
+
+def build_digest_post_text(item: dict, caption: str, disclosure: str = "PR") -> str:
+    """digest用: リンクありなのでPR表記あり。"""
+    link = item.get("affiliateUrl") or item.get("itemUrl", "")
+    tags = f"#{disclosure} #楽天ランキング"
+    return f"{caption}\n\n{link}\n{tags}".strip()
+
+
+def build_info_post_text(caption: str, tags: str = "#楽天セール情報") -> str:
+    """trend/calendar用: リンクなしなのでPR表記なし。"""
+    return f"{caption}\n\n{tags}".strip()

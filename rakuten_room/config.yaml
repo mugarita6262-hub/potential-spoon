@@ -168,9 +168,38 @@ a8:
   # PR表記（#として末尾ハッシュタグの先頭に付ける）
   disclosure: "PR"
 
+# 条件に依存しない投稿ネタ（値下がり・A8リンクが無くても投稿できる＝頻度を上げやすい）
+# いずれもクールダウン制御はdata/sns_posted.jsonを共用（sns/a8と同じ仕組み）
+
+# ①ジャンル別売れ筋ダイジェスト（リンクあり・PRあり）
+digest:
+  enabled: true
+  run_in_daily: false
+  # 同じジャンルを再度紹介するまでの間隔（日）
+  repost_cooldown_days: 5
+  disclosure: "PR"
+
+# ②ジャンルの価格トレンド速報（リンクなし・PR不要）
+trend:
+  enabled: true
+  run_in_daily: false
+  # 直近何日間の平均価格と比べるか
+  lookback_days: 7
+  # 集計に使う最低サンプル数（少なすぎるとブレるため）
+  min_sample: 3
+  # この%以上の変化がなければ紹介しない
+  min_pct_change: 3.0
+  # 同じジャンルを再度紹介するまでの間隔（日）
+  repost_cooldown_days: 5
+
+# ③セール・お得日のリマインド（リンクなし・PR不要、既存sale_boost.manual_eventsを流用）
+calendar:
+  enabled: true
+  run_in_daily: false
+
 # サーバー常駐（src/webapp.py）でのスケジュール。1日の中でランダムな時刻に自動実行する。
 # collect/insightsはClaude APIを使わない無料の調査なので高頻度に、
-# prepare/sns/a8はClaude課金＆投稿を伴うので今までの運用頻度のままにしてある。
+# prepare/sns/a8/digest/trend/calendarはClaude課金＆投稿を伴うので抑えめにしてある。
 server:
   enabled: true
   collect_window: ["06:00", "23:00"]
@@ -183,3 +212,9 @@ server:
   sns_runs_per_day: 3
   a8_window: ["08:00", "22:00"]
   a8_runs_per_day: 1
+  digest_window: ["08:00", "22:00"]
+  digest_runs_per_day: 2
+  trend_window: ["08:00", "22:00"]
+  trend_runs_per_day: 2
+  calendar_window: ["07:00", "09:00"]
+  calendar_runs_per_day: 1

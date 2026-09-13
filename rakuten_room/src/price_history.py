@@ -49,6 +49,13 @@ def record_snapshot(items: list[dict]) -> None:
     _save(data)
 
 
+def load_all() -> dict[str, list[dict]]:
+    """全商品の価格履歴を返す（{itemCode: [{"date":..., "price":...}, ...]}）。
+    ジャンル単位のトレンド集計（src/trend.py）などで使う。
+    """
+    return _load()
+
+
 def price_drop(item: dict, lookback_days: int = 30) -> dict:
     """値下がり情報を返す。
 
