@@ -59,11 +59,14 @@ HOOK_RULES = """\
 
 # 条件
 - 敬体・フレンドリー（「〜です・ます」中心）
-- 全体で70〜120字
+- 全体で80〜140字（フック文＋本文＋問いかけ）
 - 絵文字は1個まで
 - ハッシュタグは付けない（システム側で付与）
 - AI臭い紋切り型の褒め方（「〜なのが嬉しいポイントです」等）は避け、
   友達にふと話すような自然な言い回しにする
+- **最後は必ず「思わず返信したくなる問いかけ」で締める**（Threadsはいいね数より
+  リプライ数・会話の深さが伸びを左右するため。YES/NOで即答できる軽いものでOK。
+  例:「みんなはどっち派？」「これ知ってた？」「試したことある人いる？」）
 - 出力はこれ以外何も含めないJSON配列のみ: [{"caption": "本文"}]
 """
 
@@ -126,6 +129,55 @@ def generate_trivia_caption(topic: str) -> str:
 {HOOK_RULES}
 """
     return _call(instruction)
+
+
+def generate_reply_drafts(target_post_text: str, n: int = 3) -> list[str]:
+    """他アカウントの投稿へのリプライ下書きを複数案作る（貼り付け・投稿は人がやる）。
+
+    Threads公式APIには他人の投稿を検索・発見する機能が無いため自動化できない。
+    「良さそうな投稿を見つける」のは人の仕事、「気の利いた返信を考える」のを
+    ここで肩代わりする、という役割分担。リプライ数はThreadsの伸びに直結する
+    （いいね数より重視される）ため、質の高いリプライを増やす助けになる。
+    """
+    import anthropic
+
+    if not target_post_text.strip():
+        return []
+
+    client = anthropic.Anthropic()
+    instruction = f"""\
+以下はThreadsで見つけた、あなたが返信しようとしている他アカウントの投稿です。
+
+---
+{target_post_text.strip()[:500]}
+---
+
+この投稿に対する自然なリプライ文を{n}パターン考えてください。
+
+# 条件
+- 敬体・フレンドリー、1件30〜80字
+- それ単体で意味の通る、内容のあるコメントにする（「いいですね！」のような
+  中身のない相槌はNG。相手の投稿の具体的な部分に触れる）
+- 自分の宣伝・リンクは一切含めない（純粋な会話としてのリプライ）
+- 絵文字は0〜1個
+- {n}パターンはそれぞれ違う角度で（共感・質問・軽い体験談など）
+
+# 出力形式（これ以外は何も出力しない。JSON配列のみ）
+[{{"reply": "リプライ文1"}}, {{"reply": "リプライ文2"}}, ...]
+"""
+    resp = client.messages.create(
+        model=MODEL,
+        max_tokens=1000,
+        system=SYSTEM,
+        messages=[{"role": "user", "content": instruction}],
+    )
+    text = "".join(b.text for b in resp.content if b.type == "text")
+    rows = _extract_json_array(text)
+    usage = resp.usage
+    cost = usage.input_tokens * 1e-6 + usage.output_tokens * 5e-6
+    print(f"  リプライ下書き生成: {len(rows)}件 / "
+          f"入力{usage.input_tokens}・出力{usage.output_tokens}トークン（約${cost:.4f}）")
+    return [r.get("reply", "").strip() for r in rows if r.get("reply")]
 
 
 def build_digest_post_text(item: dict, caption: str, disclosure: str = "PR") -> str:

@@ -225,17 +225,22 @@ server:
   insights_runs_per_day: 6
   prepare_window: ["06:00", "08:00"]
   prepare_runs_per_day: 1
-  sns_window: ["08:00", "22:00"]
+  # 投稿系（sns/a8/digest/trend/trivia）は、Threadsの反応が良いとされる
+  # 昼休み・夜の時間帯に寄せる（1日中フラットにランダムだと人が見ていない時間にも
+  # 投稿してしまうため）。windowは["HH:MM","HH:MM"]の1組でも、
+  # [["11:30","13:30"],["19:00","22:00"]]のように複数の時間帯でも指定できる
+  sns_window: [["11:30", "13:30"], ["19:00", "22:00"]]
   sns_runs_per_day: 2
-  a8_window: ["08:00", "22:00"]
+  a8_window: [["11:30", "13:30"], ["19:00", "22:00"]]
   a8_runs_per_day: 1
-  digest_window: ["08:00", "22:00"]
+  digest_window: [["11:30", "13:30"], ["19:00", "22:00"]]
   digest_runs_per_day: 1
-  trend_window: ["08:00", "22:00"]
+  trend_window: [["11:30", "13:30"], ["19:00", "22:00"]]
   trend_runs_per_day: 1
+  # calendarは「事前に気づいてもらう」通知なので、朝の時間帯のままでよい
   calendar_window: ["07:00", "09:00"]
   calendar_runs_per_day: 1
-  trivia_window: ["08:00", "22:00"]
+  trivia_window: [["11:30", "13:30"], ["19:00", "22:00"]]
   trivia_runs_per_day: 1
 
 # Threads投稿全体（sns/a8/digest/trend/calendar/trivia合計）の1日あたり上限。

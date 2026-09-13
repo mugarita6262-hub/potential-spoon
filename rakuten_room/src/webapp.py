@@ -108,14 +108,35 @@ def _parse_hm(s: str) -> dtime:
 
 
 def _random_times(window: list, n: int, today: date) -> list[datetime]:
+    """windowは["06:00","23:00"]の1組か、[["11:30","13:30"],["19:00","22:00"]]のように
+    複数の時間帯（例: 昼休み・夜など反応が良い時間帯）のリストでも指定できる。
+    複数指定時は各時間帯の長さに比例して振り分けたうえでランダムな時刻を選ぶ。
+    """
     if not window or n <= 0:
         return []
-    start = datetime.combine(today, _parse_hm(window[0]))
-    end = datetime.combine(today, _parse_hm(window[1]))
-    span = (end - start).total_seconds()
-    if span <= 0:
+    windows = [window] if isinstance(window[0], str) else window
+
+    spans: list[tuple[datetime, float]] = []
+    total = 0.0
+    for w in windows:
+        start = datetime.combine(today, _parse_hm(w[0]))
+        end = datetime.combine(today, _parse_hm(w[1]))
+        span = (end - start).total_seconds()
+        if span > 0:
+            spans.append((start, span))
+            total += span
+    if not spans:
         return []
-    return sorted(start + timedelta(seconds=random.uniform(0, span)) for _ in range(n))
+
+    times = []
+    for _ in range(n):
+        r = random.uniform(0, total)
+        for start, span in spans:
+            if r <= span:
+                times.append(start + timedelta(seconds=r))
+                break
+            r -= span
+    return sorted(times)
 
 
 def _ensure_today_schedule(cfg: dict) -> None:

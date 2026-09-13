@@ -12,6 +12,7 @@
   python -m src.main trend       ジャンルの価格トレンド速報をThreadsに投稿（リンクなし）
   python -m src.main calendar    セール・お得日のリマインドをThreadsに投稿（リンクなし）
   python -m src.main trivia      ミニ知識・あるあるネタをThreadsに投稿（リンクなし）
+  python -m src.main reply "相手の投稿本文"   リプライ下書きを3案作る（投稿は手動）
   python -m src.main insights    Threads投稿の反応をジャンル・商品別に集計して表示
   python -m src.main daily       投稿→いいね回り→フォロー回り→(削除)→(SNS投稿) を一括実行
 """
@@ -218,6 +219,27 @@ def _ensure_threads_ready(cfg: dict) -> bool:
     return True
 
 
+def _post_to_threads_notified(cfg: dict, text: str, image_url: str | None = None) -> str:
+    """post_to_threadsを呼び、成功したら「初動が肝心」の通知も送る。
+
+    Threadsのアルゴリズムは投稿直後30〜60分の反応（いいね・リプライ）を見て
+    「おすすめ」に載せるか判断するため、人が早めに反応する価値が大きい。
+    ここだけは自動化できないので、せめて気づけるようにntfyで知らせる。
+    """
+    from .notify import notify
+
+    post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"],
+                               text, image_url=image_url)
+    preview = text.split("\n", 1)[0][:40]
+    notify(
+        f"投稿しました: {preview}\n"
+        "最初の30〜60分の反応が伸びを左右します。よければ今のうちに"
+        "いいね・返信しておくと効果的です。",
+        title="rakuten_room: posted, engage now",
+    )
+    return post_id
+
+
 def cmd_collect(cfg: dict) -> None:
     """調査専用: Claude APIもThreads投稿も使わず、広いジャンルの価格スナップショットだけ集める。
 
@@ -266,7 +288,6 @@ def cmd_sns(cfg: dict) -> None:
     from .sns_posted_log import posted_today as sns_posted_today
     from .sns_posted_log import record_posted as sns_record_posted
     from .sns_selector import select_sale_items
-    from .threads_poster import post_to_threads
 
     sc = cfg.get("sns", {}) or {}
     if not sc.get("enabled", True):
@@ -315,10 +336,7 @@ def cmd_sns(cfg: dict) -> None:
             continue
         text = build_post_text(it, cap, disclosure=disclosure)
         try:
-            post_id = post_to_threads(
-                cfg["_threads_token"], cfg["_threads_user_id"], text,
-                image_url=it.get("imageUrl") or None,
-            )
+            post_id = _post_to_threads_notified(cfg, text, image_url=it.get("imageUrl") or None)
             sns_record_posted(it, platform="threads", post_id=post_id,
                                category=it.get("genreId", ""))
             posted += 1
@@ -337,7 +355,6 @@ def cmd_a8(cfg: dict) -> None:
     from .a8_selector import pick_next
     from .sns_posted_log import posted_today as sns_posted_today
     from .sns_posted_log import record_posted as sns_record_posted
-    from .threads_poster import post_to_threads
 
     ac = cfg.get("a8", {}) or {}
     if not ac.get("enabled", True):
@@ -362,7 +379,7 @@ def cmd_a8(cfg: dict) -> None:
     disclosure = ac.get("disclosure") or "PR"
     text = build_post_text(link, cap, disclosure=disclosure)
     try:
-        post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text)
+        post_id = _post_to_threads_notified(cfg, text)
         sns_record_posted(
             {"itemCode": link["program_id"], "itemUrl": link["url"],
              "itemName": link["program_name"]},
@@ -396,7 +413,6 @@ def cmd_digest(cfg: dict) -> None:
     from .sns_posted_log import posted_today as sns_posted_today
     from .sns_posted_log import record_posted as sns_record_posted
     from .sns_posted_log import recently_posted_keys
-    from .threads_poster import post_to_threads
 
     dc = cfg.get("digest", {}) or {}
     if not dc.get("enabled", True):
@@ -439,7 +455,7 @@ def cmd_digest(cfg: dict) -> None:
     disclosure = dc.get("disclosure") or "PR"
     text = build_digest_post_text(items[0], caption, disclosure=disclosure)
     try:
-        post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text)
+        post_id = _post_to_threads_notified(cfg, text)
         sns_record_posted(
             {"itemCode": f"digest:{genre_id}", "itemUrl": items[0].get("itemUrl", ""),
              "itemName": f"{genre_name}ダイジェスト"},
@@ -467,7 +483,6 @@ def cmd_trend(cfg: dict) -> None:
     from .sns_posted_log import posted_today as sns_posted_today
     from .sns_posted_log import record_posted as sns_record_posted
     from .sns_posted_log import recently_posted_keys
-    from .threads_poster import post_to_threads
     from .trend import genre_trend
 
     tc = cfg.get("trend", {}) or {}
@@ -513,7 +528,7 @@ def cmd_trend(cfg: dict) -> None:
 
     text = build_info_post_text(caption)
     try:
-        post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text)
+        post_id = _post_to_threads_notified(cfg, text)
         sns_record_posted(
             {"itemCode": f"trend:{top['genre_id']}", "itemUrl": "",
              "itemName": f"{genre_name}トレンド"},
@@ -537,7 +552,6 @@ def cmd_calendar(cfg: dict) -> None:
     from .sns_posted_log import posted_today as sns_posted_today
     from .sns_posted_log import record_posted as sns_record_posted
     from .sns_posted_log import recently_posted_keys
-    from .threads_poster import post_to_threads
 
     cc = cfg.get("calendar", {}) or {}
     if not cc.get("enabled", True):
@@ -583,7 +597,7 @@ def cmd_calendar(cfg: dict) -> None:
 
     text = build_info_post_text(caption, tags="#楽天セール情報 #お得情報")
     try:
-        post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text)
+        post_id = _post_to_threads_notified(cfg, text)
         sns_record_posted(
             {"itemCode": key, "itemUrl": "", "itemName": event_name},
             platform="threads", post_id=post_id, category="calendar",
@@ -606,7 +620,6 @@ def cmd_trivia(cfg: dict) -> None:
     from .sns_posted_log import posted_today as sns_posted_today
     from .sns_posted_log import record_posted as sns_record_posted
     from .sns_posted_log import recently_posted_keys
-    from .threads_poster import post_to_threads
 
     tvc = cfg.get("trivia", {}) or {}
     if not tvc.get("enabled", True):
@@ -636,7 +649,7 @@ def cmd_trivia(cfg: dict) -> None:
 
     text = build_info_post_text(caption, tags="#暮らしの豆知識")
     try:
-        post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text)
+        post_id = _post_to_threads_notified(cfg, text)
         sns_record_posted(
             {"itemCode": f"trivia:{topic}", "itemUrl": "", "itemName": topic},
             platform="threads", post_id=post_id, category=f"trivia:{topic}",
@@ -646,6 +659,31 @@ def cmd_trivia(cfg: dict) -> None:
         print(f"❌ 投稿失敗: {exc}")
 
     print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
+
+
+def cmd_reply(target_text: str) -> None:
+    """他アカウントの投稿へのリプライ下書きをClaudeに考えてもらう（投稿は手動）。
+
+    Threads公式APIは他人の投稿を検索・発見する機能を提供していないため、
+    「良さそうな投稿を見つける」のは引き続き人の仕事。ここでは見つけてきた
+    投稿の文面を渡すと、返信文の候補を考える部分だけ肩代わりする。
+    いいね数よりリプライ数の方がThreadsの伸びを左右するとされているため、
+    質の良いリプライを増やすための道具。
+    """
+    from .content_captions import generate_reply_drafts
+
+    if not target_text.strip():
+        print('使い方: python -m src.main reply "相手の投稿本文"')
+        return
+
+    drafts = generate_reply_drafts(target_text, n=3)
+    if not drafts:
+        print("下書きの生成に失敗しました。")
+        return
+
+    print("\n--- リプライ下書き（この中から選ぶ・手直ししてThreadsアプリで投稿） ---")
+    for i, d in enumerate(drafts, 1):
+        print(f"{i}. {d}")
 
 
 def cmd_insights(cfg: dict) -> None:
@@ -820,6 +858,8 @@ def main() -> int:
         cmd_calendar(cfg)
     elif cmd == "trivia":
         cmd_trivia(cfg)
+    elif cmd == "reply":
+        cmd_reply(" ".join(args[1:]))
     elif cmd == "insights":
         cmd_insights(cfg)
     elif cmd in ("-h", "--help", "help"):
