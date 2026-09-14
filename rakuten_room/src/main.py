@@ -12,6 +12,7 @@
   python -m src.main trend       ジャンルの価格トレンド速報をThreadsに投稿（リンクなし）
   python -m src.main calendar    セール・お得日のリマインドをThreadsに投稿（リンクなし）
   python -m src.main trivia      ミニ知識・あるあるネタをThreadsに投稿（リンクなし）
+  python -m src.main instagram   楽天の売れ筋商品を画像付きでInstagramに投稿（プロフィールへ誘導）
   python -m src.main reply "相手の投稿本文"   リプライ下書きを3案作る（投稿は手動）
   python -m src.main insights    Threads投稿の反応をジャンル・商品別に集計して表示
   python -m src.main daily       投稿→いいね回り→フォロー回り→(削除)→(SNS投稿) を一括実行
@@ -214,6 +215,39 @@ def _ensure_threads_ready(cfg: dict) -> bool:
             update_env_value("THREADS_ACCESS_TOKEN", data["access_token"])
             cfg["_threads_token"] = data["access_token"]
             print("  Threadsアクセストークンを延長しました。")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  トークン延長に失敗（既存トークンで続行）: {exc}")
+    return True
+
+
+def _ensure_instagram_ready(cfg: dict) -> bool:
+    """Instagramトークンの存在確認＋自動延長＋1日の投稿数上限チェック。
+
+    Threads側の上限（posting_limits.max_per_day）とは別カウント
+    （プラットフォームが違うので、それぞれ独立して数える）。
+    """
+    if not cfg.get("_instagram_token") or not cfg.get("_instagram_user_id"):
+        print(".env の INSTAGRAM_ACCESS_TOKEN / INSTAGRAM_USER_ID が未設定です。")
+        return False
+
+    from .sns_posted_log import posted_today as _sns_posted_today
+
+    max_per_day = int(cfg.get("posting_limits", {}).get("instagram_max_per_day", 1))
+    done_today = _sns_posted_today("instagram")
+    if done_today >= max_per_day:
+        print(f"  本日のInstagram投稿数が上限（{max_per_day}件）に達しているためスキップします"
+              f"（本日 {done_today} 件）。")
+        return False
+
+    from .instagram_poster import refresh_long_lived_token
+
+    try:
+        data = refresh_long_lived_token(cfg["_instagram_token"])
+        if data["access_token"] != cfg["_instagram_token"]:
+            from .config import update_env_value
+            update_env_value("INSTAGRAM_ACCESS_TOKEN", data["access_token"])
+            cfg["_instagram_token"] = data["access_token"]
+            print("  Instagramアクセストークンを延長しました。")
     except Exception as exc:  # noqa: BLE001
         print(f"  トークン延長に失敗（既存トークンで続行）: {exc}")
     return True
@@ -661,6 +695,76 @@ def cmd_trivia(cfg: dict) -> None:
     print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
 
 
+def cmd_instagram(cfg: dict) -> None:
+    """楽天の売れ筋商品をInstagramに画像付きで投稿する（リンクなし、プロフィールへ誘導）。
+
+    Instagramのフィード投稿はキャプション内のリンクがクリックできないため、
+    実際のクリック先はプロフィール欄のリンク（bio_link_page.pyが生成するページ）に
+    集約する。投稿のたびにそのページも最新のA8リンク一覧に更新する。
+    """
+    import random
+
+    from .a8_selector import load_links
+    from .bio_link_page import update_bio_page
+    from .instagram_captions import build_instagram_post_text, generate_instagram_caption
+    from .instagram_poster import post_to_instagram
+    from .rakuten_api import RakutenAPI
+    from .selector import gather_candidates
+    from .sns_posted_log import posted_today as sns_posted_today
+    from .sns_posted_log import record_posted as sns_record_posted
+    from .sns_posted_log import recently_posted_keys
+
+    ic = cfg.get("instagram", {}) or {}
+    if not ic.get("enabled", True):
+        print("Instagram投稿は設定(instagram.enabled)で無効になっています。")
+        return
+    if not _ensure_instagram_ready(cfg):
+        return
+
+    try:
+        api = RakutenAPI(cfg["_app_id"], cfg["_access_key"], cfg["_affiliate_id"])
+    except RuntimeError as exc:
+        print(exc)
+        return
+
+    candidates = gather_candidates(cfg, api)
+    cooldown_days = int(ic.get("repost_cooldown_days", 14))
+    skip = recently_posted_keys(cooldown_days, platform="instagram")
+    eligible = [it for it in candidates
+                if it.get("imageUrl") and (it.get("itemCode") or it.get("itemUrl")) not in skip]
+    if not eligible:
+        print("紹介できる商品がありません（画像なし、またはすべてクールダウン中）。")
+        return
+
+    item = random.choice(eligible[: max(10, len(eligible) // 3)])  # 上位寄りからランダム
+    print(f"今回のInstagram投稿: {item['itemName'][:40]}")
+
+    caption = generate_instagram_caption(item)
+    if not caption:
+        print("キャプションの生成に失敗しました。")
+        return
+
+    disclosure = ic.get("disclosure") or "PR"
+    text = build_instagram_post_text(caption, disclosure=disclosure)
+    try:
+        post_id = post_to_instagram(cfg["_instagram_token"], cfg["_instagram_user_id"],
+                                     item["imageUrl"], text)
+        sns_record_posted(item, platform="instagram", post_id=post_id,
+                           category=item.get("genreId", ""))
+        print(f"✅ Instagram投稿完了: {item['itemName'][:40]} -> id={post_id}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"❌ 投稿失敗: {exc}")
+
+    # プロフィールのリンクインバイオページを最新のA8リンクで更新
+    try:
+        if update_bio_page(load_links()):
+            print("  リンクインバイオページを更新しました。")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  リンクインバイオページの更新に失敗（無視して続行）: {exc}")
+
+    print(f"\n本日のInstagram投稿累計 {sns_posted_today('instagram')} 件")
+
+
 def cmd_reply(target_text: str) -> None:
     """他アカウントの投稿へのリプライ下書きをClaudeに考えてもらう（投稿は手動）。
 
@@ -858,6 +962,8 @@ def main() -> int:
         cmd_calendar(cfg)
     elif cmd == "trivia":
         cmd_trivia(cfg)
+    elif cmd == "instagram":
+        cmd_instagram(cfg)
     elif cmd == "reply":
         cmd_reply(" ".join(args[1:]))
     elif cmd == "insights":

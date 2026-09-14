@@ -44,6 +44,7 @@ JOBS = {
     "trend": ("Threads: ジャンル価格トレンド速報（Claude課金・リンクなし）", True),
     "calendar": ("Threads: セール・お得日リマインド（Claude課金・リンクなし）", True),
     "trivia": ("Threads: ミニ知識・あるあるネタ（Claude課金・リンクなし）", True),
+    "instagram": ("Instagram: 売れ筋商品を画像付きで投稿（Claude課金・1日1件）", True),
 }
 
 
@@ -85,6 +86,8 @@ def run_job(name: str) -> str:
                     cli.cmd_calendar(cfg)
                 elif name == "trivia":
                     cli.cmd_trivia(cfg)
+                elif name == "instagram":
+                    cli.cmd_instagram(cfg)
                 elif name == "insights":
                     cli.cmd_insights(cfg)
                 else:

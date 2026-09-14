@@ -242,8 +242,20 @@ server:
   calendar_runs_per_day: 1
   trivia_window: [["11:30", "13:30"], ["19:00", "22:00"]]
   trivia_runs_per_day: 1
+  instagram_window: [["19:00", "21:00"]]
+  instagram_runs_per_day: 1
 
 # Threads投稿全体（sns/a8/digest/trend/calendar/trivia合計）の1日あたり上限。
 # 個別ジョブが同じ日にたまたま重なって投稿数が想定以上に増えないよう、ここで一括管理する
 posting_limits:
   max_per_day: 4
+  # Instagramはフィード投稿の重みがThreadsより大きいので控えめに（1日1件）
+  instagram_max_per_day: 1
+
+# Instagram投稿（画像必須・リンクなし、プロフィールのリンクインバイオへ誘導）
+instagram:
+  enabled: true
+  run_in_daily: false
+  # 同じ商品を再度投稿するまでの間隔（日）
+  repost_cooldown_days: 14
+  disclosure: "PR"

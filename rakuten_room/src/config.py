@@ -36,6 +36,8 @@ def load_config() -> dict:
     cfg["_affiliate_id"] = os.environ.get("RAKUTEN_AFFILIATE_ID", "").strip()
     cfg["_threads_token"] = os.environ.get("THREADS_ACCESS_TOKEN", "").strip()
     cfg["_threads_user_id"] = os.environ.get("THREADS_USER_ID", "").strip()
+    cfg["_instagram_token"] = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "").strip()
+    cfg["_instagram_user_id"] = os.environ.get("INSTAGRAM_USER_ID", "").strip()
 
     for d in (DATA_DIR, DRAFTS_DIR, SESSION_DIR):
         d.mkdir(parents=True, exist_ok=True)
