@@ -363,8 +363,12 @@ def cmd_sns(cfg: dict) -> None:
     caps = generate_sns_captions(picked)
     disclosure = sc.get("disclosure") or th.get("disclosure") or "PR"
     lo, hi = th.get("interval_seconds", [20, 45])
+    max_per_day = int(cfg.get("posting_limits", {}).get("max_per_day", 5))
     posted = 0
     for i, it in enumerate(picked):
+        if sns_posted_today("threads") >= max_per_day:
+            print(f"  本日の投稿数が上限（{max_per_day}件）に達したため、ここで打ち切ります。")
+            break
         cap = caps.get(it["itemUrl"])
         if not cap:
             print(f"  告知文なし、スキップ: {it['itemName'][:40]}")
@@ -951,20 +955,27 @@ def main() -> int:
         cmd_daily(cfg)
     elif cmd == "collect":
         cmd_collect(cfg)
-    elif cmd == "sns":
-        cmd_sns(cfg)
-    elif cmd == "a8":
-        cmd_a8(cfg)
-    elif cmd == "digest":
-        cmd_digest(cfg)
-    elif cmd == "trend":
-        cmd_trend(cfg)
-    elif cmd == "calendar":
-        cmd_calendar(cfg)
-    elif cmd == "trivia":
-        cmd_trivia(cfg)
-    elif cmd == "instagram":
-        cmd_instagram(cfg)
+    elif cmd in ("sns", "a8", "digest", "trend", "calendar", "trivia", "instagram"):
+        from .job_lock import posting_lock
+
+        with posting_lock() as acquired:
+            if not acquired:
+                print("  他の投稿ジョブが実行中のためスキップします"
+                      "（手動実行とスケジューラが重なった可能性）。")
+            elif cmd == "sns":
+                cmd_sns(cfg)
+            elif cmd == "a8":
+                cmd_a8(cfg)
+            elif cmd == "digest":
+                cmd_digest(cfg)
+            elif cmd == "trend":
+                cmd_trend(cfg)
+            elif cmd == "calendar":
+                cmd_calendar(cfg)
+            elif cmd == "trivia":
+                cmd_trivia(cfg)
+            elif cmd == "instagram":
+                cmd_instagram(cfg)
     elif cmd == "reply":
         cmd_reply(" ".join(args[1:]))
     elif cmd == "insights":

@@ -61,33 +61,48 @@ def _tail_log(n: int = MAX_LOG_LINES) -> str:
     return "\n".join(lines)
 
 
+_POSTING_JOBS = {"sns", "a8", "digest", "trend", "calendar", "trivia", "instagram"}
+
+
 def run_job(name: str) -> str:
-    """ジョブを実行し、標準出力をキャプチャして記録・返却する。"""
+    """ジョブを実行し、標準出力をキャプチャして記録・返却する。
+
+    投稿系ジョブ（_POSTING_JOBS）は、SSHで直接叩く手動CLI実行と同じ
+    プロセス間ロック（job_lock）も併用する。threading.Lockだけでは
+    別プロセスの手動実行と重なるのを防げず、2026-09-15に実際に
+    同じ商品が2回投稿される事故が起きたため。
+    """
     from . import main as cli
+    from .job_lock import posting_lock
 
     with _lock:
         cfg = load_config()
         buf = io.StringIO()
         try:
             with redirect_stdout(buf):
-                if name == "collect":
+                if name in _POSTING_JOBS:
+                    with posting_lock() as acquired:
+                        if not acquired:
+                            print("  他の投稿ジョブが実行中のためスキップします"
+                                  "（手動実行と重なった可能性）。")
+                        elif name == "sns":
+                            cli.cmd_sns(cfg)
+                        elif name == "a8":
+                            cli.cmd_a8(cfg)
+                        elif name == "digest":
+                            cli.cmd_digest(cfg)
+                        elif name == "trend":
+                            cli.cmd_trend(cfg)
+                        elif name == "calendar":
+                            cli.cmd_calendar(cfg)
+                        elif name == "trivia":
+                            cli.cmd_trivia(cfg)
+                        elif name == "instagram":
+                            cli.cmd_instagram(cfg)
+                elif name == "collect":
                     cli.cmd_collect(cfg)
                 elif name == "prepare":
                     cli.cmd_prepare(cfg)
-                elif name == "sns":
-                    cli.cmd_sns(cfg)
-                elif name == "a8":
-                    cli.cmd_a8(cfg)
-                elif name == "digest":
-                    cli.cmd_digest(cfg)
-                elif name == "trend":
-                    cli.cmd_trend(cfg)
-                elif name == "calendar":
-                    cli.cmd_calendar(cfg)
-                elif name == "trivia":
-                    cli.cmd_trivia(cfg)
-                elif name == "instagram":
-                    cli.cmd_instagram(cfg)
                 elif name == "insights":
                     cli.cmd_insights(cfg)
                 else:
