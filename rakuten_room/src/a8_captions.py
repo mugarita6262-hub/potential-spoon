@@ -75,7 +75,7 @@ def _extract_json_array(text: str) -> list[dict]:
     end = text.rfind("]")
     if start == -1 or end == -1:
         raise ValueError("JSON配列が見つかりませんでした")
-    return json.loads(text[start : end + 1])
+    return json.loads(text[start : end + 1], strict=False)
 
 
 def generate_a8_captions(items: list[dict]) -> dict[str, str]:
