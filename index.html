@@ -438,6 +438,9 @@
   .sticker-tier-chip.tier-common { color: var(--ink-soft); }
   .sticker-tier-chip.tier-rare { color: #4A86B8; }
   .sticker-tier-chip.tier-super { color: #B8933B; }
+  .season-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .season-tab-btn { flex: 1; padding: 9px; border-radius: var(--radius-sm); border: 1.5px solid var(--line); background: var(--paper-raised); color: var(--ink-soft); font-family: var(--font-body); font-weight: 700; font-size: 13px; cursor: pointer; }
+  .season-tab-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
@@ -833,7 +836,7 @@
   }
 
   /* ---- gacha: same キャラシール set as お手伝いノート ---- */
-  var STICKER_CATALOG = [
+  var STICKER_CATALOG_S1 = [
     { key: "sekime_otaku", name: "関目のオタク", tier: "common" },
     { key: "dainichi_mama", name: "大日の子連れママ", tier: "common" },
     { key: "korien_shoujo", name: "香里園の少女", tier: "common" },
@@ -853,43 +856,87 @@
     { key: "tenshi_gabriel", name: "天使ガブリエル", tier: "super" },
     { key: "akuma_lucifer", name: "悪魔ルシファー", tier: "super" }
   ];
+  // 第2弾（2026-10-01〜）
+  var STICKER_CATALOG_S2 = [
+    { key: "n1", name: "ロジータ", tier: "common" },
+    { key: "n2", name: "オスカー", tier: "common" },
+    { key: "n3", name: "ジュリア", tier: "common" },
+    { key: "n4", name: "アビー", tier: "common" },
+    { key: "n5", name: "セサミのなかまたち", tier: "common" },
+    { key: "n6", name: "セサミフレンズ", tier: "common" },
+    { key: "n7", name: "バートとアーニーの朝ごはん", tier: "common" },
+    { key: "r1", name: "アーニー", tier: "rare" },
+    { key: "r2", name: "エルモ", tier: "rare" },
+    { key: "r3", name: "クッキーモンスター", tier: "rare" },
+    { key: "r4", name: "ビッグバード", tier: "rare" },
+    { key: "r5", name: "バート", tier: "rare" },
+    { key: "s1", name: "キラキラバート", tier: "super" },
+    { key: "s2", name: "キラキラ バート＆アーニー", tier: "super" },
+    { key: "s3", name: "セサミオールスター☆スペシャル", tier: "super" }
+  ];
   var TIER_LABEL = { common: "ふつう", rare: "レア！", super: "★超レア★" };
   var TIER_SHORT_LABEL = { common: "ノーマル", rare: "レア", super: "超レア" }; // for the collection grid chip
-  var TIER_WEIGHT = { super: 5, rare: 25 }; // remainder goes to common
 
-  var STICKER_MAX_COPIES = 2; // once a character has been drawn this many times, it drops out of the pool
+  // 第1弾と第2弾で確率・最大所持数・画像フォルダが異なるので季節ごとにまとめる。
+  // 第2弾は 2026-10-01 のガチャから自動的に切り替わる（activeSeasonKey 参照）。
+  var SEASONS = {
+    s1: {
+      label: "第1弾",
+      catalog: STICKER_CATALOG_S1,
+      imgDir: "img/sticker",
+      tierWeight: { super: 5, rare: 25 }, // remainder goes to common
+      maxCopies: { common: 2, rare: 2, super: 2 }
+    },
+    s2: {
+      label: "第2弾",
+      catalog: STICKER_CATALOG_S2,
+      imgDir: "img/sesami",
+      tierWeight: { super: 20, rare: 100 / 3 }, // rare 3回に1回、super 5回に1回
+      maxCopies: { common: 2, rare: 2, super: 1 }
+    }
+  };
+  var SEASON2_START = "2026-10-01";
 
-  function ownedStickerCounts() {
+  function activeSeasonKey() { return todayISO() >= SEASON2_START ? "s2" : "s1"; }
+
+  function ownedStickerCounts(seasonKey) {
     var counts = {};
-    state.stickers.forEach(function (s) { counts[s.key] = (counts[s.key] || 0) + 1; });
+    state.stickers.forEach(function (s) {
+      if ((s.season || "s1") === seasonKey) counts[s.key] = (counts[s.key] || 0) + 1;
+    });
     return counts;
   }
 
   function drawSticker() {
-    var counts = ownedStickerCounts();
-    var available = STICKER_CATALOG.filter(function (s) { return (counts[s.key] || 0) < STICKER_MAX_COPIES; });
-    // If literally everything has hit the cap (a fully-doubled collection), don't hard-block —
+    var seasonKey = activeSeasonKey();
+    var season = SEASONS[seasonKey];
+    var counts = ownedStickerCounts(seasonKey);
+    var available = season.catalog.filter(function (s) { return (counts[s.key] || 0) < season.maxCopies[s.tier]; });
+    // If literally everything has hit the cap, don't hard-block —
     // fall back to the full catalog rather than ever failing to produce a sticker.
-    var pool = available.length ? available : STICKER_CATALOG;
+    var pool = available.length ? available : season.catalog;
     var roll = Math.random() * 100;
-    var tier = roll < TIER_WEIGHT.super ? "super" : (roll < TIER_WEIGHT.super + TIER_WEIGHT.rare ? "rare" : "common");
+    var tier = roll < season.tierWeight.super ? "super" : (roll < season.tierWeight.super + season.tierWeight.rare ? "rare" : "common");
     var tierPool = pool.filter(function (s) { return s.tier === tier; });
     if (!tierPool.length) tierPool = pool; // that tier is exhausted within what's still available
     return tierPool[Math.floor(Math.random() * tierPool.length)];
   }
 
   function drawStickerOfTier(tier) {
-    var counts = ownedStickerCounts();
-    var pool = STICKER_CATALOG.filter(function (s) { return s.tier === tier && (counts[s.key] || 0) < STICKER_MAX_COPIES; });
-    if (!pool.length) pool = STICKER_CATALOG.filter(function (s) { return s.tier === tier; });
+    var seasonKey = activeSeasonKey();
+    var season = SEASONS[seasonKey];
+    var counts = ownedStickerCounts(seasonKey);
+    var pool = season.catalog.filter(function (s) { return s.tier === tier && (counts[s.key] || 0) < season.maxCopies[s.tier]; });
+    if (!pool.length) pool = season.catalog.filter(function (s) { return s.tier === tier; });
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  function stickerBadgeHtml(sticker, size, owned, count) {
+  function stickerBadgeHtml(sticker, size, owned, count, seasonKey) {
     var cls = "sticker-badge tier-" + sticker.tier + (owned ? " owned" : "");
     var countHtml = (owned && count > 1) ? '<span class="count">×' + count + '</span>' : "";
+    var imgDir = SEASONS[seasonKey || activeSeasonKey()].imgDir;
     var inner = owned
-      ? '<img class="sticker-img" src="img/sticker/' + sticker.key + '.jpg" alt="' + escapeHtml(sticker.name) + '" width="' + size + '" height="' + size + '">'
+      ? '<img class="sticker-img" src="' + imgDir + '/' + sticker.key + '.jpg" alt="' + escapeHtml(sticker.name) + '" width="' + size + '" height="' + size + '">'
       : "";
     return '<div class="' + cls + '" style="width:' + size + 'px;height:' + size + 'px">' + inner + countHtml + '</div>';
   }
@@ -970,7 +1017,8 @@
     openReviewMistakeId: null,   // expanded review panel on the day page
     openMistakeFormReviewId: null, // expanded review panel on the mistakes tab
     openMistakeForm: false,
-    photoDraft: null
+    photoDraft: null,
+    collectionSeason: "s2"
   };
 
   // "log" (学習記録), "mistakes" (まちがいノート), "weakness" (弱点分析), and now "prep"
@@ -1091,10 +1139,11 @@
         '<p class="gacha-hint">なにが出るかな…？</p>';
     } else if (stage === "reveal") {
       var sticker = extra;
+      var revealImgDir = SEASONS[activeSeasonKey()].imgDir;
       modal.innerHTML =
         '<div class="gacha-reveal tier-' + sticker.tier + '">' +
           '<div class="gacha-reveal-glow"></div>' +
-          '<img class="gacha-reveal-photo" src="img/sticker/' + sticker.key + '.jpg" alt="' + escapeHtml(sticker.name) + '">' +
+          '<img class="gacha-reveal-photo" src="' + revealImgDir + '/' + sticker.key + '.jpg" alt="' + escapeHtml(sticker.name) + '">' +
           '<p class="celebrate-title" style="font-size:24px">' + escapeHtml(sticker.name) + '</p>' +
           '<p class="gacha-reveal-tier tier-' + sticker.tier + '">' + TIER_LABEL[sticker.tier] + '</p>' +
           '<button class="celebrate-close" data-action="close-celebrate">とじる</button>' +
@@ -1118,6 +1167,7 @@
         '<p class="gacha-hint">なにが出るかな…？</p>';
     } else if (stage === "present-reveal") {
       var pSticker = extra;
+      var presentImgDir = SEASONS[activeSeasonKey()].imgDir;
       var isLast = presentEventStep === 2;
       var actionsHtml = isLast
         ? '<button class="celebrate-close" data-action="close-celebrate">とじる</button><button class="celebrate-close" data-action="goto-collection">コレクションを見る</button>'
@@ -1126,7 +1176,7 @@
         '<p class="gacha-hint" style="margin-bottom:2px;color:#fff">プレゼント ' + (presentEventStep + 1) + ' / 3</p>' +
         '<div class="gacha-reveal tier-' + pSticker.tier + '">' +
           '<div class="gacha-reveal-glow"></div>' +
-          '<img class="gacha-reveal-photo" src="img/sticker/' + pSticker.key + '.jpg" alt="' + escapeHtml(pSticker.name) + '">' +
+          '<img class="gacha-reveal-photo" src="' + presentImgDir + '/' + pSticker.key + '.jpg" alt="' + escapeHtml(pSticker.name) + '">' +
           '<p class="celebrate-title" style="font-size:24px">' + escapeHtml(pSticker.name) + '</p>' +
           '<p class="gacha-reveal-tier tier-' + pSticker.tier + '">' + TIER_LABEL[pSticker.tier] + '</p>' +
           actionsHtml +
@@ -1147,7 +1197,7 @@
     renderCelebrateModal(dateStr, "shaking");
     setTimeout(function () {
       var sticker = drawSticker();
-      state.stickers.push({ id: uid(), key: sticker.key, date: dateStr });
+      state.stickers.push({ id: uid(), key: sticker.key, date: dateStr, season: activeSeasonKey() });
       saveState(state);
       // Always force the overlay back open for the reveal, even if a stray tap
       // during the shake somehow closed it — the sticker is already saved by now,
@@ -1178,7 +1228,7 @@
     renderCelebrateModal(null, "present-shaking");
     setTimeout(function () {
       var sticker = presentEventStep === presentEventForcedIndex ? drawStickerOfTier("super") : drawSticker();
-      state.stickers.push({ id: uid(), key: sticker.key, date: todayISO() });
+      state.stickers.push({ id: uid(), key: sticker.key, date: todayISO(), season: activeSeasonKey() });
       if (presentEventStep === 2) state.presentEventUsed = true;
       saveState(state);
       celebrateOpen = true;
@@ -1372,15 +1422,22 @@
   }
 
   function renderCollectionView() {
-    var counts = {};
-    state.stickers.forEach(function (s) { counts[s.key] = (counts[s.key] || 0) + 1; });
+    var seasonKey = app.collectionSeason || "s2";
+    var season = SEASONS[seasonKey];
+    var counts = ownedStickerCounts(seasonKey);
     var ownedCount = Object.keys(counts).length;
 
-    var cellsHtml = STICKER_CATALOG.map(function (sticker) {
+    var tabsHtml = '<div class="season-tabs">' +
+      Object.keys(SEASONS).map(function (k) {
+        return '<button class="season-tab-btn' + (k === seasonKey ? " active" : "") + '" data-action="switch-collection-season" data-season="' + k + '">' + SEASONS[k].label + '</button>';
+      }).join("") +
+    '</div>';
+
+    var cellsHtml = season.catalog.map(function (sticker) {
       var owned = !!counts[sticker.key];
-      var badgeAttrs = owned ? ' data-action="open-sticker" data-key="' + sticker.key + '"' : "";
+      var badgeAttrs = owned ? ' data-action="open-sticker" data-key="' + sticker.key + '" data-season="' + seasonKey + '"' : "";
       return '<div class="sticker-cell' + (owned ? "" : " unowned") + '">' +
-        '<div' + badgeAttrs + '>' + stickerBadgeHtml(sticker, 74, owned, counts[sticker.key] || 0) + '</div>' +
+        '<div' + badgeAttrs + '>' + stickerBadgeHtml(sticker, 74, owned, counts[sticker.key] || 0, seasonKey) + '</div>' +
         '<span class="sticker-cell-name">' + (owned ? escapeHtml(sticker.name) : "？？？") + '</span>' +
         '<span class="sticker-tier-chip tier-' + sticker.tier + '">' + TIER_SHORT_LABEL[sticker.tier] + '</span>' +
       '</div>';
@@ -1388,21 +1445,23 @@
 
     return '' +
       '<div class="page-head"><h2>シールコレクション</h2></div>' +
+      tabsHtml +
       '<div class="card">' +
-        '<p class="sticker-progress"><b>' + ownedCount + '</b> / ' + STICKER_CATALOG.length + ' しゅるい あつめた</p>' +
+        '<p class="sticker-progress"><b>' + ownedCount + '</b> / ' + season.catalog.length + ' しゅるい あつめた</p>' +
         '<div class="sticker-grid">' + cellsHtml + '</div>' +
       '</div>';
   }
 
   // Tapping a collected sticker in the grid shows it big, reusing the same
   // tier-styled photo treatment as a fresh gacha reveal (just without re-firing FX).
-  function showStickerLightbox(key) {
-    var sticker = STICKER_CATALOG.filter(function (s) { return s.key === key; })[0];
+  function showStickerLightbox(key, seasonKey) {
+    var season = SEASONS[seasonKey || activeSeasonKey()];
+    var sticker = season.catalog.filter(function (s) { return s.key === key; })[0];
     if (!sticker) return;
     document.getElementById("lightboxContent").innerHTML =
       '<div class="gacha-reveal tier-' + sticker.tier + '">' +
         '<div class="gacha-reveal-glow"></div>' +
-        '<img class="gacha-reveal-photo" src="img/sticker/' + sticker.key + '.jpg" alt="' + escapeHtml(sticker.name) + '">' +
+        '<img class="gacha-reveal-photo" src="' + season.imgDir + '/' + sticker.key + '.jpg" alt="' + escapeHtml(sticker.name) + '">' +
         '<p class="celebrate-title" style="font-size:22px">' + escapeHtml(sticker.name) + '</p>' +
         '<p class="gacha-reveal-tier tier-' + sticker.tier + '">' + TIER_LABEL[sticker.tier] + '</p>' +
         '<button class="celebrate-close" data-action="close-lightbox">とじる</button>' +
@@ -1893,8 +1952,9 @@
       return;
     }
 
-    if (action === "open-sticker") { showStickerLightbox(actionEl.getAttribute("data-key")); return; }
+    if (action === "open-sticker") { showStickerLightbox(actionEl.getAttribute("data-key"), actionEl.getAttribute("data-season")); return; }
     if (action === "close-lightbox") { hideStickerLightbox(); return; }
+    if (action === "switch-collection-season") { app.collectionSeason = actionEl.getAttribute("data-season"); render(); return; }
 
     if (action === "confirm-cancel") { hideConfirm(); return; }
     if (action === "confirm-ok") {
