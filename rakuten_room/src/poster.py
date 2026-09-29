@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import random
 import socket
 import subprocess
@@ -20,21 +21,24 @@ import time
 from pathlib import Path
 from urllib.parse import quote
 
-import pyperclip
-
 from .captions import load_captions, load_drafts, load_plan
 from .config import SESSION_DIR
 from .posted_log import posted_today, record_posted
 
 MIX_URL = "https://room.rakuten.co.jp/mix?itemcode={code}"
 COMMENT_SEL = "#collect-content"
-SUBMIT_SEL = "button.collect-btn"
+SUBMIT_SEL = "button.collect-btn:visible"
 
 CDP_PORT = 9222
+IS_LINUX = platform.system() == "Linux"
 CHROME_CANDIDATES = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
     r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
     os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+] if not IS_LINUX else [
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome",
 ]
 # 普段の Chrome とは別の、ツール専用プロファイル（ここに楽天ログインを保存）
 TOOL_PROFILE = str(SESSION_DIR / "chrome_profile")
@@ -48,7 +52,7 @@ def _find_chrome() -> str:
         if p and Path(p).exists():
             return p
     raise RuntimeError(
-        "Google Chrome が見つかりませんでした。Chrome をインストールしてください。"
+        "Chrome/Chromium が見つかりませんでした。インストールしてください。"
     )
 
 
@@ -60,16 +64,23 @@ def _port_open(port: int) -> bool:
 
 def _kill_tool_chrome() -> None:
     """ツール専用プロファイルの Chrome だけを終了する（普段の Chrome は触らない）。"""
-    ps = (
-        "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | "
-        "Where-Object { $_.CommandLine -like '*chrome_profile*' } | "
-        "ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force } catch {} }"
-    )
-    try:
-        subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                       capture_output=True, text=True, timeout=20)
-    except Exception:  # noqa: BLE001
-        pass
+    if IS_LINUX:
+        try:
+            subprocess.run(["pkill", "-f", "--", "--user-data-dir=.*chrome_profile"],
+                            capture_output=True, timeout=20)
+        except Exception:  # noqa: BLE001
+            pass
+    else:
+        ps = (
+            "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | "
+            "Where-Object { $_.CommandLine -like '*chrome_profile*' } | "
+            "ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force } catch {} }"
+        )
+        try:
+            subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                           capture_output=True, text=True, timeout=20)
+        except Exception:  # noqa: BLE001
+            pass
     time.sleep(2.0)
 
 
@@ -87,26 +98,57 @@ def _cdp_healthy() -> bool:
         return False
 
 
+def _enable_session_restore() -> None:
+    """「前回開いていたページを開く」設定にする。この設定だとChromeは再起動後も
+    セッションCookie（楽天ログインの一部）を復元するので、落ちてもログインが残る。
+    Chromeが起動していない時にだけ呼ぶこと（起動中に書き換えると上書きされる）。"""
+    import json
+
+    pref = Path(TOOL_PROFILE) / "Default" / "Preferences"
+    if not pref.exists():
+        return
+    try:
+        data = json.loads(pref.read_text(encoding="utf-8"))
+        if (data.get("session") or {}).get("restore_on_startup") == 1:
+            return
+        data.setdefault("session", {})["restore_on_startup"] = 1
+        pref.write_text(json.dumps(data), encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _start_chrome_with_debugging() -> None:
     """ツール専用プロファイルで Chrome をデバッグポート付きで起動する。
 
     普段の Chrome とは別プロファイルなので、普段の Chrome が起動中でも
     独立したプロセスとして立ち上がり、デバッグ接続できる。
+    サーバー（Linux）ではヘッドレスではなく、Xvfbの仮想画面(:99)上で通常起動する。
+    ヘッドレスはUAに"HeadlessChrome"が出るなど楽天側から自動化を見分けやすく、
+    ログインもできない（noVNC経由で仮想画面を見ながら手動ログインするため）。
     """
     chrome = _find_chrome()
     Path(TOOL_PROFILE).mkdir(parents=True, exist_ok=True)
-    subprocess.Popen(
-        [
-            chrome,
-            f"--remote-debugging-port={CDP_PORT}",
-            f"--user-data-dir={TOOL_PROFILE}",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--disable-features=Translate",
-            "https://room.rakuten.co.jp/",
-        ],
-        creationflags=getattr(subprocess, "DETACHED_PROCESS", 0),
-    )
+    _enable_session_restore()
+    args = [
+        chrome,
+        f"--remote-debugging-port={CDP_PORT}",
+        f"--user-data-dir={TOOL_PROFILE}",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-features=Translate",
+    ]
+    if IS_LINUX:
+        args += ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu",
+                 "--window-position=0,0", "--window-size=1366,900"]
+    args.append("https://room.rakuten.co.jp/")
+    if IS_LINUX:
+        # 出力を切り離さないと、呼び出し元のSSH/ジョブがChrome終了まで閉じない
+        kwargs = {"start_new_session": True,
+                  "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
+                  "env": {**os.environ, "DISPLAY": os.environ.get("ROOM_DISPLAY", ":99")}}
+    else:
+        kwargs = {"creationflags": getattr(subprocess, "DETACHED_PROCESS", 0)}
+    subprocess.Popen(args, **kwargs)
 
 
 def _launch(headless: bool = False):
@@ -161,23 +203,43 @@ def _safe_goto(page, url: str) -> None:
             print(f"  （ページ遷移の警告。無視して進みます: {exc}）")
 
 
+def _my_slug() -> str:
+    try:
+        import re
+
+        from .config import load_config
+        m = re.search(r"/(room_[0-9a-z]+|[A-Za-z0-9_.-]+)/items",
+                      load_config().get("my_room_url", ""))
+        return m.group(1) if m else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _is_logged_in(page) -> bool:
+    """未ログインでも myaccount はリダイレクトされず「フォロー」等の文字も出るため、
+    ログイン中だけページに現れる自分のROOM ID（my_room_url内のもの）で判定する。"""
     try:
         _safe_goto(page, ROOM_MY)
         try:
             page.wait_for_load_state("domcontentloaded", timeout=15000)
         except Exception:  # noqa: BLE001
             pass
-        page.wait_for_timeout(3000)
-        url = page.url
-        try:
-            html = page.content()
-        except Exception:  # noqa: BLE001
-            html = ""
-        if "login" in url or "grp01.id.rakuten" in url or "account.rakuten" in url:
-            return False
-        return ("myaccount" in url) or ("マイページ" in html) or ("フォロー" in html) \
-            or ("ログアウト" in html)
+        slug = _my_slug()
+        # Chrome起動直後は裏でSSOの自動再認証（login.account.rakuten.com を一瞬経由して
+        # 戻ってくる）が走ることがあるので、ログインページを見ても即断せず待ち続ける
+        for i in range(14):  # 最大 ~20秒
+            page.wait_for_timeout(1500)
+            try:
+                html = page.content()
+            except Exception:  # noqa: BLE001
+                continue
+            if slug and slug in html:
+                return True
+            if not slug and ("ログアウト" in html):
+                return True
+            if i == 6 and "myaccount" not in page.url:
+                _safe_goto(page, ROOM_MY)  # SSOから戻らなければ一度だけ開き直す
+        return False
     except Exception:  # noqa: BLE001
         return False
 
@@ -293,9 +355,15 @@ def _modal_text(page) -> str:
             return ""
 
 
-def _already_posted_modal(page) -> bool:
-    t = _modal_text(page)
-    return "既に" in t or "すでにコレ" in t
+def _already_posted_modal(page, wait_ms: int = 5000) -> bool:
+    """「すでにコレしている商品です」は少し遅れて出るので、しばらく待ちながら確認する
+    （即時チェックだと見逃して同じ商品を再コレしてしまった: 2026-09-30）。"""
+    for _ in range(max(1, wait_ms // 500)):
+        t = _modal_text(page)
+        if "既に" in t or "すでにコレ" in t:
+            return True
+        page.wait_for_timeout(500)
+    return False
 
 
 def _limit_reached(page) -> bool:
@@ -303,9 +371,13 @@ def _limit_reached(page) -> bool:
 
 
 def post_drafts_tabs(cfg: dict, day: str | None = None, full_day: bool = False) -> None:
-    """新規の投稿タブを一気に開き、コメント入力済みにする。
-    ユーザーは各タブで『完了』を押すだけ。
-    full_day=True なら post_batch_size を無視して今日の残り全部。"""
+    """新規の投稿を1件ずつ自動で完了まで進める（完全自動・人の操作なし）。
+    full_day=True なら post_batch_size を無視して今日の残り全部。
+
+    2026-09-26: 『完了』クリックだけ人間が押す半自動方式から、規約違反リスクを
+    受け入れて完全自動に変更（本人の明示的な判断による）。失敗した商品は
+    記録せずスキップし、次の商品に進む（ログには残るので後で人が確認できる）。
+    """
     drafts = load_drafts(day)
     captions = load_captions(day)
     if not captions:
@@ -314,6 +386,11 @@ def post_drafts_tabs(cfg: dict, day: str | None = None, full_day: bool = False) 
 
     targets = [it for it in drafts if captions.get(it["itemUrl"], "").strip()
                and it.get("itemCode")]
+    # 同じ日に複数回実行されるので、投稿履歴にある商品は確実に除外する
+    # （ROOM側の「すでにコレ」表示だけに頼ると見逃して二重コレになる）
+    from .posted_log import recently_posted_keys
+    done_keys = recently_posted_keys(int((cfg.get("exclude") or {}).get("reposted_within_days", 60)))
+    targets = [it for it in targets if (it.get("itemCode") or it.get("itemUrl")) not in done_keys]
     if not targets:
         print("投稿できる商品がありません。")
         return
@@ -331,70 +408,90 @@ def post_drafts_tabs(cfg: dict, day: str | None = None, full_day: bool = False) 
     if this_run <= 0:
         print(f"今日はすでに {done_today}/{target_count} 件投稿済みです。おつかれさまでした。")
         return
-    print(f"今日 {done_today}/{target_count} 件投稿済み → この回で最大 {this_run} 件開きます。")
+    print(f"今日 {done_today}/{target_count} 件投稿済み → この回で最大 {this_run} 件、自動で完了まで進めます。")
 
+    lo, hi = cfg.get("post_interval_seconds", [20, 45])
     pw, ctx, _browser = _launch()
     try:
         page0 = ctx.new_page()
         if not _is_logged_in(page0):
             print("楽天ROOMに未ログインです。先に login.bat を実行してください。")
+            if IS_LINUX:
+                from .notify import notify
+                notify("サーバーの楽天ROOMログインが切れています。自動投稿が止まっているので、"
+                       "Claudeに『ROOMの再ログイン』を頼んでください。",
+                       title="rakuten_room: ROOM login expired")
             return
         try:
             page0.close()
         except Exception:  # noqa: BLE001
             pass
 
-        prepared: list[dict] = []
+        posted = 0
         skipped = 0
-        print(f"新規 {this_run} 件ぶんのタブを準備します...")
+        failed = 0
         for it in targets:
-            if len(prepared) >= this_run:
+            if posted >= this_run:
                 break
             code = it["itemCode"]
+            # 商品ごとに新しいタブを開く（1つのタブを使い回すと、AngularJSが前の
+            # モーダルの『完了』ボタンを消さずに残すことがあり、ボタンが2つ存在
+            # して strict mode violation になるバグが2026-09-28に発覚したため）
             tab = ctx.new_page()
-            if not _open_mix_modal(tab, code):
-                print(f"  × モーダルが開かず: {it['itemName'][:40]}")
+            try:
+                if not _open_mix_modal(tab, code):
+                    print(f"  × モーダルが開かず、スキップ: {it['itemName'][:40]}")
+                    failed += 1
+                    continue
+                if _limit_reached(tab):
+                    print("\n⚠ 楽天ROOMの登録上限に達しています。今回はここで打ち切ります"
+                          "（次回の prune で空きができてから続きます）。")
+                    break
+                if _already_posted_modal(tab):
+                    skipped += 1
+                    print(f"  - 既にROOMにある: {it['itemName'][:40]}")
+                    record_posted(it, kind="skipped_existing")
+                    continue
+
+                caption = captions[it["itemUrl"]].strip()
+                filled = _fill_comment(tab, caption)
+                if not filled:
+                    print(f"  △ コメント入力に失敗、スキップ: {it['itemName'][:40]}")
+                    failed += 1
+                    continue
+
+                try:
+                    tab.locator(SUBMIT_SEL).first.click(timeout=8000)
+                    tab.wait_for_timeout(3000)
+                except Exception as exc:  # noqa: BLE001
+                    print(f"  × 完了クリックに失敗、スキップ: {it['itemName'][:40]}: {exc}")
+                    failed += 1
+                    continue
+
+                # クリックできても登録されていないことがあった（2026-09-29にデスクトップで
+                # 「✅」表示なのに未登録の例）ので、開き直して「すでにコレ」を確認してから記録する
+                if not (_open_mix_modal(tab, code) and _already_posted_modal(tab)):
+                    print(f"  × 完了を押したが登録を確認できず、スキップ: {it['itemName'][:40]}")
+                    failed += 1
+                    continue
+
+                record_posted(it, kind="posted")
+                posted += 1
+                print(f"  ✅ {posted}/{this_run}. {it['itemName'][:46]}")
+            finally:
                 try:
                     tab.close()
                 except Exception:  # noqa: BLE001
                     pass
-                continue
-            if _limit_reached(tab):
-                print("\n⚠ 楽天ROOMの登録上限に達しています。\n"
-                      "  prune.bat で古い投稿を削除して空きを作ってから、もう一度 post してください。")
-                return
-            if _already_posted_modal(tab):
-                skipped += 1
-                print(f"  - 既にROOMにある: {it['itemName'][:40]}")
-                record_posted(it, kind="skipped_existing")
-                try:
-                    tab.close()
-                except Exception:  # noqa: BLE001
-                    pass
-                continue
-            filled = _fill_comment(tab, it_caption := captions[it["itemUrl"]].strip())
-            n = len(prepared) + 1
-            print(f"  {n}. {'✓' if filled else '△(手動貼付)'} {it['itemName'][:46]}")
-            prepared.append(it)
+            if posted < this_run:
+                wait = random.randint(int(lo), int(hi))
+                time.sleep(wait)
 
-        if not prepared:
-            print("\n開けるタブがありませんでした（候補が全部既存 or エラー）。")
-            return
-
-        print("\n" + "=" * 64)
-        print(f"{len(prepared)} 個のタブを用意しました（既存スキップ {skipped} 件）。")
-        print("各タブで内容を確認して赤い『完了』ボタンを押してください。")
-        print("※ 連続で押しすぎるとスパム判定されることがあります。数秒あけると安心。")
-        print("全部終わったら、この画面で Enter を押してください。")
-        input("> ")
-
-        for it in prepared:
-            record_posted(it, kind="posted")
-        total_today = done_today + len(prepared)
-        print(f"\n{len(prepared)} 件を記録しました（今日の合計 {total_today}/{target_count} 件）。")
-        if total_today < target_count:
-            left = target_count - total_today
-            print(f"あと {left} 件。もう一度『投稿だけ』（または『おまかせ』）を押すと続きを投稿します。")
+        total_today = done_today + posted
+        print(f"\n{posted} 件投稿（既存スキップ {skipped} 件・失敗 {failed} 件）。"
+              f"今日の合計 {total_today}/{target_count} 件。")
+        if total_today < target_count and failed == 0 and posted < this_run:
+            print("候補が尽きました。次回の prepare で候補を増やしてください。")
     finally:
         pw.stop()
 
@@ -435,7 +532,11 @@ def post_drafts(cfg: dict, day: str | None = None, dry_run: bool = False) -> Non
                 break
             caption = captions[it["itemUrl"]].strip()
             code = it["itemCode"]
-            pyperclip.copy(caption)
+            try:
+                import pyperclip
+                pyperclip.copy(caption)
+            except Exception:  # noqa: BLE001
+                pass  # ヘッドレスサーバーにはクリップボードが無いので無視
 
             print("\n" + "=" * 72)
             print(f"[新規 {done}/{target_count}] {it['itemName'][:58]}")
@@ -471,7 +572,7 @@ def post_drafts(cfg: dict, day: str | None = None, dry_run: bool = False) -> Non
                 continue
             if ans == "y":
                 try:
-                    page.locator(SUBMIT_SEL).click(timeout=8000)
+                    page.locator(SUBMIT_SEL).first.click(timeout=8000)
                     page.wait_for_timeout(3000)
                     print("  『完了』を自動クリックしました。")
                 except Exception as exc:  # noqa: BLE001

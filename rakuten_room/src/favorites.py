@@ -42,9 +42,14 @@ def _scrape(url: str, limit: int = 60) -> list[str]:
 
     urls: list[str] = []
     with sync_playwright() as p:
-        ctx = p.chromium.launch_persistent_context(
-            user_data_dir=str(SESSION_DIR), headless=True
-        )
+        try:
+            ctx = p.chromium.launch_persistent_context(
+                user_data_dir=str(SESSION_DIR), headless=True
+            )
+        except Exception as exc:  # noqa: BLE001
+            # 同梱ブラウザ未導入のサーバー等。手動リストだけで続行する
+            print(f"  お気に入りページ用ブラウザを起動できないためスキップ: {exc.__class__.__name__}")
+            return []
         page = ctx.new_page()
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=30000)

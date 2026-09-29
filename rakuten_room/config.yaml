@@ -1,104 +1,62 @@
-# ===== 楽天ROOM 半自動投稿ツール 設定 =====
+# 楽天ROOM 投稿ツール 設定
+# 主な項目は GUI の『⚙ 設定』から変更できます（このファイルを直接編集する必要はありません）
+# scoring / per_genre / favorites などの詳細はここで調整します
 
-# 自分のROOMのURL（room_xxxx の部分）
-my_room_url: "https://room.rakuten.co.jp/room_e36e002876/items"
-
-# 1日に「実際に新規投稿する」件数（既存とかぶった分は次の候補で埋める）
-post_count: 10
-
-# 候補として選んでおく件数（post_count より多めに。かぶり吸収用のバッファ）
+my_room_url: https://room.rakuten.co.jp/room_e36e002876/items
+post_count: 15
 candidate_pool: 40
-
-# 「おまかせ」1回で開く投稿タブ数。1日1回運用なら post_count と同じでOK。
-# 朝昼夜に分けたいなら 4 などに下げる。
 post_batch_size: 10
-
-# セール・イベント日に投稿数を増やす
 sale_boost:
   enabled: true
-  # 5と0のつく日
   five_ten_day_multiplier: 1.3
-  # スーパーSALE・お買い物マラソン等
   event_multiplier: 1.8
   max_multiplier: 2.0
-  # 候補商品名にセール表記が何割あればイベント開催中とみなすか
   auto_detect: true
   event_name_ratio: 0.12
-  # 手動で期間を入れておきたいとき（自動検知より確実）。
-  # スーパーSALE: 3/6/9/12月上旬、お買い物マラソン: ほぼ毎月。楽天のイベントページで確認して追記。
   manual_events:
-    - {name: "スーパーSALE", start: "2026-09-04", end: "2026-09-11"}
-    # - {name: "お買い物マラソン", start: "2026-09-19", end: "2026-09-24"}
-
-# 上限対策の自動削除
+  - name: スーパーSALE
+    start: '2026-09-04'
+    end: '2026-09-11'
 prune:
   enabled: true
-
-  # 削除の選び方:
-  #   "oldest"  … 一覧の先頭（＝古い投稿）から順に削除
-  #   "soldout" … 売切れ・販売終了の投稿だけ削除
-  mode: "oldest"
-
-  # 安全ガード: この日付より後に投稿したものは削除しない（YYYY-MM-DD）。
-  # 空にすると無制限。2023〜2024年の古い投稿だけ消すなら "2025-01-01" など。
-  only_before: "2025-01-01"
-
-  # soldout モードのとき、反応なし(いいね0/コメント0)を優先
+  mode: oldest
+  only_before: '2025-01-01'
   prefer_zero_engagement: true
-
-  # 1回に削除する最大件数。日常の入れ替えは 15。
-  # 古い投稿を大量整理したいときは prune.bat 側で一時的に上げて使う。
   max_delete_per_run: 15
-
-  # 削除と削除の間の待ち時間（秒）。この範囲でランダム。スパム判定対策。
-  delete_interval_seconds: [3, 7]
-
-# 投稿と投稿の間の待ち時間（秒）。この範囲でランダムに待つ（スパム判定対策）
-post_interval_seconds: [60, 90]
-
-# 候補の集め方
+  delete_interval_seconds:
+  - 3
+  - 7
+post_interval_seconds:
+- 60
+- 90
 sources:
-  # 楽天市場のお気に入り商品
   favorites:
     enabled: true
-    # お気に入り一覧ページのURL。環境によって違う場合は変更する
-    url: "https://my.bookmark.rakuten.co.jp/"
-    # data/favorites.txt に楽天商品URLを1行ずつ書いておくと、それも候補に加える
-    manual_list_file: "data/favorites.txt"
-
-  # 楽天ランキング（売れ筋）
+    url: https://my.bookmark.rakuten.co.jp/
+    manual_list_file: data/favorites.txt
   ranking:
     enabled: true
-    # ランキングを取るジャンルID（0 = 総合）。
-    # 参考: https://webservice.rakuten.co.jp/documentation/ichiba-genre-search
     genre_ids:
-      - 0        # 総合
-      - 100939   # 美容・コスメ・香水
-      - 100804   # 日用品雑貨・文房具・手芸
-      - 100227   # 食品
-      - 558885   # スイーツ・お菓子
-    # 各ジャンルから上位何件を候補にするか（最大30）
+    - 0
+    - 100939
+    - 100804
+    - 100227
+    - 558885
     per_genre: 25
-
-# 「売れそう」スコアの重み（合計1.0が目安）
 scoring:
   weights:
-    review_count: 0.35     # レビュー件数が多い
-    review_average: 0.20   # 評価が高い
-    ranking_rank: 0.25     # ランキング上位
-    price_fit: 0.10        # 売れやすい価格帯に近い
-    point_rate: 0.10       # ポイント倍率が高い
-  # 一番売れやすい価格帯（円）。この中なら price_fit = 1.0
-  price_band: [1000, 8000]
-  # この条件を満たさない商品は候補から除外
+    review_count: 0.35
+    review_average: 0.2
+    ranking_rank: 0.25
+    price_fit: 0.1
+    point_rate: 0.1
+  price_band:
+  - 1000
+  - 8000
   min_review_count: 5
   min_review_average: 3.8
-
 exclude:
-  # 同じ商品をこの日数以内に再投稿しない
   reposted_within_days: 60
-
-# いいね回り・フォロー回り（慎重な半自動。楽天ROOMの公称上限よりかなり低く設定）
 engage:
   caps:
     like_per_day: 200
@@ -106,156 +64,163 @@ engage:
     follow_per_day: 80
     follow_per_hour: 15
     unfollow_per_day: 60
-  like_interval: [5, 13]      # いいねの間隔（秒・ランダム）
-  follow_interval: [8, 20]
-  unfollow_after_days: 10     # フォローしてこの日数フォロバが無ければ整理対象
-  daily_likes: 50             # 「おまかせ」1回のいいね数
-  daily_follows: 20           # 「おまかせ」1回のフォロー数
-  daily_prune: 100            # 「おまかせ」1回で削除する古い投稿の数（0 で削除なし）
-  daily_gap_minutes: [2, 6]   # おまかせのステップ間の休憩（分・ランダム）
-
-# 値下がり・過去最安値の商品を見つけてSNSに自動投稿する（完全自動、人の確認なし）
+  like_interval:
+  - 5
+  - 13
+  follow_interval:
+  - 8
+  - 20
+  unfollow_after_days: 10
+  daily_likes: 55
+  daily_follows: 25
+  daily_prune: 300
+  daily_gap_minutes:
+  - 2
+  - 6
 sns:
   enabled: true
-  # 「おまかせ」実行時に自動でこのステップも回すか
-  # サーバー常駐運用にしてからはサーバー側(src/webapp.py)が担当するため false。
-  # サーバーを使わずローカル運用だけに戻す場合は true に。
   run_in_daily: false
-  # 値下がり判定の参照期間（直近何日の最高値と比べて%OFFを計算するか）
   lookback_days: 30
-  # 何%以上安ければ対象にするか（記録上の過去最安値ならこの%未満でも対象）
   min_discount_pct: 10
-  # 同じ商品を再度SNS投稿するまでの間隔（日）
   repost_cooldown_days: 30
   threads:
     enabled: true
-    # 1回に投稿する件数
     post_count: 3
-    # 投稿と投稿の間隔（秒）。この範囲でランダム（スパム判定対策）
-    interval_seconds: [20, 45]
-    # PR表記（#として末尾ハッシュタグの先頭に付ける。景品表示法のステマ規制対応。削除しないこと）
-    disclosure: "PR"
-
-# 調査専用（`collect`コマンド）: Claude APIもThreads投稿も使わず、価格スナップショットだけ
-# 広いジャンルで集める。何度実行しても楽天APIの呼び出し回数が増えるだけで金銭コストはゼロ。
-# ここで集めたデータは insights と組み合わせて「反応が良さそうなジャンル」探しに使う。
+    interval_seconds:
+    - 20
+    - 45
+    disclosure: PR
 research:
   enabled: true
-  # sources.ranking.genre_ids に追加して価格収集の対象にするジャンル
-  # （投稿対象の選定には影響しない。ジャンルIDは楽天ジャンル検索APIで調べられる）
   extra_genre_ids:
-    - 101070   # 家電
-    - 100371   # レディースファッション
-    - 551177   # メンズファッション
-    - 216131   # キッズ・ベビー・マタニティ
-    - 100533   # キッチン用品・食器
-    - 100132   # ダイエット・健康
-    - 101213   # スポーツ・アウトドア
-    - 100026   # 本・雑誌・コミック
-    - 211742   # ペット・ペットグッズ
-    - 101164   # インテリア・寝具・収納
-
-# A8アフィリリンク（data/a8_links.yaml に登録したもの）をローテーションでThreadsに自動投稿
-# 値下がり検知ではなく「使ってみて良かった」トーンの通常紹介投稿
+  - 101070
+  - 100371
+  - 551177
+  - 216131
+  - 100533
+  - 100132
+  - 101213
+  - 100026
+  - 211742
+  - 101164
 a8:
   enabled: true
-  # 「おまかせ」実行時に自動でこのステップも回すか
-  # サーバー常駐運用にしてからはサーバー側(src/webapp.py)が担当するため false。
-  # サーバーを使わずローカル運用だけに戻す場合は true に。
   run_in_daily: false
-  # 同じリンクを再度投稿するまでの間隔（日）。リンク件数が少ないので長めに設定
   repost_cooldown_days: 10
-  # PR表記（#として末尾ハッシュタグの先頭に付ける）
-  disclosure: "PR"
-
-# 条件に依存しない投稿ネタ（値下がり・A8リンクが無くても投稿できる＝頻度を上げやすい）
-# いずれもクールダウン制御はdata/sns_posted.jsonを共用（sns/a8と同じ仕組み）
-
-# ①ジャンル別売れ筋ダイジェスト（リンクあり・PRあり）
+  disclosure: PR
 digest:
   enabled: true
   run_in_daily: false
-  # 同じジャンルを再度紹介するまでの間隔（日）
   repost_cooldown_days: 5
-  disclosure: "PR"
-
-# ②ジャンルの価格トレンド速報（リンクなし・PR不要）
+  disclosure: PR
 trend:
   enabled: true
   run_in_daily: false
-  # 直近何日間の平均価格と比べるか
   lookback_days: 7
-  # 集計に使う最低サンプル数（少なすぎるとブレるため）
   min_sample: 3
-  # この%以上の変化がなければ紹介しない
   min_pct_change: 3.0
-  # 同じジャンルを再度紹介するまでの間隔（日）
   repost_cooldown_days: 5
-
-# ③セール・お得日のリマインド（リンクなし・PR不要、既存sale_boost.manual_eventsを流用）
 calendar:
   enabled: true
   run_in_daily: false
-
-# ④ミニ知識・あるあるネタ（リンクなし・PR不要）。外部データに依存しない一番身軽なネタ
 trivia:
   enabled: true
   run_in_daily: false
-  # 同じトピックを再度扱うまでの間隔（日）
   repost_cooldown_days: 7
-  # 扱うトピック（自由に追加・編集可）
   topics:
-    - コーヒー
-    - お茶
-    - 美容・スキンケア
-    - 日用品雑貨
-    - 食品・スイーツ
-    - キッチン家電
-    - ダイエット・健康
-    - インテリア・収納
-
-# サーバー常駐（src/webapp.py）でのスケジュール。1日の中でランダムな時刻に自動実行する。
-# collect/insightsはClaude APIを使わない無料の調査なので高頻度に、
-# prepare/sns/a8/digest/trend/calendarはClaude課金＆投稿を伴うので抑えめにしてある。
+  - コーヒー
+  - お茶
+  - 美容・スキンケア
+  - 日用品雑貨
+  - 食品・スイーツ
+  - キッチン家電
+  - ダイエット・健康
+  - インテリア・収納
 server:
   enabled: true
-  collect_window: ["06:00", "23:00"]
+  collect_window:
+  - 06:00
+  - '23:00'
   collect_runs_per_day: 12
-  insights_window: ["06:00", "23:00"]
+  insights_window:
+  - 06:00
+  - '23:00'
   insights_runs_per_day: 6
-  prepare_window: ["06:00", "08:00"]
+  prepare_window:
+  - 06:00
+  - 06:45
   prepare_runs_per_day: 1
-  # 投稿系（sns/a8/digest/trend/trivia）は、Threadsの反応が良いとされる
-  # 昼休み・夜の時間帯に寄せる（1日中フラットにランダムだと人が見ていない時間にも
-  # 投稿してしまうため）。windowは["HH:MM","HH:MM"]の1組でも、
-  # [["11:30","13:30"],["19:00","22:00"]]のように複数の時間帯でも指定できる
-  sns_window: [["11:30", "13:30"], ["19:00", "22:00"]]
+  room_post_window:
+  - - 07:30
+    - 09:30
+  - - '12:00'
+    - '13:30'
+  - - '19:30'
+    - '22:30'
+  room_post_runs_per_day: 3
+  room_like_window:
+  - - '10:00'
+    - '11:30'
+  - - '15:00'
+    - '18:00'
+  room_like_runs_per_day: 2
+  room_follow_window:
+  - - '10:00'
+    - '11:30'
+  - - '15:00'
+    - '18:00'
+  room_follow_runs_per_day: 2
+  room_prune_window:
+  - - 09:30
+    - '11:30'
+  - - '14:00'
+    - '18:30'
+  - - '22:45'
+    - '23:50'
+  room_prune_runs_per_day: 3
+  sns_window:
+  - - '11:30'
+    - '13:30'
+  - - '19:00'
+    - '22:00'
   sns_runs_per_day: 2
-  a8_window: [["11:30", "13:30"], ["19:00", "22:00"]]
+  a8_window:
+  - - '11:30'
+    - '13:30'
+  - - '19:00'
+    - '22:00'
   a8_runs_per_day: 1
-  digest_window: [["11:30", "13:30"], ["19:00", "22:00"]]
+  digest_window:
+  - - '11:30'
+    - '13:30'
+  - - '19:00'
+    - '22:00'
   digest_runs_per_day: 1
-  trend_window: [["11:30", "13:30"], ["19:00", "22:00"]]
+  trend_window:
+  - - '11:30'
+    - '13:30'
+  - - '19:00'
+    - '22:00'
   trend_runs_per_day: 1
-  # calendarは「事前に気づいてもらう」通知なので、朝の時間帯のままでよい
-  calendar_window: ["07:00", "09:00"]
+  calendar_window:
+  - 07:00
+  - 09:00
   calendar_runs_per_day: 1
-  trivia_window: [["11:30", "13:30"], ["19:00", "22:00"]]
+  trivia_window:
+  - - '11:30'
+    - '13:30'
+  - - '19:00'
+    - '22:00'
   trivia_runs_per_day: 1
-  instagram_window: [["19:00", "21:00"]]
+  instagram_window:
+  - - '19:00'
+    - '21:00'
   instagram_runs_per_day: 1
-
-# Threads投稿全体（sns/a8/digest/trend/calendar/trivia合計）の1日あたり上限。
-# 個別ジョブが同じ日にたまたま重なって投稿数が想定以上に増えないよう、ここで一括管理する
 posting_limits:
   max_per_day: 4
-  # Instagramはフィード投稿の重みがThreadsより大きいので控えめに（1日1件）
   instagram_max_per_day: 1
-
-# Instagram投稿（画像必須・リンクなし、プロフィールのリンクインバイオへ誘導）
 instagram:
   enabled: true
   run_in_daily: false
-  # 同じ商品を再度投稿するまでの間隔（日）
   repost_cooldown_days: 14
-  disclosure: "PR"
+  disclosure: PR

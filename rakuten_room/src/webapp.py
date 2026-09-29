@@ -45,7 +45,35 @@ JOBS = {
     "calendar": ("Threads: セール・お得日リマインド（Claude課金・リンクなし）", True),
     "trivia": ("Threads: ミニ知識・あるあるネタ（Claude課金・リンクなし）", True),
     "instagram": ("Instagram: 売れ筋商品を画像付きで投稿（Claude課金・1日1件）", True),
+    "room_post": ("ROOM: 投稿（未準備なら準備も。完了まで自動）", True),
+    "room_like": ("ROOM: いいね回り", False),
+    "room_follow": ("ROOM: フォロー回り", False),
+    "room_prune": ("ROOM: 古い投稿の削除（登録上限対策）", False),
 }
+
+_ROOM_JOBS = {"room_post", "room_like", "room_follow", "room_prune"}
+
+
+def _per_run(cfg: dict, daily: int, job: str) -> int:
+    """1日の目標件数を、その日の実行回数で割った1回あたりの件数。"""
+    runs = int((cfg.get("server", {}) or {}).get(f"{job}_runs_per_day", 1) or 1)
+    return max(1, -(-daily // runs))
+
+
+def _run_room_job(cli, cfg: dict, name: str) -> None:
+    ec = cfg.get("engage", {}) or {}
+    if name == "room_post":
+        cli.cmd_run(cfg)
+    elif name == "room_like":
+        from .engage import like_round
+        like_round(cfg, _per_run(cfg, int(ec.get("daily_likes", 30)), name))
+    elif name == "room_follow":
+        from .engage import follow_round
+        follow_round(cfg, _per_run(cfg, int(ec.get("daily_follows", 15)), name),
+                     cli._room_slug(cfg))
+    elif name == "room_prune":
+        from .pruner import prune
+        prune(cfg, commit=True, max_delete=_per_run(cfg, int(ec.get("daily_prune", 0)), name))
 
 
 def _log(line: str) -> None:
@@ -99,6 +127,11 @@ def run_job(name: str) -> str:
                             cli.cmd_trivia(cfg)
                         elif name == "instagram":
                             cli.cmd_instagram(cfg)
+                elif name in _ROOM_JOBS:
+                    # Chromeは終了させない。楽天のログインの一部はブラウザ終了で消える
+                    # セッションCookieで保たれており、毎回落とすと数十分後にログアウト
+                    # 扱いになる（2026-09-30に実際に発生）。デスクトップ同様に開きっぱなし
+                    _run_room_job(cli, cfg, name)
                 elif name == "collect":
                     cli.cmd_collect(cfg)
                 elif name == "prepare":
