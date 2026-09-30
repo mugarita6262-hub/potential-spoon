@@ -275,10 +275,10 @@ def _post_to_threads_notified(cfg: dict, text: str, image_url: str | None = None
     return post_id
 
 
-def _post_hook_then_quote(cfg: dict, hook: str, text: str, image_url: str | None = None,
+def _post_hook_then_reply(cfg: dict, hook: str, text: str, image_url: str | None = None,
                           record_base: dict | None = None, category: str = "") -> str:
-    """商品を出さない普通の「フック投稿」を出し、それを引用する形でリンク＋#PR付きの
-    紹介投稿を出す。紹介投稿のIDを返す。
+    """商品を出さない普通の「フック投稿」を出し、それへの自分の返信（ツリー、いわゆる
+    「リンクはリプ欄」形式）としてリンク＋#PR付きの紹介投稿を出す。紹介投稿のIDを返す。
 
     全投稿が「#PR＋リンク」だと広告アカウントにしか見えず意味が無い、というユーザー判断で
     2026-09-30に変更。フック側は特定商品に触れない独立した話題なのでPR不要、商品を
@@ -299,13 +299,10 @@ def _post_hook_then_quote(cfg: dict, hook: str, text: str, image_url: str | None
             platform="threads", post_id=hook_id, category=category,
         )
     _time.sleep(random.uniform(40, 90))
-    try:
-        return post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text,
-                               image_url=image_url, quote_post_id=hook_id)
-    except Exception as exc:  # noqa: BLE001
-        print(f"  引用投稿に失敗したため通常投稿で出します: {exc}")
-        return post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text,
-                               image_url=image_url)
+    # 失敗しても通常投稿で出し直さない。応答がタイムアウトしただけで実は公開されていることがあり、
+    # 出し直すと同じ内容が2つ出る（2026-09-30に実際に発生）。その回はフック投稿だけになる
+    return post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text,
+                           image_url=image_url, reply_to_id=hook_id)
 
 
 def cmd_collect(cfg: dict) -> None:
@@ -409,7 +406,7 @@ def cmd_sns(cfg: dict) -> None:
         hook, cap = pair
         text = build_post_text(it, cap, disclosure=disclosure)
         try:
-            post_id = _post_hook_then_quote(cfg, hook, text, image_url=it.get("imageUrl") or None,
+            post_id = _post_hook_then_reply(cfg, hook, text, image_url=it.get("imageUrl") or None,
                                             record_base=it, category=it.get("genreId", ""))
             sns_record_posted(it, platform="threads", post_id=post_id,
                                category=it.get("genreId", ""))
@@ -457,7 +454,7 @@ def cmd_a8(cfg: dict) -> None:
             "itemName": link["program_name"]}
     category = link.get("genre") or link["program_name"][:30]
     try:
-        post_id = _post_hook_then_quote(cfg, hook, text, record_base=base, category=category)
+        post_id = _post_hook_then_reply(cfg, hook, text, record_base=base, category=category)
         sns_record_posted(base, platform="threads", post_id=post_id, category=category)
         print(f"✅ Threads投稿完了: {link['program_name'][:40]} -> id={post_id}")
     except Exception as exc:  # noqa: BLE001
@@ -531,7 +528,7 @@ def cmd_digest(cfg: dict) -> None:
             "itemName": f"{genre_name}ダイジェスト"}
     category = f"digest:{genre_name}"
     try:
-        post_id = _post_hook_then_quote(cfg, hook, text, record_base=base, category=category)
+        post_id = _post_hook_then_reply(cfg, hook, text, record_base=base, category=category)
         sns_record_posted(base, platform="threads", post_id=post_id, category=category)
         print(f"✅ Threads投稿完了（digest: {genre_name}） -> id={post_id}")
     except Exception as exc:  # noqa: BLE001

@@ -25,7 +25,7 @@ def _post_with_retry(url: str, data: dict, retries: int = 2, backoff: float = 5.
     """Meta側の一時的なエラー（is_transient / 5xx）は少し待って自動リトライする。"""
     last = None
     for attempt in range(retries + 1):
-        resp = requests.post(url, data=data, timeout=20)
+        resp = requests.post(url, data=data, timeout=60)
         if resp.ok:
             return resp
         last = resp
@@ -38,9 +38,11 @@ def _post_with_retry(url: str, data: dict, retries: int = 2, backoff: float = 5.
 
 def post_to_threads(access_token: str, user_id: str, text: str,
                      image_url: str | None = None,
-                     quote_post_id: str | None = None) -> str:
+                     quote_post_id: str | None = None,
+                     reply_to_id: str | None = None) -> str:
     """投稿を作成して公開し、投稿IDを返す（2段階: 作成→公開、Meta公式の手順）。
-    quote_post_id を渡すと、その投稿を引用した投稿になる。"""
+    quote_post_id を渡すとその投稿の引用、reply_to_id を渡すとその投稿への返信（ツリー）になる。
+    返信には threads_manage_replies 権限が必要（2026-09-30にトークン再取得して付与済み）。"""
     if not access_token or not user_id:
         raise RuntimeError(
             ".env の THREADS_ACCESS_TOKEN / THREADS_USER_ID が未設定です。"
@@ -55,6 +57,8 @@ def post_to_threads(access_token: str, user_id: str, text: str,
         create_params["media_type"] = "TEXT"
     if quote_post_id:
         create_params["quote_post_id"] = quote_post_id
+    if reply_to_id:
+        create_params["reply_to_id"] = reply_to_id
 
     resp = _post_with_retry(f"{API_BASE}/{user_id}/threads", create_params)
     if not resp.ok:
