@@ -37,8 +37,10 @@ def _post_with_retry(url: str, data: dict, retries: int = 2, backoff: float = 5.
 
 
 def post_to_threads(access_token: str, user_id: str, text: str,
-                     image_url: str | None = None) -> str:
-    """投稿を作成して公開し、投稿IDを返す（2段階: 作成→公開、Meta公式の手順）。"""
+                     image_url: str | None = None,
+                     quote_post_id: str | None = None) -> str:
+    """投稿を作成して公開し、投稿IDを返す（2段階: 作成→公開、Meta公式の手順）。
+    quote_post_id を渡すと、その投稿を引用した投稿になる。"""
     if not access_token or not user_id:
         raise RuntimeError(
             ".env の THREADS_ACCESS_TOKEN / THREADS_USER_ID が未設定です。"
@@ -51,6 +53,8 @@ def post_to_threads(access_token: str, user_id: str, text: str,
         create_params["image_url"] = image_url
     else:
         create_params["media_type"] = "TEXT"
+    if quote_post_id:
+        create_params["quote_post_id"] = quote_post_id
 
     resp = _post_with_retry(f"{API_BASE}/{user_id}/threads", create_params)
     if not resp.ok:

@@ -275,6 +275,39 @@ def _post_to_threads_notified(cfg: dict, text: str, image_url: str | None = None
     return post_id
 
 
+def _post_hook_then_quote(cfg: dict, hook: str, text: str, image_url: str | None = None,
+                          record_base: dict | None = None, category: str = "") -> str:
+    """商品を出さない普通の「フック投稿」を出し、それを引用する形でリンク＋#PR付きの
+    紹介投稿を出す。紹介投稿のIDを返す。
+
+    全投稿が「#PR＋リンク」だと広告アカウントにしか見えず意味が無い、というユーザー判断で
+    2026-09-30に変更。フック側は特定商品に触れない独立した話題なのでPR不要、商品を
+    紹介する引用側に#PRを付ける（フック側で商品を紹介してPRを引用側だけに置く形は
+    ステマ規制に抵触するので作らない）。フックも1投稿として記録し、1日の上限に数える。
+    """
+    import random
+    import time as _time
+
+    from .sns_posted_log import record_posted as sns_record_posted
+    from .threads_poster import post_to_threads
+
+    hook_id = _post_to_threads_notified(cfg, hook)
+    if record_base is not None:
+        sns_record_posted(
+            {"itemCode": f"hook:{record_base.get('itemCode', '')}",
+             "itemName": f"(フック) {record_base.get('itemName', '')[:40]}"},
+            platform="threads", post_id=hook_id, category=category,
+        )
+    _time.sleep(random.uniform(40, 90))
+    try:
+        return post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text,
+                               image_url=image_url, quote_post_id=hook_id)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  引用投稿に失敗したため通常投稿で出します: {exc}")
+        return post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text,
+                               image_url=image_url)
+
+
 def cmd_collect(cfg: dict) -> None:
     """調査専用: Claude APIもThreads投稿も使わず、広いジャンルの価格スナップショットだけ集める。
 
@@ -369,13 +402,15 @@ def cmd_sns(cfg: dict) -> None:
         if sns_posted_today("threads") >= max_per_day:
             print(f"  本日の投稿数が上限（{max_per_day}件）に達したため、ここで打ち切ります。")
             break
-        cap = caps.get(it["itemUrl"])
-        if not cap:
+        pair = caps.get(it["itemUrl"])
+        if not pair:
             print(f"  告知文なし、スキップ: {it['itemName'][:40]}")
             continue
+        hook, cap = pair
         text = build_post_text(it, cap, disclosure=disclosure)
         try:
-            post_id = _post_to_threads_notified(cfg, text, image_url=it.get("imageUrl") or None)
+            post_id = _post_hook_then_quote(cfg, hook, text, image_url=it.get("imageUrl") or None,
+                                            record_base=it, category=it.get("genreId", ""))
             sns_record_posted(it, platform="threads", post_id=post_id,
                                category=it.get("genreId", ""))
             posted += 1
@@ -410,21 +445,20 @@ def cmd_a8(cfg: dict) -> None:
 
     print(f"今回のA8紹介: {link['program_name'][:40]}")
     caps = generate_a8_captions([link])
-    cap = caps.get(link["program_id"])
-    if not cap:
+    pair = caps.get(link["program_id"])
+    if not pair:
         print("紹介文の生成に失敗しました。今回はスキップします。")
         return
+    hook, cap = pair
 
     disclosure = ac.get("disclosure") or "PR"
     text = build_post_text(link, cap, disclosure=disclosure)
+    base = {"itemCode": link["program_id"], "itemUrl": link["url"],
+            "itemName": link["program_name"]}
+    category = link.get("genre") or link["program_name"][:30]
     try:
-        post_id = _post_to_threads_notified(cfg, text)
-        sns_record_posted(
-            {"itemCode": link["program_id"], "itemUrl": link["url"],
-             "itemName": link["program_name"]},
-            platform="threads", post_id=post_id,
-            category=link.get("genre") or link["program_name"][:30],
-        )
+        post_id = _post_hook_then_quote(cfg, hook, text, record_base=base, category=category)
+        sns_record_posted(base, platform="threads", post_id=post_id, category=category)
         print(f"✅ Threads投稿完了: {link['program_name'][:40]} -> id={post_id}")
     except Exception as exc:  # noqa: BLE001
         print(f"❌ 投稿失敗: {link['program_name'][:40]}: {exc}")
@@ -486,20 +520,19 @@ def cmd_digest(cfg: dict) -> None:
         return
 
     print(f"今回のdigest: {genre_name}")
-    caption = generate_digest_caption(genre_name, items)
-    if not caption:
+    hook, caption = generate_digest_caption(genre_name, items)
+    if not hook or not caption:
         print("紹介文の生成に失敗しました。")
         return
 
     disclosure = dc.get("disclosure") or "PR"
     text = build_digest_post_text(items[0], caption, disclosure=disclosure)
+    base = {"itemCode": f"digest:{genre_id}", "itemUrl": items[0].get("itemUrl", ""),
+            "itemName": f"{genre_name}ダイジェスト"}
+    category = f"digest:{genre_name}"
     try:
-        post_id = _post_to_threads_notified(cfg, text)
-        sns_record_posted(
-            {"itemCode": f"digest:{genre_id}", "itemUrl": items[0].get("itemUrl", ""),
-             "itemName": f"{genre_name}ダイジェスト"},
-            platform="threads", post_id=post_id, category=f"digest:{genre_name}",
-        )
+        post_id = _post_hook_then_quote(cfg, hook, text, record_base=base, category=category)
+        sns_record_posted(base, platform="threads", post_id=post_id, category=category)
         print(f"✅ Threads投稿完了（digest: {genre_name}） -> id={post_id}")
     except Exception as exc:  # noqa: BLE001
         print(f"❌ 投稿失敗: {exc}")

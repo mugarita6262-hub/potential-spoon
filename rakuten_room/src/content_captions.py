@@ -31,6 +31,11 @@ def _extract_json_array(text: str) -> list[dict]:
 
 
 def _call(instruction: str) -> str:
+    rows = _call_rows(instruction)
+    return (rows[0].get("caption") or "").strip() if rows else ""
+
+
+def _call_rows(instruction: str) -> list[dict]:
     import anthropic
 
     client = anthropic.Anthropic()
@@ -46,8 +51,7 @@ def _call(instruction: str) -> str:
     cost = usage.input_tokens * 1e-6 + usage.output_tokens * 5e-6
     print(f"  告知文生成: 入力{usage.input_tokens}・出力{usage.output_tokens}トークン"
           f"（約${cost:.4f}）")
-    caption = (rows[0].get("caption") or "").strip() if rows else ""
-    return caption
+    return rows
 
 
 HOOK_RULES = """\
@@ -71,22 +75,51 @@ HOOK_RULES = """\
 """
 
 
-def generate_digest_caption(genre_name: str, items: list[dict]) -> str:
-    """ジャンル売れ筋トップ3の紹介文（リンクあり想定なのでPRは呼び出し側で付与）。"""
+SPLIT_RULES = """\
+# 2投稿に分ける（最重要）
+リンク付きの投稿は「フック投稿」と、それを引用する「紹介投稿」の2つに分けて書く。
+
+## hook（フック投稿。PRもリンクも付かない普通の投稿としてそれ単体で公開される）
+- 商品のジャンルにまつわる日常の話題・あるある・素朴な疑問だけで、それ単体で成立させる
+- **禁止: 商品名・ブランド名・ショップ名・具体的な価格や割引率・ランキング順位への言及、
+  「このあと」「下に」「詳しくは」「見つけた」など続きや紹介があることを匂わせる言葉**
+  （特定商品の宣伝の一部になるとPR表記が必要になるため。ステマ規制対応）
+- 1文目は目を引く短い一文、その直後に空行を1つ（文字列内に改行2つ）
+- 60〜120字、敬体・フレンドリー、口語的な相槌（「え」「地味に」「正直」）OK、絵文字は1個まで
+- **最後は思わず返信したくなる軽い問いかけで締める**
+- AI臭い紋切り型を避け、毎回違うパターンにする
+
+## caption（紹介投稿。hookを引用して、リンク・#PRをシステム側で付けて公開される）
+- 「ちなみに」「そういえば」のように、hookの話題から自然につなげる1〜2文
+- ここで初めて商品に触れ、渡した情報（値下がり・順位・魅力）を自分の言葉で1点だけ
+- 40〜90字、敬体、ハッシュタグ・PR表記・リンクは書かない（システムが付ける）
+- 誇大表現・医薬品的な効能表現・断定的な効果の保証は避ける
+"""
+
+
+def generate_digest_caption(genre_name: str, items: list[dict]) -> tuple[str, str]:
+    """ジャンル売れ筋トップ3の (フック投稿, 紹介投稿) を返す。PR・リンクは呼び出し側で付与。"""
     lines = []
     for i, it in enumerate(items[:3], 1):
         lines.append(f"{i}位: {it['itemName'][:60]}（{it['price']:,}円、"
                       f"レビュー{it['reviewCount']}件 平均{it['reviewAverage']}）")
     instruction = f"""\
 楽天市場の「{genre_name}」ジャンルの現在の売れ筋ランキングです。
-これを見て気づいたこと・意外だったことを含めて、Threads投稿用の紹介文を書いてください。
+hookはこのジャンルの日常の話題に、captionではランキングを見て気づいたこと・
+意外だったことを1点だけ書いてください。
 
-{HOOK_RULES}
+{SPLIT_RULES}
+
+# 出力形式（これ以外は何も出力しない。JSON配列のみ）
+[{{"hook": "フック投稿", "caption": "紹介投稿"}}]
 
 # ランキング情報
 {chr(10).join(lines)}
 """
-    return _call(instruction)
+    rows = _call_rows(instruction)
+    if not rows:
+        return "", ""
+    return (rows[0].get("hook") or "").strip(), (rows[0].get("caption") or "").strip()
 
 
 def generate_trend_caption(genre_name: str, pct_change: float, direction: str) -> str:

@@ -15,39 +15,15 @@ SYSTEM = """\
 コーヒー・お茶・キッチン家電など、普段の生活を少し豊かにするアイテムが好き。"""
 
 INSTRUCTION = """\
-以下の商品・サービスそれぞれについて、Threads投稿用の短い紹介文を書いてください。
-「実際に気に入って使っている・気になっている」という自然なトーンで。
+以下の商品・サービスそれぞれについて、Threads投稿を書いてください。
+hookはそのジャンルの日常の話題（例: コーヒーなら「毎朝のコーヒー、正直マンネリ気味
+じゃないですか」）、captionは「ちなみに最近これが気になってて」のように
+実際に気に入っている・気になっているという自然なトーンで、魅力を1点だけ。
 
-# 構成（最重要）
-**1文目は「フック」にする。** 商品名や説明からいきなり入らず、読み手が「ん？」と
-続きが気になる、パッと目に入る短くカジュアルな一文にする。例えば：
-  - 具体的な情景・あるある（「洗い物してる間にコーヒー冷めるの、地味にストレス」）
-  - 意外性のある一言（「実はコーヒー、豆より淹れ方の方が差が出る」）
-  - 素朴な疑問形（「毎朝のコーヒー、正直マンネリ気味じゃないですか」）
-フック文は敬体を保ちつつ、「え」「まって」「地味に」「正直」のような口語的な
-相槌・言い切りを使ってOK。堅苦しくならず、思わずつぶやいたような自然さを優先する。
-**フック文の直後に空行を1つ入れて**、2文目以降（本文）と視覚的に分ける
-（captionの文字列の中に改行を2つ＝空行として含めること）。
-2文目以降で、その流れから自然に商品の魅力につなげる。
-「【PR】」やブランド名から書き始めるのは禁止（フックにならないため）。
-
-# 条件
-- 敬体・フレンドリー（「〜です・ます」中心、「〜だ・である」禁止）
-- 1件 80〜140字（フック文＋本文＋問いかけ）
-- 具体的な魅力を1点だけ（味・香り・時短・手軽さなど。渡した情報から想像できる範囲で）
-- 絵文字は1個まで
-- ハッシュタグ・PR表記は付けない（システム側で末尾に付与するため）
-- 誇大表現・医薬品的な効能表現・断定的な効果の保証は避ける
-- 商品名をそのまま貼らず、自分の言葉で
-- **AI臭さを避ける**: 「〜なのが嬉しいポイントです」「〜という発見でした」のような
-  紋切り型の褒め方、毎回同じ書き出し、やたら整った文章構成にしない。
-  友達にふと話すときのような、多少くだけた・言い切らない言い回しでOK
-- 全部の投稿で似た構成・似たフックにならないよう、パターンを毎回変える
-- **最後は必ず「思わず返信したくなる問いかけ」で締める**（Threadsはいいね数より
-  リプライ数・会話の深さが伸びを左右するため。YES/NOで即答できる軽いものでOK）
+{split_rules}
 
 # 出力形式（これ以外は何も出力しない。JSON配列のみ）
-[{"program_id": "プログラムID", "caption": "フック文から始まる紹介文（ハッシュタグ・リンクなし）"}]
+[{{"program_id": "プログラムID", "hook": "フック投稿", "caption": "紹介投稿"}}]
 
 # 商品・サービス一覧
 """
@@ -78,15 +54,17 @@ def _extract_json_array(text: str) -> list[dict]:
     return json.loads(text[start : end + 1], strict=False)
 
 
-def generate_a8_captions(items: list[dict]) -> dict[str, str]:
-    """商品リストから紹介文を生成。{program_id: caption} を返す（PR表記・リンクは含まない）。"""
+def generate_a8_captions(items: list[dict]) -> dict[str, tuple[str, str]]:
+    """{program_id: (フック投稿, 紹介投稿)} を返す（PR表記・リンクは含まない）。"""
     import anthropic
+
+    from .content_captions import SPLIT_RULES
 
     if not items:
         return {}
 
     client = anthropic.Anthropic()
-    prompt = INSTRUCTION + _item_lines(items)
+    prompt = INSTRUCTION.format(split_rules=SPLIT_RULES) + _item_lines(items)
 
     resp = client.messages.create(
         model=MODEL,
@@ -97,12 +75,13 @@ def generate_a8_captions(items: list[dict]) -> dict[str, str]:
     text = "".join(b.text for b in resp.content if b.type == "text")
     rows = _extract_json_array(text)
 
-    result: dict[str, str] = {}
+    result: dict[str, tuple[str, str]] = {}
     for row in rows:
         pid = (row.get("program_id") or "").strip()
+        hook = (row.get("hook") or "").strip()
         cap = (row.get("caption") or "").strip()
-        if pid and cap:
-            result[pid] = cap
+        if pid and hook and cap:
+            result[pid] = (hook, cap)
 
     usage = resp.usage
     cost = usage.input_tokens * 1e-6 + usage.output_tokens * 5e-6

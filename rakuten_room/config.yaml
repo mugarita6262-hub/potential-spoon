@@ -85,7 +85,7 @@ sns:
   repost_cooldown_days: 30
   threads:
     enabled: true
-    post_count: 3
+    post_count: 1
     interval_seconds:
     - 20
     - 45
@@ -217,7 +217,7 @@ server:
     - '21:00'
   instagram_runs_per_day: 1
 posting_limits:
-  max_per_day: 4
+  max_per_day: 6
   instagram_max_per_day: 1
 instagram:
   enabled: true

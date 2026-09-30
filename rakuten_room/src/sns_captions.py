@@ -16,38 +16,16 @@ SYSTEM = """\
 Threadsに短い告知投稿を書く。"""
 
 INSTRUCTION = """\
-以下の商品それぞれについて、Threads投稿用の短い告知文を書いてください。
-「値下がりしているのを見つけたので教える」トーンで。
+以下の商品それぞれについて、Threads投稿を書いてください。
+hookはその商品ジャンルの日常の話題（例: お米なら「お米の値段、みんなどこで買うのが
+一番安いと思う？ 最近5kgじゃ全然足りない」）、captionは「ちなみに今見たら楽天でこれが
+過去最安だった」のように値下がりを見つけたことを伝えるトーンで。
+渡した値引き情報（%OFF や過去最安）はcaptionでだけ触れる。
 
-# 構成（最重要）
-**1文目は「フック」にする。** 商品名からいきなり入らず、パッと目に入る短くカジュアルな
-一文から始める。例えば：
-  - 具体的な驚き（「え、これそんなに下がってるの？って二度見した」）
-  - あるある・共感（「セール待ってた人、今がチャンスです」）
-  - 価格に触れる前のワンクッション（渡した値引き情報は2文目以降で自然に）
-フック文は敬体を保ちつつ、「え」「まって」「地味に」「正直」のような口語的な
-相槌・言い切りを使ってOK。堅苦しくならず、思わずつぶやいたような自然さを優先する。
-**フック文の直後に空行を1つ入れて**、2文目以降（本文）と視覚的に分ける
-（captionの文字列の中に改行を2つ＝空行として含めること）。
-「【PR】」から書き始めるのは禁止（フックにならないため）。
-
-# 条件
-- 敬体・フレンドリー（「〜です・ます」中心、「〜だ・である」禁止）
-- 1商品 80〜140字（フック文＋本文＋問いかけ）
-- 渡した値引き情報（%OFF や過去最安）は2文目以降で自然に触れる
-- 絵文字は1個まで
-- ハッシュタグ・PR表記は付けない（システム側で末尾に付与するため）
-- 誇大表現・煽り文句・医薬品的な効能表現は避ける
-- 商品名やキャッチコピーをそのまま貼らず、自分の言葉で
-- **AI臭さを避ける**: 「〜なのが嬉しいポイントです」のような紋切り型の褒め方、
-  毎回同じ書き出し、やたら整った文章構成にしない。
-  友達にふと話すときのような、多少くだけた・言い切らない言い回しでOK
-- 全部の投稿で似た構成・似たフックにならないよう、パターンを毎回変える
-- **最後は必ず「思わず返信したくなる問いかけ」で締める**（Threadsはいいね数より
-  リプライ数・会話の深さが伸びを左右するため。YES/NOで即答できる軽いものでOK）
+{split_rules}
 
 # 出力形式（これ以外は何も出力しない。JSON配列のみ）
-[{"itemUrl": "商品URL", "caption": "フック文から始まる告知文（ハッシュタグ・リンクなし）"}]
+[{{"itemUrl": "商品URL", "hook": "フック投稿", "caption": "紹介投稿"}}]
 
 # 商品リスト
 """
@@ -80,15 +58,17 @@ def _extract_json_array(text: str) -> list[dict]:
     return json.loads(text[start : end + 1], strict=False)
 
 
-def generate_sns_captions(items: list[dict]) -> dict[str, str]:
-    """商品リストから告知文を生成。{itemUrl: caption} を返す（PR表記・リンクは含まない）。"""
+def generate_sns_captions(items: list[dict]) -> dict[str, tuple[str, str]]:
+    """商品リストから {itemUrl: (フック投稿, 紹介投稿)} を返す（PR表記・リンクは含まない）。"""
     import anthropic
+
+    from .content_captions import SPLIT_RULES
 
     if not items:
         return {}
 
     client = anthropic.Anthropic()  # ANTHROPIC_API_KEY を環境から取得
-    prompt = INSTRUCTION + _item_lines(items)
+    prompt = INSTRUCTION.format(split_rules=SPLIT_RULES) + _item_lines(items)
 
     resp = client.messages.create(
         model=MODEL,
@@ -99,12 +79,13 @@ def generate_sns_captions(items: list[dict]) -> dict[str, str]:
     text = "".join(b.text for b in resp.content if b.type == "text")
     rows = _extract_json_array(text)
 
-    result: dict[str, str] = {}
+    result: dict[str, tuple[str, str]] = {}
     for row in rows:
         url = (row.get("itemUrl") or "").strip()
+        hook = (row.get("hook") or "").strip()
         cap = (row.get("caption") or "").strip()
-        if url and cap:
-            result[url] = cap
+        if url and hook and cap:
+            result[url] = (hook, cap)
 
     usage = resp.usage
     cost = usage.input_tokens * 1e-6 + usage.output_tokens * 5e-6
