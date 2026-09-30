@@ -36,9 +36,11 @@ CHROME_CANDIDATES = [
     r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
     os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
 ] if not IS_LINUX else [
+    # snap版Chromium(chromium-browser)は、SSHログインが無い時間帯にサービスから起動できない・
+    # snapの自動更新で落ちる、という理由で2026-09-30に全ROOMジョブが失敗した。通常の.deb版を優先
+    "/usr/bin/google-chrome",
     "/usr/bin/chromium",
     "/usr/bin/chromium-browser",
-    "/usr/bin/google-chrome",
 ]
 # 普段の Chrome とは別の、ツール専用プロファイル（ここに楽天ログインを保存）
 TOOL_PROFILE = str(SESSION_DIR / "chrome_profile")

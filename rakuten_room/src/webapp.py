@@ -201,7 +201,15 @@ def _ensure_today_schedule(cfg: dict) -> None:
         n = int(sc.get(f"{job}_runs_per_day", 0) or 0)
         if window and n:
             targets[job] = _random_times(window, n, today)
-    _schedule_state.update(date=today, targets=targets, fired=set())
+    # 日中に再起動すると、既に過ぎた時刻の予定が一気にまとめて実行されてしまう
+    # （9/15は二重投稿、9/30はROOMの投稿・削除300件が深夜に集中しかけた）。
+    # 作成時点で過ぎている予定は実行済み扱いにして飛ばす
+    now = datetime.now()
+    fired = {(job, i) for job, times in targets.items()
+             for i, t in enumerate(times) if t < now}
+    _schedule_state.update(date=today, targets=targets, fired=fired)
+    if fired:
+        _log(f"再起動のため、時刻を過ぎた予定 {len(fired)} 件はスキップします")
     _log("本日のスケジュール: " + (
         ", ".join(f"{k}={[t.strftime('%H:%M') for t in v]}" for k, v in targets.items())
         or "(設定なし)"))
