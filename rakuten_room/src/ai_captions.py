@@ -63,8 +63,10 @@ def generate_captions(items: list[dict]) -> dict[str, str]:
     """商品リストからキャプションを生成。{itemUrl: caption} を返す。"""
     import anthropic
 
+    from .content_captions import today_note
+
     client = anthropic.Anthropic()  # ANTHROPIC_API_KEY を環境から取得
-    prompt = INSTRUCTION + _item_lines(items)
+    prompt = today_note() + INSTRUCTION + _item_lines(items)
 
     resp = client.messages.create(
         model=MODEL,

@@ -543,12 +543,9 @@ def cmd_trend(cfg: dict) -> None:
     個別商品の値下がりより出現条件が緩く（ジャンル全体の平均変化で判定）、
     投稿頻度を上げやすい。リンクを含まないためPR表記も不要。
     """
-    import copy
-
     from .content_captions import build_info_post_text, generate_trend_caption
     from .insights import GENRE_NAMES
     from .rakuten_api import RakutenAPI
-    from .selector import gather_candidates
     from .sns_posted_log import posted_today as sns_posted_today
     from .sns_posted_log import record_posted as sns_record_posted
     from .sns_posted_log import recently_posted_keys
@@ -567,9 +564,18 @@ def cmd_trend(cfg: dict) -> None:
         print(exc)
         return
 
-    wide_cfg = copy.deepcopy(cfg)
-    wide_cfg["sources"]["ranking"]["genre_ids"] = _all_genre_ids(cfg)
-    candidates = gather_candidates(wide_cfg, api)
+    # 商品ごとの細かいジャンルID（例: 553785）で集計すると名前が分からず、AIが
+    # 「そのジャンル…」とぼかした意味不明な投稿になった（2026-10-01〜02）。
+    # 取得元の大分類ジャンル（名前が分かる15種）に付け替えて集計する。総合(0)は除外
+    candidates = []
+    for gid in _all_genre_ids(cfg):
+        if str(gid) == "0" or str(gid) not in GENRE_NAMES:
+            continue
+        try:
+            for it in api.ranking(int(gid), 30):
+                candidates.append({**it, "genreId": str(gid)})
+        except Exception as exc:  # noqa: BLE001
+            print(f"  ランキング genre={gid} 失敗: {exc}")
 
     trends = genre_trend(candidates, lookback_days=int(tc.get("lookback_days", 7)),
                           min_sample=int(tc.get("min_sample", 3)))

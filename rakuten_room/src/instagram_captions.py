@@ -59,6 +59,8 @@ def generate_instagram_caption(item: dict) -> str:
     """商品1件からキャプションを生成して返す（ハッシュタグ・PR表記・リンク案内なし）。"""
     import anthropic
 
+    from .content_captions import today_note
+
     client = anthropic.Anthropic()
     lines = (
         f"商品名: {item['itemName'][:100]}\n"
@@ -69,7 +71,7 @@ def generate_instagram_caption(item: dict) -> str:
         model=MODEL,
         max_tokens=1000,
         system=SYSTEM,
-        messages=[{"role": "user", "content": INSTRUCTION + lines}],
+        messages=[{"role": "user", "content": today_note() + INSTRUCTION + lines}],
     )
     text = "".join(b.text for b in resp.content if b.type == "text")
     rows = _extract_json_array(text)

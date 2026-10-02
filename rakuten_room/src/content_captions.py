@@ -30,6 +30,18 @@ def _extract_json_array(text: str) -> list[dict]:
     return json.loads(text[start : end + 1], strict=False)
 
 
+def today_note() -> str:
+    """AIは今日の日付を知らないので、季節外れの話題（10月に「春の模様替え」等）を書く。
+    投稿文生成のプロンプトには必ずこれを付ける。"""
+    from datetime import date
+
+    d = date.today()
+    season = {12: "冬", 1: "冬", 2: "冬", 3: "春", 4: "春", 5: "春",
+              6: "夏", 7: "夏", 8: "夏", 9: "秋", 10: "秋", 11: "秋"}[d.month]
+    return (f"# 今日の日付\n{d.year}年{d.month}月{d.day}日（季節は{season}）。"
+            "季節やイベントに触れるときは、この時期に合ったものだけにすること。\n\n")
+
+
 def _call(instruction: str) -> str:
     rows = _call_rows(instruction)
     return (rows[0].get("caption") or "").strip() if rows else ""
@@ -43,7 +55,7 @@ def _call_rows(instruction: str) -> list[dict]:
         model=MODEL,
         max_tokens=1000,
         system=SYSTEM,
-        messages=[{"role": "user", "content": instruction}],
+        messages=[{"role": "user", "content": today_note() + instruction}],
     )
     text = "".join(b.text for b in resp.content if b.type == "text")
     rows = _extract_json_array(text)

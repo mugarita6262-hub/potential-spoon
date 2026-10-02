@@ -58,13 +58,13 @@ def generate_a8_captions(items: list[dict]) -> dict[str, tuple[str, str]]:
     """{program_id: (フック投稿, 紹介投稿)} を返す（PR表記・リンクは含まない）。"""
     import anthropic
 
-    from .content_captions import SPLIT_RULES
+    from .content_captions import SPLIT_RULES, today_note
 
     if not items:
         return {}
 
     client = anthropic.Anthropic()
-    prompt = INSTRUCTION.format(split_rules=SPLIT_RULES) + _item_lines(items)
+    prompt = today_note() + INSTRUCTION.format(split_rules=SPLIT_RULES) + _item_lines(items)
 
     resp = client.messages.create(
         model=MODEL,
