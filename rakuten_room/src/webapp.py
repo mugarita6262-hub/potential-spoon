@@ -180,6 +180,11 @@ def _random_times(window: list, n: int, today: date) -> list[datetime]:
         return []
 
     times = []
+    if 1 < n <= len(spans):
+        # 回数が時間帯の数以下なら、別々の時間帯に1回ずつ（昼2回に固まる等を防ぐ）
+        for start, span in random.sample(spans, n):
+            times.append(start + timedelta(seconds=random.uniform(0, span)))
+        return sorted(times)
     for _ in range(n):
         r = random.uniform(0, total)
         for start, span in spans:
