@@ -107,11 +107,22 @@ def report_funnel(days: int = 14) -> dict:
         lv = int(r["insights"].get("views") or 0)
         pairs.append({"name": r.get("itemName", "")[:30], "posted_at": r["posted_at"],
                       "hook_views": hv, "link_views": lv,
+                      # A/Bテスト開始(10/03)より前は全てツリー
+                      "mode": r.get("link_mode") or "reply",
                       "rate": round(lv / hv * 100, 1) if hv else 0.0})
-    hv_sum = sum(p["hook_views"] for p in pairs)
-    lv_sum = sum(p["link_views"] for p in pairs)
+
+    def _rate(ps: list[dict]) -> float:
+        hv_sum = sum(p["hook_views"] for p in ps)
+        return round(sum(p["link_views"] for p in ps) / hv_sum * 100, 1) if hv_sum else 0.0
+
+    by_mode = {}
+    for mode in ("reply", "quote"):
+        ps = [p for p in pairs if p["mode"] == mode]
+        if ps:
+            by_mode[mode] = {"count": len(ps), "rate": _rate(ps),
+                             "avg_link_views": round(sum(p["link_views"] for p in ps) / len(ps), 1)}
     return {"pairs": sorted(pairs, key=lambda p: p["posted_at"]),
-            "total_rate": round(lv_sum / hv_sum * 100, 1) if hv_sum else 0.0}
+            "total_rate": _rate(pairs), "by_mode": by_mode}
 
 
 def report_by_category() -> list[dict]:

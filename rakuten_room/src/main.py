@@ -276,9 +276,13 @@ def _post_to_threads_notified(cfg: dict, text: str, image_url: str | None = None
 
 
 def _post_hook_then_reply(cfg: dict, hook: str, text: str, image_url: str | None = None,
-                          record_base: dict | None = None, category: str = "") -> str:
-    """商品を出さない普通の「フック投稿」を出し、それへの自分の返信（ツリー、いわゆる
-    「リンクはリプ欄」形式）としてリンク＋#PR付きの紹介投稿を出す。紹介投稿のIDを返す。
+                          record_base: dict | None = None,
+                          category: str = "") -> tuple[str, str]:
+    """商品を出さない普通の「フック投稿」を出し、リンク＋#PR付きの紹介投稿を続けて出す。
+    (紹介投稿のID, 出し方) を返す。出し方は "reply"（ツリー。いわゆる「リンクはリプ欄」）と
+    "quote"（フックを引用した通常投稿）を交互にする A/B テスト中（2026-10-03〜）。
+    ツリーだとリンク投稿がフックの0.9%しか見られていないため、タイムラインに直接出る
+    引用の方が見られるかを比べる。結果は insights の到達率で形式別に出る。
 
     全投稿が「#PR＋リンク」だと広告アカウントにしか見えず意味が無い、というユーザー判断で
     2026-09-30に変更。フック側は特定商品に触れない独立した話題なのでPR不要、商品を
@@ -288,9 +292,11 @@ def _post_hook_then_reply(cfg: dict, hook: str, text: str, image_url: str | None
     import random
     import time as _time
 
+    from .sns_posted_log import last_link_mode
     from .sns_posted_log import record_posted as sns_record_posted
     from .threads_poster import post_to_threads
 
+    mode = "quote" if last_link_mode() == "reply" else "reply"
     hook_id = _post_to_threads_notified(cfg, hook)
     if record_base is not None:
         sns_record_posted(
@@ -301,8 +307,14 @@ def _post_hook_then_reply(cfg: dict, hook: str, text: str, image_url: str | None
     _time.sleep(random.uniform(40, 90))
     # 失敗しても通常投稿で出し直さない。応答がタイムアウトしただけで実は公開されていることがあり、
     # 出し直すと同じ内容が2つ出る（2026-09-30に実際に発生）。その回はフック投稿だけになる
-    return post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text,
-                           image_url=image_url, reply_to_id=hook_id)
+    if mode == "quote":
+        post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text,
+                                  image_url=image_url, quote_post_id=hook_id)
+    else:
+        post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"], text,
+                                  image_url=image_url, reply_to_id=hook_id)
+    print(f"  リンク投稿の出し方: {'引用' if mode == 'quote' else 'ツリー（リプ欄）'}")
+    return post_id, mode
 
 
 def cmd_collect(cfg: dict) -> None:
@@ -406,10 +418,11 @@ def cmd_sns(cfg: dict) -> None:
         hook, cap = pair
         text = build_post_text(it, cap, disclosure=disclosure)
         try:
-            post_id = _post_hook_then_reply(cfg, hook, text, image_url=it.get("imageUrl") or None,
-                                            record_base=it, category=it.get("genreId", ""))
+            post_id, mode = _post_hook_then_reply(
+                cfg, hook, text, image_url=it.get("imageUrl") or None,
+                record_base=it, category=it.get("genreId", ""))
             sns_record_posted(it, platform="threads", post_id=post_id,
-                               category=it.get("genreId", ""))
+                               category=it.get("genreId", ""), link_mode=mode)
             posted += 1
             print(f"✅ Threads投稿完了: {it['itemName'][:40]} -> id={post_id}")
         except Exception as exc:  # noqa: BLE001
@@ -454,8 +467,9 @@ def cmd_a8(cfg: dict) -> None:
             "itemName": link["program_name"]}
     category = link.get("genre") or link["program_name"][:30]
     try:
-        post_id = _post_hook_then_reply(cfg, hook, text, record_base=base, category=category)
-        sns_record_posted(base, platform="threads", post_id=post_id, category=category)
+        post_id, mode = _post_hook_then_reply(cfg, hook, text, record_base=base, category=category)
+        sns_record_posted(base, platform="threads", post_id=post_id, category=category,
+                          link_mode=mode)
         print(f"✅ Threads投稿完了: {link['program_name'][:40]} -> id={post_id}")
     except Exception as exc:  # noqa: BLE001
         print(f"❌ 投稿失敗: {link['program_name'][:40]}: {exc}")
@@ -528,8 +542,9 @@ def cmd_digest(cfg: dict) -> None:
             "itemName": f"{genre_name}ダイジェスト"}
     category = f"digest:{genre_name}"
     try:
-        post_id = _post_hook_then_reply(cfg, hook, text, record_base=base, category=category)
-        sns_record_posted(base, platform="threads", post_id=post_id, category=category)
+        post_id, mode = _post_hook_then_reply(cfg, hook, text, record_base=base, category=category)
+        sns_record_posted(base, platform="threads", post_id=post_id, category=category,
+                          link_mode=mode)
         print(f"✅ Threads投稿完了（digest: {genre_name}） -> id={post_id}")
     except Exception as exc:  # noqa: BLE001
         print(f"❌ 投稿失敗: {exc}")
@@ -848,10 +863,14 @@ def cmd_insights(cfg: dict) -> None:
 
     fn = report_funnel()
     if fn["pairs"]:
-        print(f"フック→リプ欄リンクの到達率（直近14日）: {fn['total_rate']}%")
+        print(f"フック→リンク投稿の到達率（直近14日）: {fn['total_rate']}%")
+        label = {"reply": "ツリー（リプ欄）", "quote": "引用"}
+        for mode, s in fn["by_mode"].items():
+            print(f"  {label[mode]}: {s['count']}組 / 到達率 {s['rate']}% / "
+                  f"リンク投稿の平均表示 {s['avg_link_views']}回")
         for p in fn["pairs"][-6:]:
-            print(f"  {p['posted_at'][5:16]} フック{p['hook_views']:>5} → リンク{p['link_views']:>4}"
-                  f"（{p['rate']}%） {p['name']}")
+            print(f"  {p['posted_at'][5:16]} [{label[p['mode']]}] フック{p['hook_views']:>5} → "
+                  f"リンク{p['link_views']:>4}（{p['rate']}%） {p['name']}")
         print()
 
     rows = report_by_category()

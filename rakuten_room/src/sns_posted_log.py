@@ -33,11 +33,20 @@ def recently_posted_keys(within_days: int, platform: str | None = None) -> set[s
     return keys
 
 
+def last_link_mode() -> str:
+    """直近のリンク投稿がツリー(reply)と引用(quote)のどちらだったか（A/B交互出し用）。"""
+    for rec in reversed(load_posted()):
+        if rec.get("link_mode"):
+            return rec["link_mode"]
+    return ""
+
+
 def record_posted(item: dict, platform: str, post_id: str = "",
-                   category: str = "") -> None:
+                   category: str = "", **extra) -> None:
     """post_id・category を渡しておくと、後で insights コマンドが反応を集計できる。"""
     log = load_posted()
     log.append({
+        **extra,
         "itemCode": item.get("itemCode", ""),
         "itemUrl": item.get("itemUrl", ""),
         "itemName": item.get("itemName", ""),
