@@ -15,6 +15,7 @@ from .threads_poster import get_media_insights
 MIN_AGE_HOURS = 24
 # 一度取得したら、この時間内は再取得しない（無駄なAPI呼び出しを避ける）
 RESYNC_AFTER_HOURS = 24
+FREEZE_AFTER_DAYS = 7
 
 # よく使うRakutenジャンルIDの表示名
 # （config.yamlのsources.ranking.genre_ids ＋ research.extra_genre_ids に対応）
@@ -48,13 +49,17 @@ def sync_insights(access_token: str) -> int:
     updated = 0
     for rec in log:
         post_id = rec.get("post_id")
-        if not post_id:
+        if not post_id or rec.get("deleted"):
             continue
         try:
             posted_at = datetime.fromisoformat(rec["posted_at"])
         except (KeyError, ValueError):
             continue
         if now - posted_at < timedelta(hours=MIN_AGE_HOURS):
+            continue
+        # 表示回数は数日でほぼ止まる。古い投稿まで毎日取り直すと、Threads APIが遅い時に
+        # 1回の集計が10分以上かかり、その間ほかのジョブが待たされるので打ち切る
+        if rec.get("insights") and now - posted_at > timedelta(days=FREEZE_AFTER_DAYS):
             continue
         synced_at = rec.get("insights_synced_at")
         if synced_at:
@@ -68,6 +73,11 @@ def sync_insights(access_token: str) -> int:
             rec["insights_synced_at"] = now.isoformat(timespec="seconds")
             updated += 1
         except Exception as exc:  # noqa: BLE001
+            if "Unsupported get request" in str(exc):
+                # 手動削除された投稿（二重投稿の片付け等）。以後は取りに行かず集計からも外す
+                rec["deleted"] = True
+                updated += 1
+                continue
             print(f"  インサイト取得失敗（{rec.get('itemName', '')[:30]}）: {exc}")
 
     if updated:
@@ -77,12 +87,39 @@ def sync_insights(access_token: str) -> int:
     return updated
 
 
+def report_funnel(days: int = 14) -> dict:
+    """フック投稿（PR無し）→ リプ欄のリンク投稿、に何割の人が進んでいるか。
+
+    リンク投稿の閲覧数がフック投稿の閲覧数の何%か、をペアごとに出す。
+    フック形式（2026-09-30〜）の効果を数字で追うための指標。
+    """
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    recs = [r for r in load_posted()
+            if r.get("platform") == "threads" and r.get("insights") and not r.get("deleted")
+            and r.get("posted_at", "") >= cutoff]
+    hooks = {r["itemCode"][len("hook:"):]: r for r in recs if r.get("itemCode", "").startswith("hook:")}
+    pairs = []
+    for r in recs:
+        hook = hooks.get(r.get("itemCode", ""))
+        if not hook or r["posted_at"] < hook["posted_at"]:
+            continue
+        hv = int(hook["insights"].get("views") or 0)
+        lv = int(r["insights"].get("views") or 0)
+        pairs.append({"name": r.get("itemName", "")[:30], "posted_at": r["posted_at"],
+                      "hook_views": hv, "link_views": lv,
+                      "rate": round(lv / hv * 100, 1) if hv else 0.0})
+    hv_sum = sum(p["hook_views"] for p in pairs)
+    lv_sum = sum(p["link_views"] for p in pairs)
+    return {"pairs": sorted(pairs, key=lambda p: p["posted_at"]),
+            "total_rate": round(lv_sum / hv_sum * 100, 1) if hv_sum else 0.0}
+
+
 def report_by_category() -> list[dict]:
     """category（Rakutenジャンル・A8プログラム等）別に平均反応を集計し、良い順に返す。"""
     buckets: dict[str, dict] = {}
     for rec in load_posted():
         insights = rec.get("insights")
-        if not insights:
+        if not insights or rec.get("deleted"):
             continue
         cat = rec.get("category") or "不明"
         b = buckets.setdefault(cat, {"count": 0, "likes": 0, "views": 0,

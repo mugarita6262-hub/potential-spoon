@@ -833,7 +833,7 @@ def cmd_reply(target_text: str) -> None:
 
 def cmd_insights(cfg: dict) -> None:
     """Threads投稿の反応（いいね・閲覧数）をジャンル・商品別に集計して表示する。"""
-    from .insights import report_by_category, sync_insights
+    from .insights import report_by_category, report_funnel, sync_insights
 
     if not cfg.get("_threads_token"):
         print(".env の THREADS_ACCESS_TOKEN が未設定です。")
@@ -845,6 +845,14 @@ def cmd_insights(cfg: dict) -> None:
         print(f"  {n}件のインサイトを更新しました。\n")
     except Exception as exc:  # noqa: BLE001
         print(f"  インサイト取得でエラー: {exc}\n")
+
+    fn = report_funnel()
+    if fn["pairs"]:
+        print(f"フック→リプ欄リンクの到達率（直近14日）: {fn['total_rate']}%")
+        for p in fn["pairs"][-6:]:
+            print(f"  {p['posted_at'][5:16]} フック{p['hook_views']:>5} → リンク{p['link_views']:>4}"
+                  f"（{p['rate']}%） {p['name']}")
+        print()
 
     rows = report_by_category()
     if not rows:
