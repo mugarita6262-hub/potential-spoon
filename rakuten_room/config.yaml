@@ -136,6 +136,14 @@ trivia:
   - キッチン家電
   - ダイエット・健康
   - インテリア・収納
+  - 掃除・洗濯
+  - 料理・時短
+  - 節約・家計
+  - 子育て
+  - 睡眠
+  - 季節の過ごし方
+  - ペット
+  - 防災・備蓄
 server:
   enabled: true
   collect_window:
@@ -211,7 +219,7 @@ server:
     - '13:30'
   - - '19:00'
     - '22:00'
-  trivia_runs_per_day: 1
+  trivia_runs_per_day: 2
   instagram_window:
   - - '19:00'
     - '21:00'
