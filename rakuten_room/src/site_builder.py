@@ -44,6 +44,22 @@ GENRES = [
      "lead": "毎日のごはんとケア用品は、続けやすさと値段のバランスで。",
      "keywords": ["ドッグフード", "キャットフード", "猫砂", "ペット おやつ"],
      "a8_genres": ["ペット"]},
+    {"slug": "water", "name": "水・飲料", "emoji": "💧",
+     "lead": "重くてかさばる飲み物こそ、まとめ買いの単価で差がつきます。",
+     "keywords": ["ミネラルウォーター 2L", "炭酸水 500ml", "お茶 ペットボトル", "野菜ジュース"],
+     "a8_genres": ["飲料・カフェ", "水・飲料"]},
+    {"slug": "rice", "name": "お米・食品", "emoji": "🍚",
+     "lead": "値動きの大きいお米は、買うタイミングで年間の出費が変わります。",
+     "keywords": ["お米 10kg", "無洗米", "パックご飯", "レトルトカレー"],
+     "a8_genres": ["食品・宅食", "お米・食品"]},
+    {"slug": "contact", "name": "コンタクトレンズ", "emoji": "👁️",
+     "lead": "毎月買うものだから、同じレンズを少しでも安く。",
+     "keywords": ["ワンデー コンタクト", "2ウィーク コンタクト", "カラコン ワンデー", "コンタクト 保存液"],
+     "a8_genres": ["コンタクト"]},
+    {"slug": "baby", "name": "ベビー・おむつ", "emoji": "👶",
+     "lead": "おむつやおしりふきは、まとめ買いのタイミングが家計の味方です。",
+     "keywords": ["おむつ テープ", "おむつ パンツ", "おしりふき", "粉ミルク"],
+     "a8_genres": ["ベビー・キッズ"]},
 ]
 
 MIN_REVIEWS = 20
@@ -143,7 +159,7 @@ def rankings(items: list[dict], hist: dict) -> tuple[list[dict], list[dict]]:
 E = html.escape
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "site_assets"
 GENRE_BY_SLUG = {g["slug"]: g for g in GENRES}
-GENRE_IMG = {"coffee": "coffee", "sleep": "sleep", "kitchen": "kitchen", "pet": "pet"}
+GENRE_IMG = {g["slug"]: g["slug"] for g in GENRES}
 GA4_ID = "G-MJGWNG8KND"
 GA4_TAG = f"""<script async src="https://www.googletagmanager.com/gtag/js?id={GA4_ID}"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}
@@ -256,18 +272,28 @@ def _a8_links(genre: dict) -> list[dict]:
         return []
 
 
+def _svc_name(name: str, n: int = 60) -> str:
+    """A8の案件名は【】内がブランド名のことが多いので、括弧だけ外して中身は残す。"""
+    name = re.sub(r"[【】\[\]「」]", " ", name)
+    name = re.sub(r"\s+", " ", name).strip()
+    return name[:n] + ("…" if len(name) > n else "")
+
+
 def _a8_box(genre: dict) -> str:
     links = _a8_links(genre)
     if not links:
         return ""
-    lis = "".join(
-        f'<li><a href="{E(l["url"])}" rel="nofollow sponsored noopener" target="_blank">'
-        f'<b>{E(_short_name(l["program_name"], 48))}</b><span>{E(l.get("note", "")[:60])}</span></a></li>'
+    cards = "".join(
+        f'<li class="svc"><div class="svc-body"><b>{E(_svc_name(l["program_name"]))}</b>'
+        f'<span>{E(l.get("note", "")[:80])}</span></div>'
+        f'<a class="btn-svc" href="{E(l["url"])}" rel="nofollow sponsored noopener" target="_blank">公式サイトを見る</a></li>'
         for l in links)
     return f"""
-<section class="section" id="services" aria-labelledby="h-services">
-  <h2 id="h-services">あわせて検討したいサービス <span class="pr">PR</span></h2>
-  <ul class="service-list">{lis}</ul>
+<section class="services" id="services" aria-labelledby="h-services">
+  <div class="services-head"><span class="pr">PR</span>
+  <h2 id="h-services">{E(genre["name"])}を探している人におすすめのサービス</h2></div>
+  <p class="basis">お店で買うより続けやすい、定期便・お試しセットなどのサービスです。</p>
+  <ul class="svc-list">{cards}</ul>
 </section>"""
 
 
@@ -392,11 +418,17 @@ img{max-width:100%;display:block}
 .prbar{background:#2d2822;color:#e9e0d3;font-size:12px;text-align:center;padding:5px 12px}
 .site-header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.88);
 backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
-.site-header .wrap{display:flex;align-items:center;gap:16px;min-height:60px}
+.site-header .hrow{display:flex;align-items:center;gap:16px;min-height:58px}
+.site-header .hnav{padding-bottom:6px}
+.sbox{margin-left:auto;display:flex;align-items:center;flex:0 1 380px;background:#f4efe8;border:1px solid var(--line);
+border-radius:999px;padding:0 6px 0 14px}
+.sbox input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:15px;padding:9px 0;outline:none;color:var(--ink)}
+.sbox button{border:0;background:var(--brand);color:#fff;border-radius:999px;padding:6px 14px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.sbox:focus-within{border-color:var(--brand);background:#fff}
 .logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:19px;text-decoration:none;white-space:nowrap}
 .logo svg{flex:none}
 .logo em{font-style:normal;color:var(--brand)}
-.gnav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin-left:auto}
+.gnav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
 .gnav::-webkit-scrollbar{display:none}
 .gnav a{white-space:nowrap;font-size:14px;font-weight:600;text-decoration:none;padding:7px 12px;border-radius:999px;color:var(--sub)}
 .gnav a:hover,.gnav a[aria-current]{background:var(--brand-soft);color:var(--brand-dark)}
@@ -426,7 +458,19 @@ border-radius:var(--radius);padding:18px 20px;margin:-22px 0 8px;position:relati
 .summary p{margin:0}
 .summary ul{margin:8px 0 0;padding-left:20px}
 .summary .stamp{display:block;margin-top:8px}
-.toc-pills{display:flex;gap:8px;overflow-x:auto;padding:14px 0 4px;scrollbar-width:none}
+.toc-pills{display:flex;gap:8px;overflow-x:auto;padding:10px 0;scrollbar-width:none;position:sticky;
+top:var(--hdr-h,108px);z-index:15;background:var(--bg);margin:0 -18px;padding-left:18px;padding-right:18px}
+.toc-pills a.on{background:var(--brand);border-color:var(--brand);color:#fff}
+section[id],h2[id],.item[id]{scroll-margin-top:calc(var(--hdr-h,108px) + 64px)}
+.totop{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;width:46px;height:46px;border-radius:50%;
+border:0;background:var(--ink);color:#fff;font-size:20px;box-shadow:0 6px 18px rgba(0,0,0,.2);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s}
+.totop.show{opacity:.9;pointer-events:auto}
+.related .gcards{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+.related .gcard div{padding:10px 12px}.related .gcard b{font-size:15px}
+.sresult{display:grid;gap:10px;list-style:none;margin:0;padding:0}
+.sresult a{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;text-decoration:none}
+.sresult img{width:64px;height:64px;object-fit:contain;border-radius:8px;background:#faf7f2;flex:none}
+.sresult b{display:block;font-size:14px;line-height:1.5}.sresult small{color:var(--muted)}
 .toc-pills a{white-space:nowrap;text-decoration:none;font-size:14px;font-weight:600;background:var(--surface);
 border:1px solid var(--line);border-radius:999px;padding:7px 14px}
 .toc-pills a:hover{border-color:var(--brand);color:var(--brand)}
@@ -486,6 +530,18 @@ overflow:hidden;box-shadow:var(--shadow);transition:transform .15s,box-shadow .1
 .gcard .tag{display:inline-block;margin-top:8px;font-size:12px;font-weight:700;color:var(--brand-dark);background:var(--brand-soft);
 border-radius:6px;padding:1px 8px}
 /* services, guides, faq */
+.services{margin:28px 0;background:linear-gradient(135deg,#fff6ef 0%,#fdebdf 100%);border:2px solid #f0c9b0;
+border-radius:var(--radius);padding:20px clamp(14px,3vw,24px);box-shadow:var(--shadow)}
+.services-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.services h2{font-size:clamp(18px,2.6vw,22px);margin:0;line-height:1.4}
+.svc-list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.svc{background:#fff;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;justify-content:space-between;
+border:1px solid #f0d7c6}
+.svc b{display:block;font-size:16px;line-height:1.45}
+.svc span{display:block;font-size:13px;color:var(--sub);margin-top:4px}
+.btn-svc{display:block;text-align:center;background:var(--green);color:#fff;text-decoration:none;font-weight:700;
+padding:11px 16px;border-radius:999px}
+.btn-svc:hover{background:#225f50}
 .service-list,.guide-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .service-list a,.guide-list a{display:block;text-decoration:none;background:var(--surface);border:1px solid var(--line);
 border-radius:14px;padding:14px 16px}
@@ -517,8 +573,9 @@ vertical-align:middle;font-weight:600}
 .fcols ul{list-style:none;margin:0;padding:0;line-height:2}
 .fcols a{text-decoration:none}
 @media (max-width:560px){
-.site-header .wrap{flex-wrap:wrap;gap:0;padding-top:8px}
-.gnav{margin-left:-6px;width:calc(100% + 12px);padding-bottom:8px}
+.site-header .hrow{gap:10px;min-height:52px}
+.logo span{display:none}
+.sbox{flex:1 1 auto}
 .item{grid-template-columns:28px 84px 1fr;gap:10px;padding:14px}
 .rank{width:28px;height:28px;font-size:13px}
 .thumb img,.noimg{width:84px;height:84px}
@@ -534,7 +591,8 @@ LOGO_SVG = ('<svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true">
 
 
 def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
-          og_image: str = "/img/hero.jpg", ld: str = "", og_type: str = "website") -> str:
+          og_image: str = "/img/hero.jpg", ld: str = "", og_type: str = "website", noindex: bool = False) -> str:
+    robots = "noindex,follow" if noindex else "index,follow,max-image-preview:large"
     cur_attr = ' aria-current="page"'
     nav = "".join(f'<a href="/{g["slug"]}/"{cur_attr if g["slug"] == current else ""}>'
                   f'{E(g["name"])}</a>' for g in GENRES)
@@ -547,7 +605,7 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 <title>{E(full_title)}</title>
 <meta name="description" content="{E(desc)}">
 <link rel="canonical" href="{SITE_URL}{path}">
-<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="robots" content="{robots}">
 <meta name="theme-color" content="#b8562f">
 <meta property="og:site_name" content="{SITE_NAME}"><meta property="og:type" content="{og_type}">
 <meta property="og:title" content="{E(full_title)}"><meta property="og:description" content="{E(desc)}">
@@ -560,11 +618,20 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 {ld}
 </head><body>
 <div class="prbar">当サイトはアフィリエイト広告（楽天アフィリエイト・A8.net）を利用しています</div>
-<header class="site-header"><div class="wrap">
-<a class="logo" href="/" aria-label="{SITE_NAME} トップ">{LOGO_SVG}<span>買い時<em>ナビ</em></span></a>
-<nav class="gnav" aria-label="ジャンル">{nav}</nav>
-</div></header>
+<header class="site-header" id="hdr">
+<div class="wrap hrow"><a class="logo" href="/" aria-label="{SITE_NAME} トップ">{LOGO_SVG}<span>買い時<em>ナビ</em></span></a>
+<form class="sbox" action="/search/" method="get" role="search"><input type="search" name="q" placeholder="商品名・ジャンルで探す" aria-label="サイト内検索" enterkeyhint="search"><button type="submit">検索</button></form></div>
+<div class="wrap hnav"><nav class="gnav" aria-label="ジャンル">{nav}</nav></div>
+</header>
 <main>{body}</main>
+<button class="totop" type="button" aria-label="ページ上部へ" onclick="scrollTo({{top:0,behavior:'smooth'}})">↑</button>
+<script>(function(){{var h=document.getElementById('hdr'),r=document.documentElement;
+function s(){{r.style.setProperty('--hdr-h',h.offsetHeight+'px')}}s();addEventListener('resize',s);
+var t=document.querySelector('.totop');addEventListener('scroll',function(){{t.classList.toggle('show',scrollY>600)}},{{passive:true}});
+var links=[].slice.call(document.querySelectorAll('.toc-pills a'));if(!links.length||!('IntersectionObserver'in window))return;
+var io=new IntersectionObserver(function(es){{es.forEach(function(e){{if(e.isIntersecting){{links.forEach(function(a){{
+var on=a.getAttribute('href')==='#'+e.target.id;a.classList.toggle('on',on);if(on)a.scrollIntoView({{block:'nearest',inline:'center'}})}})}}}})}},
+{{rootMargin:'-45% 0px -50% 0px'}});links.forEach(function(a){{var el=document.querySelector(a.getAttribute('href'));if(el)io.observe(el)}});}})();</script>
 <footer class="site-footer"><div class="wrap">
 <div class="fcols">
 <div><b>{SITE_NAME}</b><p>暮らしの定番アイテムの価格を毎日記録して、値下がりと評判から「買い時」をお知らせします。</p></div>
@@ -578,6 +645,61 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 </div></footer>
 </body></html>
 """
+
+
+def _genre_tag(data: tuple) -> str:
+    _, popular, drops = data
+    return f"{len(drops)}件 値下がり中" if drops else f"評判ランキング TOP{len(popular)}"
+
+
+def _related_genres(cur: str, genre_data: dict) -> str:
+    cards = "".join(
+        f'<a class="gcard" href="/{g["slug"]}/"><img src="/img/{GENRE_IMG[g["slug"]]}.jpg" alt="" loading="lazy" '
+        f'width="1200" height="675"><div><b>{g["emoji"]} {E(g["name"])}</b>'
+        f'<span class="tag">{_genre_tag(genre_data[g["slug"]])}</span></div></a>'
+        for g in GENRES if g["slug"] != cur)
+    return (f'<section class="section related" aria-labelledby="h-other"><h2 id="h-other">ほかのジャンルの買い時もチェック</h2>'
+            f'<div class="gcards">{cards}</div></section>')
+
+
+SEARCH_JS = r"""(function(){var q=new URLSearchParams(location.search).get('q')||'',inp=document.getElementById('sq'),
+out=document.getElementById('sres'),msg=document.getElementById('smsg');inp.value=q;
+document.querySelectorAll('.sbox input').forEach(function(i){i.value=q});
+function norm(s){return(s||'').toLowerCase().replace(/[！-～]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xfee0)})
+.replace(/[ァ-ヶ]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0x60)}).replace(/\s+/g,' ')}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+fetch('/search.json').then(function(r){return r.json()}).then(function(d){function run(){var w=norm(inp.value).trim().split(' ').filter(Boolean);
+if(!w.length){msg.textContent='キーワードを入力してください。';out.innerHTML='';return}
+var hit=d.filter(function(x){var s=norm(x.t+' '+x.k);return w.every(function(v){return s.indexOf(v)>=0})});
+hit.sort(function(a,b){return a.o-b.o});msg.textContent='「'+inp.value+'」の検索結果：'+hit.length+'件';
+out.innerHTML=hit.slice(0,60).map(function(x){return'<li><a href="'+esc(x.u)+'">'+(x.i?'<img src="'+esc(x.i)+'" alt="" loading="lazy">':'')+
+'<div><b>'+esc(x.t)+'</b><small>'+esc(x.s)+'</small></div></a></li>'}).join('')||'';
+if(typeof gtag==='function')gtag('event','search',{search_term:inp.value})}
+run();document.getElementById('sform').addEventListener('submit',function(e){e.preventDefault();
+history.replaceState(null,'','?q='+encodeURIComponent(inp.value));run()})})})();"""
+
+
+def _search_index(genre_data: dict) -> list[dict]:
+    """サイト内検索の索引（ジャンル・ガイド・ランキング掲載商品）。o は表示順の優先度。"""
+    idx = []
+    for g in GENRES:
+        idx.append({"t": f"{g['name']}の買い時", "s": f"ジャンル｜{g['lead']}", "u": f"/{g['slug']}/",
+                    "k": " ".join(g["keywords"]), "i": f"/img/{GENRE_IMG[g['slug']]}.jpg", "o": 0})
+        for x in _guides(g["slug"]):
+            idx.append({"t": x["title"], "s": f"選び方ガイド｜{x['desc']}", "u": f"/{g['slug']}/{x['slug']}/",
+                        "k": g["name"], "i": "", "o": 1})
+        _, popular, drops = genre_data[g["slug"]]
+        seen = set()
+        for mode, lst in (("drop", drops), ("pop", popular)):
+            for rank, it in enumerate(lst, 1):
+                if it["itemCode"] in seen:
+                    continue
+                seen.add(it["itemCode"])
+                label = f"{it['drop_pct']:.0f}%値下がり中" if mode == "drop" else f"評判ランキング{rank}位"
+                idx.append({"t": _short_name(it["itemName"], 60), "s": f"{g['name']}｜{it['price']:,}円｜{label}",
+                            "u": f"/{g['slug']}/#{mode}-{rank}", "k": f"{g['name']} {it.get('shopName', '')}",
+                            "i": it.get("imageUrl", ""), "o": 2 if mode == "drop" else 3})
+    return idx
 
 
 def _write(path: str, content: str) -> None:
@@ -729,14 +851,15 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
   <p class="basis">楽天市場のレビュー評価（★{MIN_AVG}以上・{MIN_REVIEWS}件以上）を対象に、評価の高さとレビュー件数を掛け合わせた点数で順位付けしています（{updated}更新）。広告料による順位の上下はありません。</p>
   {_items_list(popular, "pop", "データを準備中です。")}
 </section>
+{_a8_box(g)}
 {yahoo_html}
 <section class="section" id="compare" aria-labelledby="h-compare">
   <h2 id="h-compare">ランキング上位の比較表</h2>
   {_compare_table(popular)}
 </section>
 {guides_html}
-{_a8_box(g)}
 {faq_html}
+{_related_genres(g["slug"], genre_data)}
 </div>"""
         ld = _jsonld(crumbs_ld, faq_ld,
                      _itemlist_ld(f"評判の良い{g['name']}ランキング", popular, path),
@@ -764,10 +887,11 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 {toc_html}
 {art_html}
 </article>
+{_a8_box(g)}
 <section class="section" aria-labelledby="h-rel"><h2 id="h-rel">いま評判の良い{E(g["name"])} TOP5</h2>
 <p class="basis">{updated}更新。詳しくは<a href="{path}#ranking">{E(g["name"])}の評判ランキング</a>へ。</p>
 {_items_list(popular[:5], "pop", "データを準備中です。")}</section>
-{_a8_box(g)}
+{_related_genres(g["slug"], genre_data)}
 </div>"""
             ld = _jsonld(crumbs_a_ld, {"@context": "https://schema.org", "@type": "Article", "headline": x["title"],
                                         "description": x["desc"], "datePublished": x["updated"], "dateModified": x["updated"],
@@ -784,7 +908,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
     cards = "".join(
         f'<a class="gcard" href="/{g["slug"]}/"><img src="/img/{GENRE_IMG[g["slug"]]}.jpg" alt="" loading="lazy" '
         f'width="1200" height="675"><div><b>{E(g["name"])}</b><span>{E(g["lead"])}</span>'
-        f'<span class="tag">{len(genre_data[g["slug"]][2])}件 値下がり中</span></div></a>' for g in GENRES)
+        f'<span class="tag">{_genre_tag(genre_data[g["slug"]])}</span></div></a>' for g in GENRES)
     guides_all = [(g, x) for g in GENRES for x in _guides(g["slug"])]
     guides_home = ('<section class="section" aria-labelledby="h-g"><h2 id="h-g">選び方ガイド</h2><ul class="guide-list">'
                    + "".join(f'<li><a href="/{g["slug"]}/{E(x["slug"])}/"><b>{E(x["title"])}</b><span>{E(g["name"])}｜{E(x["desc"])}</span></a></li>'
@@ -795,7 +919,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
     body = f"""
 <section class="hero" style="background-image:url('/img/hero.jpg')"><div class="wrap">
 <h1>毎日の価格記録で、<br>暮らしの「買い時」が分かる。</h1>
-<p>コーヒー・寝具・キッチン用品・ペット用品の価格を毎日記録。値下がりしているものと、評判の良いものを、数字の根拠つきでまとめています。</p>
+<p>水・お米・コンタクト・おむつ・コーヒー・寝具など、毎日の暮らしの定番の価格を毎日記録。値下がりしているものと、評判の良いものを、数字の根拠つきでまとめています。</p>
 <div class="chips"><span class="chip"><b>{total_items}</b>商品を記録中</span><span class="chip"><b>{n_drops}</b>件が値下がり中</span><span class="chip">毎朝更新</span></div>
 </div></section>
 <div class="wrap">
@@ -818,7 +942,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 {_breadcrumb([("ホーム", "/"), ("このサイトについて", "/about/")])[0]}<h1>このサイトについて</h1></div></section>
 <div class="wrap"><article class="article" style="margin-top:24px">
 <h2>買い時ナビとは</h2>
-<p>コーヒー・寝具・キッチン用品・ペット用品など、毎日の暮らしで使う定番アイテムの価格を毎日記録し、「今が買い時か」を数字で判断できるようにまとめたサイトです。値下がりの判定には、当サイトが独自に毎日記録している価格データを使っています。</p>
+<p>水・お米・コンタクトレンズ・おむつ・コーヒー・寝具・キッチン用品・ペット用品など、毎日の暮らしで使う定番アイテムの価格を毎日記録し、「今が買い時か」を数字で判断できるようにまとめたサイトです。値下がりの判定には、当サイトが独自に毎日記録している価格データを使っています。</p>
 <h2>ランキングの根拠</h2>
 <ul>
 <li>商品データは楽天市場（楽天ウェブサービスAPI）から毎日取得しています。</li>
@@ -860,6 +984,19 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
     _write("/privacy/", _page("プライバシーポリシー", privacy, "買い時ナビのプライバシーポリシー。個人情報とCookieの扱い、アフィリエイトについて", "/privacy/",
                              ld=_jsonld(_breadcrumb([("ホーム", "/"), ("プライバシーポリシー", "/privacy/")])[1])))
     pages += 2
+
+    # ---- サイト内検索
+    (OUT_DIR / "search.json").write_text(json.dumps(_search_index(genre_data), ensure_ascii=False,
+                                                    separators=(",", ":")), encoding="utf-8")
+    search = f"""
+<div class="wrap"><section class="section" style="margin-top:24px"><h1 style="font-size:24px">サイト内検索</h1>
+<form class="sbox" id="sform" role="search" style="margin:12px 0 16px;max-width:560px"><input type="search" id="sq" name="q" placeholder="商品名・ジャンルで探す" aria-label="検索キーワード"><button type="submit">検索</button></form>
+<p class="basis" id="smsg">読み込み中…</p><ul class="sresult" id="sres"></ul>
+<p class="basis" style="margin-top:20px">見つからないときは、ジャンルから探してみてください。</p></section>
+{_related_genres("", genre_data)}</div>
+<script>{SEARCH_JS}</script>"""
+    _write("/search/", _page("サイト内検索", search, "買い時ナビのサイト内検索", "/search/", noindex=True))
+    pages += 1
 
     # ---- sitemap / robots / llms.txt
     urls = ["/", "/about/", "/privacy/"] + [f"/{g['slug']}/" for g in GENRES] + [
