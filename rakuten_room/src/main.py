@@ -897,6 +897,20 @@ def cmd_insights(cfg: dict) -> None:
             print(f"  {msg}")
 
 
+def cmd_site(cfg: dict, skip_collect: bool = False) -> None:
+    """買い時ナビ（kaidokinavi.com）の商品データを集めて、静的サイトを再生成する。"""
+    from . import site_builder
+    from .rakuten_api import RakutenAPI
+
+    items = None
+    if not skip_collect:
+        api = RakutenAPI(cfg["_app_id"], cfg["_access_key"], cfg["_affiliate_id"])
+        print("サイト用の商品データを集めています…")
+        items = site_builder.collect(api)
+    n = site_builder.build(items)
+    print(f"サイトを生成しました: {n}ページ → {site_builder.OUT_DIR}")
+
+
 def cmd_daily(cfg: dict) -> None:
     """サーバーとの差分同期 → 投稿 → いいね回り → フォロー回り を順番に。ステップ間に自然な休憩。"""
     import random
@@ -1039,6 +1053,8 @@ def main() -> int:
                 cmd_trivia(cfg)
             elif cmd == "instagram":
                 cmd_instagram(cfg)
+    elif cmd == "site":
+        cmd_site(cfg, skip_collect="--no-collect" in args)
     elif cmd == "reply":
         cmd_reply(" ".join(args[1:]))
     elif cmd == "insights":

@@ -45,6 +45,7 @@ JOBS = {
     "calendar": ("Threads: セール・お得日リマインド（Claude課金・リンクなし）", True),
     "trivia": ("Threads: ミニ知識・あるあるネタ（Claude課金・リンクなし）", True),
     "instagram": ("Instagram: 売れ筋商品を画像付きで投稿（Claude課金・1日1件）", True),
+    "site": ("サイト: 買い時ナビの価格記録とページ再生成（無料）", False),
     "room_post": ("ROOM: 投稿（未準備なら準備も。完了まで自動）", True),
     "room_like": ("ROOM: いいね回り", False),
     "room_follow": ("ROOM: フォロー回り", False),
@@ -134,6 +135,8 @@ def run_job(name: str) -> str:
                     _run_room_job(cli, cfg, name)
                 elif name == "collect":
                     cli.cmd_collect(cfg)
+                elif name == "site":
+                    cli.cmd_site(cfg)
                 elif name == "prepare":
                     cli.cmd_prepare(cfg)
                 elif name == "insights":

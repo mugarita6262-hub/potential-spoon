@@ -158,6 +158,10 @@ server:
   - 06:00
   - 06:45
   prepare_runs_per_day: 1
+  site_window:
+  - 05:00
+  - 05:45
+  site_runs_per_day: 1
   room_post_window:
   - - 07:30
     - 09:30
