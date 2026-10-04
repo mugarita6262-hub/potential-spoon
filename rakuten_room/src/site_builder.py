@@ -12,10 +12,12 @@ from __future__ import annotations
 import html
 import json
 import math
+import os
 import re
 import time
 from datetime import date, datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from .config import DATA_DIR
 
@@ -70,8 +72,44 @@ def collect(api) -> dict[str, list[dict]]:
         record_snapshot(items)
         result[g["slug"]] = items
         print(f"  {g['name']}: {len(items)}件")
+        if os.environ.get("YAHOO_APP_ID"):
+            yitems = []
+            for kw in g["keywords"]:
+                try:
+                    yitems += [{**it, "keyword": kw} for it in yahoo_search(kw, 30)]
+                except Exception as exc:  # noqa: BLE001
+                    print(f"  Yahoo検索失敗 {kw}: {exc}")
+                time.sleep(1.2)
+            seen: set[str] = set()
+            yitems = [it for it in yitems if not (it["itemCode"] in seen or seen.add(it["itemCode"]))
+                      and it["reviewCount"] >= MIN_REVIEWS and it["reviewAverage"] >= MIN_AVG]
+            record_snapshot(yitems)
+            result[f"yahoo:{g['slug']}"] = yitems
+            print(f"  {g['name']}（Yahoo!）: {len(yitems)}件")
     SITE_ITEMS_FILE.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
     return result
+
+
+def yahoo_search(query: str, n: int = 30) -> list[dict]:
+    """Yahoo!ショッピングの商品検索（レビュー件数順）。楽天の商品と同じ形の辞書で返す。
+    Client IDはURLパラメータだと403になるため、ヘッダー（User-Agent）で渡す。"""
+    import requests
+
+    r = requests.get("https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch",
+                     params={"query": query, "results": n, "sort": "-review_count"},
+                     headers={"User-Agent": f"Yahoo AppID: {os.environ['YAHOO_APP_ID']}"}, timeout=20)
+    r.raise_for_status()
+    out = []
+    for h in r.json().get("hits", []):
+        rev = h.get("review") or {}
+        out.append({
+            "itemCode": f"yahoo:{h['code']}", "itemName": h.get("name", ""),
+            "itemUrl": h.get("url", ""), "affiliateUrl": h.get("url", ""),
+            "price": int(h.get("price") or 0), "shopName": (h.get("seller") or {}).get("name", ""),
+            "reviewCount": int(rev.get("count") or 0), "reviewAverage": float(rev.get("rate") or 0),
+            "imageUrl": (h.get("image") or {}).get("medium", ""), "mall": "yahoo",
+        })
+    return out
 
 
 # ---------------------------------------------------------------- ランキング
@@ -111,10 +149,28 @@ GA4_TAG = f"""<script async src="https://www.googletagmanager.com/gtag/js?id={GA
 <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}
 gtag('js',new Date());gtag('config','{GA4_ID}');
 document.addEventListener('click',function(e){{var a=e.target.closest('a[rel~="sponsored"]');if(!a)return;
-var h=a.hostname,net=/a8\\.net/.test(h)?'a8':(/rakuten/.test(h)?'rakuten':'other');
+var h=a.hostname,net=/a8\\.net/.test(h)?'a8':(/rakuten/.test(h)?'rakuten':(/yahoo|valuecommerce/.test(h)?'yahoo':'other'));
 var it=a.closest('.item');var n=it?it.querySelector('.item-name'):null;
 gtag('event','affiliate_click',{{network:net,link_text:(n?n.textContent:a.textContent).trim().slice(0,90),
 page_path:location.pathname,section:(a.closest('section')||{{}}).id||''}});}});</script>"""
+# Yahoo!ショッピングは、バリューコマースでサイトが承認されて LinkSwitch の vc_pid を .env の
+# VC_LINKSWITCH_PID に入れた時だけ表示する（それまでは素のリンクになり報酬が付かないため）。
+# LinkSwitchタグがページ内の素のYahoo!ショッピングURLを自動でアフィリエイトリンクに変える。
+def yahoo_enabled() -> bool:
+    return bool(os.environ.get("VC_LINKSWITCH_PID")) or os.environ.get("SITE_YAHOO_PREVIEW") == "1"
+
+
+def _linkswitch_tag() -> str:
+    pid = os.environ.get("VC_LINKSWITCH_PID", "")
+    if not pid:
+        return ""
+    return (f'<script>var vc_pid = "{E(pid)}";</script>'
+            '<script src="//aml.valuecommerce.com/vcdal.js" async></script>')
+
+
+YAHOO_CREDIT = ('<p><!-- Begin Yahoo! JAPAN Web Services Attribution Snippet -->'
+                '<a href="https://developer.yahoo.co.jp/sitemap/" target="_blank" rel="noopener">Webサービス by Yahoo! JAPAN</a>'
+                '<!-- End Yahoo! JAPAN Web Services Attribution Snippet --></p>')
 PUBLISHER = {"@type": "Organization", "name": SITE_NAME, "url": SITE_URL,
              "logo": {"@type": "ImageObject", "url": f"{SITE_URL}/img/icon-512.png"}}
 
@@ -168,6 +224,14 @@ def _item_card(rank: int, it: dict, mode: str) -> str:
     img = (f'<img src="{E(it["imageUrl"])}" alt="{E(_short_name(it["itemName"], 40))}" '
            f'loading="lazy" decoding="async" width="112" height="112">'
            if it.get("imageUrl") else '<div class="noimg"></div>')
+    is_yahoo = it.get("mall") == "yahoo"
+    buttons = (f'<a class="btn-buy btn-yahoo" href="{url}" rel="nofollow sponsored noopener" target="_blank">Yahoo!で見る</a>'
+               if is_yahoo else
+               f'<a class="btn-buy" href="{url}" rel="nofollow sponsored noopener" target="_blank">楽天で見る</a>')
+    if not is_yahoo and yahoo_enabled():
+        q = E(quote(_short_name(it["itemName"], 40).rstrip("…")))
+        buttons += (f'<a class="btn-sub" href="https://shopping.yahoo.co.jp/search?p={q}" '
+                    f'rel="nofollow sponsored noopener" target="_blank">Yahoo!で探す</a>')
     return f"""
 <li class="item" id="{mode}-{rank}">
   <div class="rank {medal}">{rank}</div>
@@ -179,7 +243,7 @@ def _item_card(rank: int, it: dict, mode: str) -> str:
     <div class="rating">{stars}</div>
     <div class="trend">{_sparkline(it["history"])}{rng}</div>
     <div class="item-foot"><span class="muted shop">{E(it.get("shopName", ""))}</span>
-      <a class="btn-buy" href="{url}" rel="nofollow sponsored noopener" target="_blank">楽天で見る</a></div>
+      <span class="btns">{buttons}</span></div>
   </div>
 </li>"""
 
@@ -396,6 +460,12 @@ background:#f1ebe2;color:var(--sub);font-size:15px}
 .btn-buy{flex:none;background:var(--brand);color:#fff;text-decoration:none;font-weight:700;font-size:14px;
 padding:9px 18px;border-radius:999px;transition:background .15s}
 .btn-buy:hover{background:var(--brand-dark)}
+.btns{display:flex;gap:8px;flex:none;flex-wrap:wrap;justify-content:flex-end}
+.btn-yahoo{background:#d92d20}.btn-yahoo:hover{background:#b0241a}
+.btn-sub{flex:none;text-decoration:none;font-weight:700;font-size:14px;padding:8px 16px;border-radius:999px;
+border:1.5px solid #d92d20;color:#d92d20;background:#fff}
+.btn-sub:hover{background:#fdf0ef}
+.mall-tag{display:inline-block;font-size:11px;font-weight:700;color:#d92d20;border:1px solid #d92d20;border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle}
 .empty{padding:22px;color:var(--sub);text-align:center}
 /* compare table */
 .table-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
@@ -452,7 +522,7 @@ vertical-align:middle;font-weight:600}
 .item{grid-template-columns:28px 84px 1fr;gap:10px;padding:14px}
 .rank{width:28px;height:28px;font-size:13px}
 .thumb img,.noimg{width:84px;height:84px}
-.item-foot{flex-wrap:wrap}.btn-buy{width:100%;text-align:center}
+.item-foot{flex-wrap:wrap}.btns{width:100%}.btn-buy,.btn-sub{flex:1;text-align:center}
 }
 """
 
@@ -469,6 +539,7 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
     nav = "".join(f'<a href="/{g["slug"]}/"{cur_attr if g["slug"] == current else ""}>'
                   f'{E(g["name"])}</a>' for g in GENRES)
     full_title = f"{title}｜{SITE_NAME}" if title != SITE_NAME else f"{SITE_NAME}｜毎日の価格記録で買い時が分かる"
+    yahoo_credit = (YAHOO_CREDIT if yahoo_enabled() else "")
     footer_genres = "".join(f'<li><a href="/{g["slug"]}/">{E(g["name"])}の買い時</a></li>' for g in GENRES)
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
@@ -485,6 +556,7 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 <link rel="stylesheet" href="/style.css?v={date.today().strftime('%Y%m%d')}">
 {GA4_TAG}
+{_linkswitch_tag()}
 {ld}
 </head><body>
 <div class="prbar">当サイトはアフィリエイト広告（楽天アフィリエイト・A8.net）を利用しています</div>
@@ -500,6 +572,7 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 <div><b>サイトについて</b><ul><li><a href="/about/">運営者・ランキングの根拠</a></li><li><a href="/privacy/">プライバシーポリシー</a></li></ul></div>
 </div>
 <p>掲載価格は更新時点のものです。最新の価格・在庫は各ショップのページでご確認ください。</p>
+{yahoo_credit}
 <p><!-- Rakuten Web Services BEGIN --><a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener">Supported by Rakuten Developers</a><!-- Rakuten Web Services END --></p>
 <p>© {date.today().year} {SITE_NAME}</p>
 </div></footer>
@@ -599,12 +672,15 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 
     pages = 0
     genre_data = {}
+    yahoo_data: dict[str, list[dict]] = {}
     total_items = 0
     for g in GENRES:
         items = items_by_genre.get(g["slug"], [])
         total_items += len(items)
         popular, drops = rankings(items, hist)
         genre_data[g["slug"]] = (items, popular, drops)
+        ypop = rankings(items_by_genre.get(f"yahoo:{g['slug']}", []), hist)[0] if yahoo_enabled() else []
+        yahoo_data[g["slug"]] = ypop
 
     # ---- ジャンルページ
     for g in GENRES:
@@ -615,8 +691,19 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
         crumbs, crumbs_ld = _breadcrumb([("ホーム", "/"), (f"{g['name']}の買い時", path)])
         summary, summary_text = _genre_summary(g, popular, drops, items, updated)
         faq_html, faq_ld = _faq(_genre_faq(g, popular, drops, updated))
+        ypop = yahoo_data.get(g["slug"], [])
+        yahoo_html = ""
+        if ypop:
+            yahoo_html = f"""
+<section class="section" id="yahoo" aria-labelledby="h-yahoo">
+  <h2 id="h-yahoo">Yahoo!ショッピングで評判の良い{E(g["name"])} TOP{len(ypop)}</h2>
+  <p class="basis">Yahoo!ショッピングのレビュー評価（★{MIN_AVG}以上・{MIN_REVIEWS}件以上）を、楽天と同じ基準で順位付けしています（{updated}更新）。楽天のランキングと見比べて、安い方・ポイントが多い方で選べます。</p>
+  {_items_list(ypop, "yahoo", "データを準備中です。")}
+</section>"""
         pills = ['<a href="#drops">値下がり中</a>', '<a href="#ranking">評判ランキング</a>',
                  '<a href="#compare">比較表</a>']
+        if ypop:
+            pills.insert(2, '<a href="#yahoo">Yahoo!で比較</a>')
         if guides:
             pills.append('<a href="#guides">選び方ガイド</a>')
         pills.append('<a href="#faq">よくある質問</a>')
@@ -642,6 +729,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
   <p class="basis">楽天市場のレビュー評価（★{MIN_AVG}以上・{MIN_REVIEWS}件以上）を対象に、評価の高さとレビュー件数を掛け合わせた点数で順位付けしています（{updated}更新）。広告料による順位の上下はありません。</p>
   {_items_list(popular, "pop", "データを準備中です。")}
 </section>
+{yahoo_html}
 <section class="section" id="compare" aria-labelledby="h-compare">
   <h2 id="h-compare">ランキング上位の比較表</h2>
   {_compare_table(popular)}
@@ -750,6 +838,8 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                            ld=_jsonld(_breadcrumb([("ホーム", "/"), ("このサイトについて", "/about/")])[1],
                                       {"@context": "https://schema.org", "@type": "AboutPage", "name": "このサイトについて",
                                        "url": f"{SITE_URL}/about/", "publisher": PUBLISHER})))
+    yahoo_privacy = ('<tr><td>株式会社バリューコマース（Yahoo!ショッピングのアフィリエイト）</td>'
+                     '<td>リンクのクリック情報、Cookie識別子</td><td>成果報酬の計測</td></tr>') if yahoo_enabled() else ""
     privacy = f"""
 <section class="banner" style="background-image:url('/img/hero.jpg')"><div class="wrap">
 {_breadcrumb([("ホーム", "/"), ("プライバシーポリシー", "/privacy/")])[0]}<h1>プライバシーポリシー</h1></div></section>
@@ -761,7 +851,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 <p>この機能はブラウザのCookieを無効にすることで拒否できます。詳しくは<a href="https://marketingplatform.google.com/about/analytics/terms/jp/" target="_blank" rel="noopener">Googleアナリティクス利用規約</a>と<a href="https://policies.google.com/technologies/partner-sites?hl=ja" target="_blank" rel="noopener">Googleのサービスを使用するサイトやアプリから収集した情報のGoogleによる使用</a>をご確認ください。</p>
 <h2>外部送信される情報について</h2>
 <table><thead><tr><th>送信先</th><th>送信される情報</th><th>目的</th></tr></thead><tbody>
-<tr><td>Google LLC（Googleアナリティクス）</td><td>閲覧ページのURL、リファラー、端末・ブラウザの情報、Cookie識別子、クリックしたリンク</td><td>アクセス解析・サイト改善</td></tr>
+<tr><td>Google LLC（Googleアナリティクス）</td><td>閲覧ページのURL、リファラー、端末・ブラウザの情報、Cookie識別子、クリックしたリンク</td><td>アクセス解析・サイト改善</td></tr>{yahoo_privacy}
 <tr><td>楽天グループ株式会社（楽天アフィリエイト）</td><td>リンクのクリック情報、Cookie識別子</td><td>成果報酬の計測</td></tr>
 <tr><td>株式会社ファンコミュニケーションズ（A8.net）</td><td>リンクのクリック情報、Cookie識別子</td><td>成果報酬の計測</td></tr>
 </tbody></table>
