@@ -34,8 +34,8 @@ def _item_lines(items: list[dict]) -> str:
     for i, it in enumerate(items, 1):
         out.append(
             f"{i}. program_id: {it['program_id']}\n"
-            f"   商品・サービス名: {it['program_name'][:100]}\n"
-            f"   紹介ページ: {it.get('note', '')}\n"
+            f"   商品・サービス名: {(it.get('site_name') or it['program_name'])[:100]}\n"
+            f"   紹介ページ: {it.get('site_note') or it.get('note', '')}\n"
             f"   提供元: {it.get('advertiser', '')}\n"
         )
     return "\n".join(out)
