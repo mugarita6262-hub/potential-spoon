@@ -279,15 +279,26 @@ def _svc_name(name: str, n: int = 60) -> str:
     return name[:n] + ("…" if len(name) > n else "")
 
 
+def _svc_card(l: dict) -> str:
+    """サービス1件のカード。買い時ナビ用のバナー素材(site_banner)があれば画像つきで出す。"""
+    bn = l.get("site_banner") or {}
+    url = E(bn.get("href") or l["url"])
+    rel = 'rel="nofollow sponsored noopener" target="_blank"'
+    banner = ""
+    if bn.get("img"):
+        banner = (f'<a class="svc-banner" href="{url}" {rel}><img src="{E(bn["img"])}" width="{bn.get("width", 300)}" '
+                  f'height="{bn.get("height", 250)}" alt="{E(_svc_name(l["program_name"], 40))}" loading="lazy"></a>'
+                  f'<img class="px" src="{E(bn["pixel"])}" width="1" height="1" alt="">')
+    return (f'<li class="svc">{banner}<div class="svc-body"><b>{E(l.get("site_name") or _svc_name(l["program_name"]))}</b>'
+            f'<span>{E((l.get("site_note") or l.get("note", ""))[:80])}</span></div>'
+            f'<a class="btn-svc" href="{url}" {rel}>公式サイトを見る</a></li>')
+
+
 def _a8_box(genre: dict) -> str:
     links = _a8_links(genre)
     if not links:
         return ""
-    cards = "".join(
-        f'<li class="svc"><div class="svc-body"><b>{E(_svc_name(l["program_name"]))}</b>'
-        f'<span>{E(l.get("note", "")[:80])}</span></div>'
-        f'<a class="btn-svc" href="{E(l["url"])}" rel="nofollow sponsored noopener" target="_blank">公式サイトを見る</a></li>'
-        for l in links)
+    cards = "".join(_svc_card(l) for l in links)
     return f"""
 <section class="services" id="services" aria-labelledby="h-services">
   <div class="services-head"><span class="pr">PR</span>
@@ -538,6 +549,9 @@ border-radius:var(--radius);padding:20px clamp(14px,3vw,24px);box-shadow:var(--s
 .svc{background:#fff;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;justify-content:space-between;
 border:1px solid #f0d7c6}
 .svc b{display:block;font-size:16px;line-height:1.45}
+.svc-banner{display:block;text-align:center;line-height:0}
+.svc-banner img{max-width:100%;height:auto;border-radius:10px}
+.svc .px{position:absolute;width:1px;height:1px;opacity:0}
 .svc span{display:block;font-size:13px;color:var(--sub);margin-top:4px}
 .btn-svc{display:block;text-align:center;background:var(--green);color:#fff;text-decoration:none;font-weight:700;
 padding:11px 16px;border-radius:999px}
