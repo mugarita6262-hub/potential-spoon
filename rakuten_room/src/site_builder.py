@@ -106,6 +106,15 @@ E = html.escape
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "site_assets"
 GENRE_BY_SLUG = {g["slug"]: g for g in GENRES}
 GENRE_IMG = {"coffee": "coffee", "sleep": "sleep", "kitchen": "kitchen", "pet": "pet"}
+GA4_ID = "G-MJGWNG8KND"
+GA4_TAG = f"""<script async src="https://www.googletagmanager.com/gtag/js?id={GA4_ID}"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}
+gtag('js',new Date());gtag('config','{GA4_ID}');
+document.addEventListener('click',function(e){{var a=e.target.closest('a[rel~="sponsored"]');if(!a)return;
+var h=a.hostname,net=/a8\\.net/.test(h)?'a8':(/rakuten/.test(h)?'rakuten':'other');
+var it=a.closest('.item');var n=it?it.querySelector('.item-name'):null;
+gtag('event','affiliate_click',{{network:net,link_text:(n?n.textContent:a.textContent).trim().slice(0,90),
+page_path:location.pathname,section:(a.closest('section')||{{}}).id||''}});}});</script>"""
 PUBLISHER = {"@type": "Organization", "name": SITE_NAME, "url": SITE_URL,
              "logo": {"@type": "ImageObject", "url": f"{SITE_URL}/img/icon-512.png"}}
 
@@ -475,6 +484,7 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 <meta property="og:locale" content="ja_JP"><meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 <link rel="stylesheet" href="/style.css?v={date.today().strftime('%Y%m%d')}">
+{GA4_TAG}
 {ld}
 </head><body>
 <div class="prbar">当サイトはアフィリエイト広告（楽天アフィリエイト・A8.net）を利用しています</div>
@@ -746,6 +756,15 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 <div class="wrap"><article class="article" style="margin-top:24px">
 <p>当サイトでは、お問い合わせ等で取得した個人情報を、本人の同意なく第三者に提供することはありません。</p>
 <p>当サイトはアフィリエイトプログラム（楽天アフィリエイト・A8.net）を利用しています。リンクのクリックや購入の計測のため、提携先がCookieを使用することがあります。Cookieはブラウザの設定で無効にできます。</p>
+<h2>アクセス解析ツールについて</h2>
+<p>当サイトでは、サイトの利用状況を把握して改善するために、Google LLCのアクセス解析ツール「Googleアナリティクス」を使用しています。Googleアナリティクスは、Cookieを使って、閲覧したページ、滞在時間、どのページのリンクがクリックされたかといった情報を収集します。収集される情報に、氏名など個人を特定する情報は含まれません。</p>
+<p>この機能はブラウザのCookieを無効にすることで拒否できます。詳しくは<a href="https://marketingplatform.google.com/about/analytics/terms/jp/" target="_blank" rel="noopener">Googleアナリティクス利用規約</a>と<a href="https://policies.google.com/technologies/partner-sites?hl=ja" target="_blank" rel="noopener">Googleのサービスを使用するサイトやアプリから収集した情報のGoogleによる使用</a>をご確認ください。</p>
+<h2>外部送信される情報について</h2>
+<table><thead><tr><th>送信先</th><th>送信される情報</th><th>目的</th></tr></thead><tbody>
+<tr><td>Google LLC（Googleアナリティクス）</td><td>閲覧ページのURL、リファラー、端末・ブラウザの情報、Cookie識別子、クリックしたリンク</td><td>アクセス解析・サイト改善</td></tr>
+<tr><td>楽天グループ株式会社（楽天アフィリエイト）</td><td>リンクのクリック情報、Cookie識別子</td><td>成果報酬の計測</td></tr>
+<tr><td>株式会社ファンコミュニケーションズ（A8.net）</td><td>リンクのクリック情報、Cookie識別子</td><td>成果報酬の計測</td></tr>
+</tbody></table>
 <p>当サイトの掲載内容は正確さに努めていますが、価格・在庫等は変動するため、購入前に必ず販売ページでご確認ください。</p>
 </article></div>"""
     _write("/privacy/", _page("プライバシーポリシー", privacy, "買い時ナビのプライバシーポリシー。個人情報とCookieの扱い、アフィリエイトについて", "/privacy/",
