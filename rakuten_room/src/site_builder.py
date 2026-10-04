@@ -424,6 +424,8 @@ vertical-align:middle;font-weight:600}
 .article{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:clamp(18px,4vw,36px);box-shadow:var(--shadow)}
 .article h2{font-size:21px;margin:34px 0 10px;padding-left:12px;border-left:4px solid var(--brand);line-height:1.45}
 .article h3{font-size:17px;margin:24px 0 6px}
+.article table{min-width:0}
+.article .table-wrap{margin:12px 0}
 .article .point{background:var(--green-soft);border-radius:12px;padding:12px 16px}
 .toc{background:#faf6f0;border-radius:12px;padding:14px 18px;margin:16px 0}
 .toc b{font-size:14px}.toc ol{margin:6px 0 0;padding-left:20px;font-size:14px}
