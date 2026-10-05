@@ -73,12 +73,23 @@ GENRES = [
      "keywords": ["ビール ケース", "発泡酒 ケース", "チューハイ ケース", "ハイボール 缶"],
      "a8_genres": ["お酒"],
      "notice": "お酒は20歳になってから。20歳未満の方の飲酒は法律で禁止されています。妊娠中・授乳期の飲酒や、飲酒運転はやめましょう。"},
+    {"slug": "bousai", "name": "防災・備蓄", "emoji": "🔦",
+     "lead": "いざという時の備えは、値下がりの時にまとめてそろえておくのが賢い買い方です。",
+     "keywords": ["保存水 5年", "非常食 5年保存", "防災セット", "モバイルバッテリー"],
+     "a8_genres": ["防災・備蓄"]},
+    {"slug": "instant", "name": "インスタント・お菓子", "emoji": "🍜",
+     "lead": "カップ麺やお菓子は、ケース買いの単価で差がつく定番の「まとめ買い」商品。",
+     "keywords": ["カップラーメン 箱買い", "袋麺 5食パック", "スナック菓子 まとめ買い", "お菓子 詰め合わせ 個包装"],
+     "a8_genres": ["食品・スイーツ"]},
 ]
 
 MIN_REVIEWS = 20
 MIN_AVG = 3.8
 DROP_MIN_PCT = 5.0
 TOP_N = 10
+# 1つの検索キーワードから評判ランキングに入れる上限。レビュー件数の多い商品（お菓子など）が
+# 上位を独占して、ジャンルの他の商品（カップ麺・寝具ならマットレス等）が消えるのを防ぐ
+PER_KEYWORD_MAX = 3
 
 
 # ---------------------------------------------------------------- データ収集
@@ -162,7 +173,15 @@ def _enrich(it: dict, hist: dict) -> dict:
 
 def rankings(items: list[dict], hist: dict) -> tuple[list[dict], list[dict]]:
     rich = [_enrich(it, hist) for it in items]
-    popular = sorted(rich, key=_popularity, reverse=True)[:TOP_N]
+    popular, per_kw = [], {}
+    for it in sorted(rich, key=_popularity, reverse=True):
+        kw = it.get("keyword", "")
+        if kw and per_kw.get(kw, 0) >= PER_KEYWORD_MAX:
+            continue
+        per_kw[kw] = per_kw.get(kw, 0) + 1
+        popular.append(it)
+        if len(popular) >= TOP_N:
+            break
     drops = [it for it in rich if it["drop_pct"] >= DROP_MIN_PCT and it["days"] >= 2]
     drops.sort(key=lambda x: (x["drop_pct"], _popularity(x)), reverse=True)
     return popular, drops[:TOP_N]
