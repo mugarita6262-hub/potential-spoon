@@ -41,6 +41,7 @@ JOBS = {
     "sns": ("Threads: 値下がり検知投稿（Claude課金・1日数回想定）", True),
     "a8": ("Threads: A8ローテーション投稿（Claude課金・1日1回想定）", True),
     "digest": ("Threads: ジャンル別売れ筋ダイジェスト（Claude課金・リンクあり）", True),
+    "sitepost": ("Threads: 買い時ナビのガイド紹介（Claude課金・サイトへのリンクあり）", True),
     "trend": ("Threads: ジャンル価格トレンド速報（Claude課金・リンクなし）", True),
     "calendar": ("Threads: セール・お得日リマインド（Claude課金・リンクなし）", True),
     "trivia": ("Threads: ミニ知識・あるあるネタ（Claude課金・リンクなし）", True),
@@ -90,7 +91,28 @@ def _tail_log(n: int = MAX_LOG_LINES) -> str:
     return "\n".join(lines)
 
 
-_POSTING_JOBS = {"sns", "a8", "digest", "trend", "calendar", "trivia", "instagram"}
+_credit_alerted: dict = {"date": None}
+
+
+def _alert_api_credit(output: str) -> None:
+    """Anthropic APIのクレジット切れは投稿が全部止まるのに気づきにくい
+    （2026-10-05に半日気づかなかった）ので、1日1回だけスマホに通知する。"""
+    if "credit balance is too low" not in output:
+        return
+    today = date.today()
+    if _credit_alerted["date"] == today:
+        return
+    _credit_alerted["date"] = today
+    try:
+        from .notify import notify
+        notify("Anthropic APIのクレジットが切れて、AIで文章を作る投稿が止まっています。"
+               "console.anthropic.com の Plans & Billing でチャージしてください。",
+               title="rakuten_room: API credit")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+_POSTING_JOBS = {"sns", "a8", "digest", "sitepost", "trend", "calendar", "trivia", "instagram"}
 
 
 def run_job(name: str) -> str:
@@ -120,6 +142,8 @@ def run_job(name: str) -> str:
                             cli.cmd_a8(cfg)
                         elif name == "digest":
                             cli.cmd_digest(cfg)
+                        elif name == "sitepost":
+                            cli.cmd_sitepost(cfg)
                         elif name == "trend":
                             cli.cmd_trend(cfg)
                         elif name == "calendar":
@@ -146,6 +170,7 @@ def run_job(name: str) -> str:
         except Exception:
             buf.write("\n" + traceback.format_exc())
         output = buf.getvalue()
+        _alert_api_credit(output)
         _last_run[name] = {"at": datetime.now().isoformat(timespec="seconds"),
                             "output": output}
         _log(f"=== {name} ===\n{output}")

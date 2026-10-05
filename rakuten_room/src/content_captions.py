@@ -147,6 +147,33 @@ hookはこのジャンルの日常の話題に、captionではランキングを
     return (rows[0].get("hook") or "").strip(), (rows[0].get("caption") or "").strip()
 
 
+def generate_site_caption(genre_name: str, title: str, desc: str) -> tuple[str, str]:
+    """買い時ナビの選び方ガイドを紹介する (フック投稿, 紹介投稿)。リンク・PRは呼び出し側で付与。"""
+    instruction = f"""\
+自分で運営している価格記録サイトに「{title}」というガイドページを書きました。
+ページの概要: {desc}
+（ジャンル: {genre_name}）
+
+hookはこのテーマの日常の話題（選ぶときに迷うこと・ちょっとしたコツ）、captionは
+hookの問いかけに自分で答えたうえで「このへん調べてまとめてみました」のように、
+商品ではなく**このガイドページ**を自然に紹介してください（商品名・ブランド名は出さない）。
+
+{SPLIT_RULES}
+
+# 出力形式（これ以外は何も出力しない。JSON配列のみ）
+[{{"hook": "フック投稿", "caption": "紹介投稿"}}]
+"""
+    rows = _call_rows(instruction)
+    if not rows:
+        return "", ""
+    return (rows[0].get("hook") or "").strip(), (rows[0].get("caption") or "").strip()
+
+
+def build_site_post_text(url: str, caption: str, disclosure: str = "PR") -> str:
+    """サイト紹介用: サイトにアフィリエイトリンクがあるのでPR表記あり。"""
+    return f"{caption}\n\n{url}\n#{disclosure} #買い時ナビ".strip()
+
+
 def generate_trend_caption(genre_name: str, pct_change: float, direction: str) -> str:
     """ジャンルの価格トレンド速報（リンクなし・PR不要の情報発信）。"""
     instruction = f"""\

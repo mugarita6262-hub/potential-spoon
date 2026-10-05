@@ -113,6 +113,10 @@ digest:
   run_in_daily: false
   repost_cooldown_days: 5
   disclosure: PR
+sitepost:
+  enabled: true
+  repost_cooldown_days: 21
+  disclosure: PR
 trend:
   enabled: true
   run_in_daily: false
@@ -208,6 +212,12 @@ server:
   - - '20:45'
     - '23:30'
   digest_runs_per_day: 1
+  sitepost_window:
+  - - '18:30'
+    - '20:45'
+  - - '20:45'
+    - '23:30'
+  sitepost_runs_per_day: 1
   trend_window:
   - - '18:30'
     - '20:45'
@@ -229,7 +239,7 @@ server:
     - '21:00'
   instagram_runs_per_day: 1
 posting_limits:
-  max_per_day: 6
+  max_per_day: 8
   instagram_max_per_day: 1
 instagram:
   enabled: true

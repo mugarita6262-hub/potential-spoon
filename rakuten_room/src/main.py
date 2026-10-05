@@ -552,6 +552,56 @@ def cmd_digest(cfg: dict) -> None:
     print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
 
 
+def cmd_sitepost(cfg: dict) -> None:
+    """買い時ナビ（自分のサイト）の選び方ガイドを紹介する（フック＋リンク付き返信）。
+
+    SNSからサイトへの流入を作るための投稿。ガイドごとにクールダウンして順番に回す。
+    """
+    import random
+    from urllib.parse import quote
+
+    from .content_captions import build_site_post_text, generate_site_caption
+    from .site_builder import GENRES, SITE_URL, _guides
+    from .sns_posted_log import posted_today as sns_posted_today
+    from .sns_posted_log import record_posted as sns_record_posted
+    from .sns_posted_log import recently_posted_keys
+
+    sc = cfg.get("sitepost", {}) or {}
+    if not sc.get("enabled", True):
+        print("sitepost投稿は設定(sitepost.enabled)で無効になっています。")
+        return
+    if not _ensure_threads_ready(cfg):
+        return
+
+    skip = recently_posted_keys(int(sc.get("repost_cooldown_days", 21)), platform="threads")
+    cands = [(g, x) for g in GENRES for x in _guides(g["slug"])
+             if f"site:{g['slug']}/{x['slug']}" not in skip]
+    if not cands:
+        print("紹介できるガイドがありません（すべてクールダウン中）。")
+        return
+    g, x = random.choice(cands)
+    print(f"今回のサイト紹介: {x['title']}")
+    hook, caption = generate_site_caption(g["name"], x["title"], x["desc"])
+    if not hook or not caption:
+        print("紹介文の生成に失敗しました。")
+        return
+
+    url = (f"{SITE_URL}/{g['slug']}/{x['slug']}/?utm_source=threads&utm_medium=social"
+           f"&utm_campaign={quote(g['slug'])}-guide")
+    text = build_site_post_text(url, caption, disclosure=sc.get("disclosure") or "PR")
+    base = {"itemCode": f"site:{g['slug']}/{x['slug']}", "itemUrl": url, "itemName": x["title"]}
+    category = f"site:{g['name']}"
+    try:
+        post_id, mode = _post_hook_then_reply(cfg, hook, text, record_base=base, category=category)
+        sns_record_posted(base, platform="threads", post_id=post_id, category=category,
+                          link_mode=mode)
+        print(f"✅ Threads投稿完了（サイト紹介: {x['title']}） -> id={post_id}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"❌ 投稿失敗: {exc}")
+
+    print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
+
+
 def cmd_trend(cfg: dict) -> None:
     """条件に依存しないネタ②: ジャンルの価格トレンド速報（リンクなし・PR不要）。
 
@@ -1032,7 +1082,7 @@ def main() -> int:
         cmd_daily(cfg)
     elif cmd == "collect":
         cmd_collect(cfg)
-    elif cmd in ("sns", "a8", "digest", "trend", "calendar", "trivia", "instagram"):
+    elif cmd in ("sns", "a8", "digest", "sitepost", "trend", "calendar", "trivia", "instagram"):
         from .job_lock import posting_lock
 
         with posting_lock() as acquired:
@@ -1045,6 +1095,8 @@ def main() -> int:
                 cmd_a8(cfg)
             elif cmd == "digest":
                 cmd_digest(cfg)
+            elif cmd == "sitepost":
+                cmd_sitepost(cfg)
             elif cmd == "trend":
                 cmd_trend(cfg)
             elif cmd == "calendar":
