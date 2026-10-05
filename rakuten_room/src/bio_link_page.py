@@ -64,6 +64,9 @@ h1{font-size:17px;margin:0 0 6px}
 .text span{font-size:11.5px;color:var(--muted)}
 .arrow{flex:none;color:var(--accent);font-size:18px;opacity:.7}
 .empty{text-align:center;color:var(--muted);font-size:13px;padding:20px}
+.feature{background:var(--accent);color:#fff;border:0}
+.feature .text span{color:#fde9da}
+.feature .arrow{color:#fff;opacity:1}
 .pr{text-align:center;font-size:10.5px;color:var(--muted);margin:20px 18px 0;
     padding-top:16px;border-top:1px solid var(--line)}
 </style>
@@ -79,11 +82,22 @@ _FOOT = ('<p class="pr">紹介している商品にはアフィリエイトリ�
          "</div>\n</body></html>\n")
 
 
+# 自分のサイト（買い時ナビ）への入口。いちばん上に目立つ色で置く
+_SITE_CARD = (
+    '<a class="card feature" href="https://kaidokinavi.com/?utm_source=bio&amp;utm_medium=social'
+    '&amp;utm_campaign=profile" target="_blank" rel="noopener">'
+    '<span class="emoji">📉</span>'
+    '<span class="text"><b>買い時ナビ｜毎日の価格記録で「買い時」が分かる</b>'
+    '<span>お米・水・日用品・洗剤などの値下がりと評判ランキング</span></span>'
+    '<span class="arrow">›</span></a>'
+)
+
+
 def render(items: list[dict]) -> str:
-    cards = []
+    cards = [_SITE_CARD]
     for it in items:
-        name = (it.get("program_name") or it.get("itemName") or "").strip()
-        note = (it.get("note") or "").strip()
+        name = (it.get("site_name") or it.get("program_name") or it.get("itemName") or "").strip()
+        note = (it.get("site_note") or it.get("note") or "").strip()
         url = (it.get("url") or it.get("itemUrl") or "").strip()
         genre = (it.get("genre") or "").strip()
         if not url or not name:
