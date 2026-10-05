@@ -60,6 +60,19 @@ GENRES = [
      "lead": "おむつやおしりふきは、まとめ買いのタイミングが家計の味方です。",
      "keywords": ["おむつ テープ", "おむつ パンツ", "おしりふき", "粉ミルク"],
      "a8_genres": ["ベビー・キッズ"]},
+    {"slug": "daily", "name": "日用品・紙もの", "emoji": "🧻",
+     "lead": "トイレットペーパーやティッシュは、なくなる前の値下がりで買うのがいちばん。",
+     "keywords": ["トイレットペーパー", "ティッシュペーパー", "キッチンペーパー", "ゴミ袋 45L"],
+     "a8_genres": ["日用品"]},
+    {"slug": "detergent", "name": "洗剤・掃除", "emoji": "🧺",
+     "lead": "毎日使う洗剤は、詰め替えのまとめ買いで1回あたりの値段を下げられます。",
+     "keywords": ["洗濯洗剤 詰め替え", "柔軟剤 詰め替え", "食洗機 洗剤", "フローリング 掃除シート"],
+     "a8_genres": ["洗剤・掃除", "暮らし・家事"]},
+    {"slug": "alcohol", "name": "ビール・お酒", "emoji": "🍺",
+     "lead": "重いケース買いこそ、ネットの値下がりと送料込みの単価で比べたい。",
+     "keywords": ["ビール ケース", "発泡酒 ケース", "チューハイ ケース", "ハイボール 缶"],
+     "a8_genres": ["お酒"],
+     "notice": "お酒は20歳になってから。20歳未満の方の飲酒は法律で禁止されています。妊娠中・授乳期の飲酒や、飲酒運転はやめましょう。"},
 ]
 
 MIN_REVIEWS = 20
@@ -473,6 +486,7 @@ border-radius:var(--radius);padding:18px 20px;margin:-22px 0 8px;position:relati
 top:var(--hdr-h,108px);z-index:15;background:var(--bg);margin:0 -18px;padding-left:18px;padding-right:18px}
 .toc-pills a.on{background:var(--brand);border-color:var(--brand);color:#fff}
 section[id],h2[id],.item[id]{scroll-margin-top:calc(var(--hdr-h,108px) + 64px)}
+.notice{margin:16px 0 0;padding:10px 14px;border-radius:10px;background:#fff4e5;border:1px solid #f3cf9a;font-size:14px;font-weight:600}
 .totop{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;width:46px;height:46px;border-radius:50%;
 border:0;background:var(--ink);color:#fff;font-size:20px;box-shadow:0 6px 18px rgba(0,0,0,.2);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s}
 .totop.show{opacity:.9;pointer-events:auto}
@@ -849,11 +863,13 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                            '<ul class="guide-list">' + "".join(
                                f'<li><a href="{path}{E(x["slug"])}/"><b>{E(x["title"])}</b><span>{E(x["desc"])}</span></a></li>'
                                for x in guides) + "</ul></section>")
+        notice = f'<p class="notice">{E(g["notice"])}</p>' if g.get("notice") else ""
         body = f"""
 <section class="banner" style="background-image:url('/img/{img}.jpg')"><div class="wrap">
 {crumbs}<h1>{E(g["name"])}の買い時｜値下がり・評判ランキング</h1><p>{E(g["lead"])}</p></div></section>
 <div class="wrap">
 {summary}
+{notice}
 <nav class="toc-pills" aria-label="ページ内リンク">{"".join(pills)}</nav>
 <section class="section" id="drops" aria-labelledby="h-drops">
   <h2 id="h-drops">今、値下がりしている{E(g["name"])}</h2>
@@ -896,6 +912,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 <section class="banner" style="background-image:url('/img/{img}.jpg')"><div class="wrap">
 {crumbs_a}<h1>{E(x["title"])}</h1></div></section>
 <div class="wrap">
+{notice}
 <article class="article" style="margin-top:24px">
 <div class="byline"><span>更新日：<time datetime="{x["updated"]}">{x["updated"]}</time></span><span>書いた人：aki.h190（{SITE_NAME}運営）</span><span class="pr">PR含む</span></div>
 {toc_html}
