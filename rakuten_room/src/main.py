@@ -265,6 +265,9 @@ def _post_to_threads_notified(cfg: dict, text: str, image_url: str | None = None
 
     post_id = post_to_threads(cfg["_threads_token"], cfg["_threads_user_id"],
                                text, image_url=image_url)
+    from .recent_openings import record as record_opening
+
+    record_opening(text)
     preview = text.split("\n", 1)[0][:40]
     notify(
         f"投稿しました: {preview}\n"

@@ -38,8 +38,18 @@ def today_note() -> str:
     d = date.today()
     season = {12: "冬", 1: "冬", 2: "冬", 3: "春", 4: "春", 5: "春",
               6: "夏", 7: "夏", 8: "夏", 9: "秋", 10: "秋", 11: "秋"}[d.month]
-    return (f"# 今日の日付\n{d.year}年{d.month}月{d.day}日（季節は{season}）。"
-            "季節やイベントに触れるときは、この時期に合ったものだけにすること。\n\n")
+    note = (f"# 今日の日付\n{d.year}年{d.month}月{d.day}日（季節は{season}）。"
+            "季節やイベントに触れるときは、この時期に合ったものだけにすること。"
+            "ただし季節の話は毎回入れなくてよい（入れすぎると同じような投稿が続く）。\n\n")
+    from .recent_openings import recent
+
+    openings = recent()
+    if openings:
+        note += ("# 直近の自分の投稿の書き出し（これと被らないようにする）\n"
+                 + "".join(f"- {o}\n" for o in openings)
+                 + "上と同じ・似た書き出し（「秋になると」「〇〇って、〜ですよね」など同じ型）や、"
+                   "同じ季節ネタ・同じ言い回しは使わない。書き出しの型を毎回変えること。\n\n")
+    return note
 
 
 def _call(instruction: str) -> str:
