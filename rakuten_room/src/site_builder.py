@@ -81,6 +81,14 @@ GENRES = [
      "lead": "カップ麺やお菓子は、ケース買いの単価で差がつく定番の「まとめ買い」商品。",
      "keywords": ["カップラーメン 箱買い", "袋麺 5食パック", "スナック菓子 まとめ買い", "お菓子 詰め合わせ 個包装"],
      "a8_genres": ["食品・スイーツ"]},
+    {"slug": "interior", "name": "インテリア・収納", "emoji": "🛋️",
+     "lead": "ラグや収納は大物だからこそ、値下がりと評判で失敗しない一品を。",
+     "keywords": ["収納ボックス", "ラグ カーペット", "遮光カーテン", "スチールラック"],
+     "a8_genres": ["インテリア・収納"]},
+    {"slug": "outdoor", "name": "アウトドア・キャンプ", "emoji": "🏕️",
+     "lead": "キャンプ道具は、シーズン前後の値下がりでそろえるのがおすすめ。",
+     "keywords": ["キャンプ チェア", "寝袋 シュラフ", "クーラーボックス", "ランタン LED"],
+     "a8_genres": ["アウトドア"]},
 ]
 
 MIN_REVIEWS = 20
@@ -173,11 +181,15 @@ def _enrich(it: dict, hist: dict) -> dict:
 
 def rankings(items: list[dict], hist: dict) -> tuple[list[dict], list[dict]]:
     rich = [_enrich(it, hist) for it in items]
-    popular, per_kw = [], {}
+    popular, per_kw, names = [], {}, set()
     for it in sorted(rich, key=_popularity, reverse=True):
         kw = it.get("keyword", "")
         if kw and per_kw.get(kw, 0) >= PER_KEYWORD_MAX:
             continue
+        name = _short_name(it.get("itemName", ""), 40)
+        if name in names:  # 同じ商品の別ページ（同名）が並ぶのを防ぐ
+            continue
+        names.add(name)
         per_kw[kw] = per_kw.get(kw, 0) + 1
         popular.append(it)
         if len(popular) >= TOP_N:
@@ -197,7 +209,7 @@ GA4_TAG = f"""<script async src="https://www.googletagmanager.com/gtag/js?id={GA
 <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}
 gtag('js',new Date());gtag('config','{GA4_ID}');
 document.addEventListener('click',function(e){{var a=e.target.closest('a[rel~="sponsored"]');if(!a)return;
-var h=a.hostname,net=/a8\\.net/.test(h)?'a8':(/rakuten/.test(h)?'rakuten':(/yahoo|valuecommerce/.test(h)?'yahoo':'other'));
+var h=a.hostname,net=/a8\\.net/.test(h)?'a8':(/rakuten/.test(h)?'rakuten':(/valuecommerce/.test(h)?'vc':(/yahoo/.test(h)?'yahoo':'other')));
 var it=a.closest('.item');var n=it?it.querySelector('.item-name'):null;
 gtag('event','affiliate_click',{{network:net,link_text:(n?n.textContent:a.textContent).trim().slice(0,90),
 page_path:location.pathname,section:(a.closest('section')||{{}}).id||''}});}});</script>"""
@@ -296,12 +308,24 @@ def _item_card(rank: int, it: dict, mode: str) -> str:
 </li>"""
 
 
+VC_LINKS_FILE = Path(__file__).resolve().parent.parent / "data" / "vc_links.yaml"
+
+
 def _a8_links(genre: dict) -> list[dict]:
+    """ジャンルの「おすすめのサービス」に出す案件（A8＋バリューコマース）。"""
+    out = []
     try:
         from .a8_selector import load_links
-        return [l for l in load_links() if l.get("genre") in genre["a8_genres"]]
+        out += [l for l in load_links() if l.get("genre") in genre["a8_genres"]]
     except Exception:  # noqa: BLE001
-        return []
+        pass
+    try:
+        import yaml
+        vc = yaml.safe_load(VC_LINKS_FILE.read_text(encoding="utf-8")) or []
+        out += [l for l in vc if genre["slug"] in (l.get("site_genres") or [])]
+    except Exception:  # noqa: BLE001
+        pass
+    return out
 
 
 def _svc_name(name: str, n: int = 60) -> str:
@@ -319,8 +343,9 @@ def _svc_card(l: dict) -> str:
     banner = ""
     if bn.get("img"):
         banner = (f'<a class="svc-banner" href="{url}" {rel}><img src="{E(bn["img"])}" width="{bn.get("width", 300)}" '
-                  f'height="{bn.get("height", 250)}" alt="{E(_svc_name(l["program_name"], 40))}" loading="lazy"></a>'
-                  f'<img class="px" src="{E(bn["pixel"])}" width="1" height="1" alt="">')
+                  f'height="{bn.get("height", 250)}" alt="{E(_svc_name(l["program_name"], 40))}" loading="lazy"></a>')
+        if bn.get("pixel"):  # A8は計測用の1px画像が別。バリューコマースはバナー画像自体が計測を兼ねる
+            banner += f'<img class="px" src="{E(bn["pixel"])}" width="1" height="1" alt="">'
     return (f'<li class="svc">{banner}<div class="svc-body"><b>{E(l.get("site_name") or _svc_name(l["program_name"]))}</b>'
             f'<span>{E((l.get("site_note") or l.get("note", ""))[:80])}</span></div>'
             f'<a class="btn-svc" href="{url}" {rel}>公式サイトを見る</a></li>')
@@ -335,7 +360,7 @@ def _a8_box(genre: dict) -> str:
 <section class="services" id="services" aria-labelledby="h-services">
   <div class="services-head"><span class="pr">PR</span>
   <h2 id="h-services">{E(genre["name"])}を探している人におすすめのサービス</h2></div>
-  <p class="basis">お店で買うより続けやすい、定期便・お試しセットなどのサービスです。</p>
+  <p class="basis">楽天市場以外で、このジャンルの買い物に使える公式ショップや定期便・お試しセットなどです。</p>
   <ul class="svc-list">{cards}</ul>
 </section>"""
 
