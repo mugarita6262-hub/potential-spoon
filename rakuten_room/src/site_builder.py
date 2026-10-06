@@ -512,7 +512,7 @@ background:linear-gradient(100deg,rgba(28,20,14,.86) 0%,rgba(28,20,14,.62) 45%,r
 .chip b{font-size:15px;margin-right:2px}
 .banner{position:relative;color:#fff;background:#3a2e24 center/cover no-repeat;isolation:isolate}
 .banner::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(0deg,rgba(28,20,14,.82),rgba(28,20,14,.35))}
-.banner .wrap{padding-top:52px;padding-bottom:30px}
+.banner .wrap{padding-top:52px;padding-bottom:60px}
 .banner h1{font-size:clamp(25px,4.4vw,36px);line-height:1.35;margin:6px 0 6px}
 .banner p{margin:0;color:#f1e9df}
 .crumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:4px;margin:0;padding:0;font-size:12px;opacity:.9}
@@ -720,6 +720,38 @@ border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:
 .row-side{grid-column:2/-1;justify-content:space-between}
 .section.feature{padding:18px 14px}
 }
+
+/* ---- 値下がりボード（ページ上部の主役） ---- */
+.dropboard{position:relative;margin:-36px 0 8px;padding:22px 20px 18px;border-radius:24px;color:#fff;
+background:linear-gradient(135deg,#c2582c 0%,#93421f 100%);box-shadow:0 14px 40px rgba(147,66,31,.28);overflow:hidden}
+.dropboard .eyebrow{color:#ffd9c2}
+.db-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}
+.db-head h2{margin:0;font-size:clamp(20px,3vw,26px);line-height:1.35;width:100%}
+.db-stamp{font-size:12px;color:#ffe3d3}
+.db-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 6px}
+.stat{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:10px 14px}
+.stat b{display:block;font-size:clamp(28px,5vw,40px);line-height:1.1;font-weight:800;letter-spacing:.01em}
+.stat b small{font-size:15px;margin-left:2px}
+.stat span{font-size:13px;color:#ffe3d3}
+.stat.hot{background:#fff;color:var(--brand-dark)}
+.stat.hot span{color:var(--brand)}
+.db-hot{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0 2px;font-size:13px}
+.db-hot>span{color:#ffe3d3;margin-right:2px}
+.db-hot a{color:#fff;text-decoration:none;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);
+border-radius:999px;padding:4px 12px}
+.db-hot a b{color:#fff}
+.db-lead{margin:10px 0 0;font-size:14px;color:#fff3ec}
+.dropboard .hscroll{margin:10px -20px 0;padding:4px 20px 6px}
+.dropboard .item.mini{color:var(--ink);border:0}
+.dropboard .item.mini .price{color:var(--brand-dark)}
+.dropboard ~ .summary{margin:14px 0 8px}
+@media (max-width:760px){
+.dropboard{margin-top:-24px;padding:18px 14px 14px;border-radius:20px}
+.db-stats{gap:6px}
+.stat{padding:8px 10px}
+.stat span{font-size:11px}
+.dropboard .hscroll{margin:10px -14px 0;padding:4px 14px 6px}
+}
 @media (max-width:560px){
 .site-header .hrow{gap:10px;min-height:52px}
 .logo span{display:none}
@@ -782,7 +814,7 @@ if(typeof gtag==='function')gtag('event','tab_switch',{{tab:b.dataset.tab}})}})}
 var t=document.querySelector('.totop');addEventListener('scroll',function(){{t.classList.toggle('show',scrollY>600)}},{{passive:true}});
 var links=[].slice.call(document.querySelectorAll('.toc-pills a'));if(!links.length||!('IntersectionObserver'in window))return;
 var io=new IntersectionObserver(function(es){{es.forEach(function(e){{if(e.isIntersecting){{links.forEach(function(a){{
-var on=a.getAttribute('href')==='#'+e.target.id;a.classList.toggle('on',on);if(on)a.scrollIntoView({{block:'nearest',inline:'center'}})}})}}}})}},
+var on=a.getAttribute('href')==='#'+e.target.id;a.classList.toggle('on',on);if(on){{var n=a.parentNode;n.scrollTo({{left:a.offsetLeft-n.clientWidth/2+a.offsetWidth/2,behavior:'smooth'}})}}}})}}}})}},
 {{rootMargin:'-45% 0px -50% 0px'}});links.forEach(function(a){{var el=document.querySelector(a.getAttribute('href'));if(el)io.observe(el)}});}})();</script>
 <footer class="site-footer"><div class="wrap">
 <div class="fcols">
@@ -935,7 +967,7 @@ def _mini_card(rank: int, it: dict, mode: str) -> str:
            if it.get("reference_price", 0) > it["price"] else "")
     return f"""
 <li class="item mini" id="{mode}-{rank}">
-  <a class="mini-img" href="{url}" {_REL}>{_img(it, 160)}<span class="badge badge-drop">{it["drop_pct"]:.0f}%値下がり</span></a>
+  <a class="mini-img" href="{url}" {_REL}>{_img(it, 160)}<span class="badge badge-drop">{it["drop_pct"]:.0f}%{"値下がり" if it["drop_pct"] >= DROP_MIN_PCT else "安"}</span></a>
   <h3 class="item-name"><a href="{url}" {_REL}>{E(_short_name(it["itemName"], 40))}</a></h3>
   <div class="price-row"><span class="price">{it["price"]:,}<small>円</small></span>{was}</div>
 </li>"""
@@ -966,7 +998,8 @@ def _today_picks(popular: list[dict], drops: list[dict]) -> str:
             picks.append((it, label))
 
     add(popular[0] if popular else None, "評判No.1")
-    add(drops[0] if drops else None, "値下がり率No.1")
+    most = max(popular, key=lambda x: x["reviewCount"]) if popular else None
+    add(most, "レビュー数No.1")
     good = [x for x in popular if x["reviewAverage"] >= 4.3 and x["itemCode"] not in used]
     add(min(good, key=lambda x: x["price"]) if good else None, "手頃で高評価")
     for x in popular:
@@ -977,6 +1010,50 @@ def _today_picks(popular: list[dict], drops: list[dict]) -> str:
         return ""
     cards = "".join(_big_card(i + 1, it, "pick", label) for i, (it, label) in enumerate(picks))
     return f'<ol class="podium picks">{cards}</ol>'
+
+
+def _qualified(it: dict) -> bool:
+    return it.get("reviewAverage", 0) >= MIN_AVG and it.get("reviewCount", 0) >= MIN_REVIEWS
+
+
+def _drop_stats(rich: list[dict], drops: list[dict]) -> dict:
+    lows = [x for x in rich if x.get("is_all_time_low") and x.get("days", 0) >= 7 and _qualified(x)]
+    return {"n": len(drops), "max": max((d["drop_pct"] for d in drops), default=0), "low": len(lows)}
+
+
+def _near_drops(rich: list[dict], n: int = 12) -> list[dict]:
+    """5%未満でも、記録上の最高値より少しでも安くなっている商品（値下がりが無い日の代わり）。"""
+    near = [x for x in rich if 0 < x.get("drop_pct", 0) < DROP_MIN_PCT and x.get("days", 0) >= 2 and _qualified(x)]
+    return sorted(near, key=lambda x: x["drop_pct"], reverse=True)[:n]
+
+
+def _drop_board(title: str, stats: dict, drops: list[dict], near: list[dict], updated: str,
+                extra: str = "") -> str:
+    """ページ上部の主役。値下がりの状況を数字で見せ、そのすぐ下に該当商品を並べる。"""
+    if drops:
+        lead = f"直近30日の最高値より{DROP_MIN_PCT:.0f}%以上安い商品を、下がった順に並べています。"
+        lst = _hscroll(drops, "drop", "")
+    elif near:
+        lead = (f"今は{DROP_MIN_PCT:.0f}%以上の大きな値下がりはありません。"
+                "記録上の最高値より少しだけ安くなっている商品です。")
+        lst = '<ol class="hscroll">' + "".join(_mini_card(i + 1, it, "near") for i, it in enumerate(near)) + "</ol>"
+    else:
+        lead = "今は値下がりしている商品はありません。価格は毎日記録しているので、下がったものがあればここに並びます。"
+        lst = ""
+    mx = f'{stats["max"]:.0f}<small>%</small>' if stats["max"] else "—"
+    return f"""
+<section class="dropboard" id="drops" aria-labelledby="h-drops">
+  <div class="db-head"><p class="eyebrow">PRICE DROP</p><h2 id="h-drops">{E(title)}</h2>
+    <span class="db-stamp">{E(updated)}更新・毎日記録</span></div>
+  <div class="db-stats">
+    <div class="stat hot"><b>{stats["n"]}<small>件</small></b><span>値下がり中</span></div>
+    <div class="stat"><b>{mx}</b><span>最大の下落率</span></div>
+    <div class="stat"><b>{stats["low"]}<small>件</small></b><span>記録上の最安値</span></div>
+  </div>
+  {extra}
+  <p class="db-lead">{lead}</p>
+  {lst}
+</section>"""
 
 
 def _guide_card(g: dict, x: dict) -> str:
@@ -1090,6 +1167,9 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
         guides = _guides(g["slug"])
         crumbs, crumbs_ld = _breadcrumb([("ホーム", "/"), (f"{g['name']}の買い時", path)])
         summary, summary_text = _genre_summary(g, popular, drops, items, updated)
+        rich = [_enrich(it, hist) for it in items]
+        board = _drop_board(f"今の{g['name']}の値下がり状況", _drop_stats(rich, drops), drops,
+                            _near_drops(rich), updated)
         faq_html, faq_ld = _faq(_genre_faq(g, popular, drops, updated))
         ypop = yahoo_data.get(g["slug"], [])
         rank_basis = (f"レビュー評価（★{MIN_AVG}以上・{MIN_REVIEWS}件以上）の高さと件数を掛け合わせた点数で順位付け"
@@ -1104,8 +1184,8 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
   <div id="tab-yahoo" class="tabpane" hidden>{_rank_list(ypop, "yahoo", "データを準備中です。")}</div>"""
         else:
             ranking_body = _rank_list(popular, "pop", "データを準備中です。")
-        pills = ['<a href="#picks">今日の注目</a>', '<a href="#ranking">評判ランキング</a>',
-                 '<a href="#drops">値下がり中</a>', '<a href="#compare">比較表</a>']
+        pills = ['<a href="#drops">値下がり状況</a>', '<a href="#picks">今日の注目</a>',
+                 '<a href="#ranking">評判ランキング</a>', '<a href="#compare">比較表</a>']
         if guides:
             pills.append('<a href="#guides">選び方ガイド</a>')
         pills.append('<a href="#faq">よくある質問</a>')
@@ -1119,9 +1199,10 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 <section class="banner" style="background-image:url('/img/{img}.jpg')"><div class="wrap">
 {crumbs}<h1>{E(g["name"])}の買い時｜値下がり・評判ランキング</h1><p>{E(g["lead"])}</p></div></section>
 <div class="wrap">
-{summary}
+{board}
 {notice}
 <nav class="toc-pills" aria-label="ページ内リンク">{"".join(pills)}</nav>
+{summary}
 <section class="section feature" id="picks" aria-labelledby="h-picks">
   <p class="eyebrow">TODAY'S PICK</p>
   <h2 id="h-picks">今日の注目の{E(g["name"])}</h2>
@@ -1132,12 +1213,6 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
   <h2 id="h-ranking">評判の良い{E(g["name"])}ランキング TOP{len(popular)}</h2>
   <p class="basis">{rank_basis}</p>
   {ranking_body}
-</section>
-<section class="section" id="drops" aria-labelledby="h-drops">
-  <p class="eyebrow">PRICE DROP</p>
-  <h2 id="h-drops">今、値下がりしている{E(g["name"])}<span class="count">{len(drops)}件</span></h2>
-  <p class="basis">直近30日に記録した最高値より{DROP_MIN_PCT:.0f}%以上安い商品（{updated}更新）。</p>
-  {_hscroll(drops, "drop", "今は大きく値下がりしている商品はありません。価格は毎日記録しているので、下がったものがあればここに並びます。")}
 </section>
 {_a8_box(g)}
 <section class="section" id="compare" aria-labelledby="h-compare">
@@ -1208,6 +1283,16 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                    '<h2 id="h-g">選び方ガイド</h2><ul class="guide-cards">'
                    + "".join(_guide_card(g, x) for g, x in first_per_genre[:6]) + "</ul></section>") if guides_all else ""
     n_drops = sum(len(v[2]) for v in genre_data.values())
+    all_rich = [_enrich(it, hist) for g in GENRES for it in genre_data[g["slug"]][0]]
+    all_drops = [d for _, d in top_drops]
+    hot = sorted(GENRES, key=lambda g: len(genre_data[g["slug"]][2]), reverse=True)
+    hot = [g for g in hot if genre_data[g["slug"]][2]][:4]
+    hot_html = ('<div class="db-hot"><span>値下がりが多いジャンル</span>' + "".join(
+        f'<a href="/{g["slug"]}/#drops">{g["emoji"]} {E(g["name"])} <b>{len(genre_data[g["slug"]][2])}件</b></a>'
+        for g in hot) + "</div>") if hot else ""
+    home_board = _drop_board("今日の値下がり状況（全ジャンル）",
+                             {**_drop_stats(all_rich, all_drops), "n": n_drops}, all_drops,
+                             _near_drops(all_rich), updated, extra=hot_html)
     home_summary = (f"{updated}時点で、{len(GENRES)}ジャンル{total_items}商品の価格を記録しています。"
                     f"直近30日の最高値から5%以上値下がりしている商品は{n_drops}件です。")
     body = f"""
@@ -1217,11 +1302,8 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 <div class="chips"><span class="chip"><b>{total_items}</b>商品を記録中</span><span class="chip"><b>{n_drops}</b>件が値下がり中</span><span class="chip">毎朝更新</span></div>
 </div></section>
 <div class="wrap">
+{home_board}
 <section class="summary" aria-labelledby="h-sum"><h2 id="h-sum">今日のまとめ（{updated}）</h2><p>{E(home_summary)}</p></section>
-<section class="section feature" aria-labelledby="h-drops"><p class="eyebrow">PRICE DROP</p>
-<h2 id="h-drops">今日の値下がりピックアップ<span class="count">{n_drops}件</span></h2>
-<p class="basis">各ジャンルで直近30日の最高値から{DROP_MIN_PCT:.0f}%以上下がった商品（{updated}更新）。</p>
-{_hscroll([d for _, d in top_drops], "drop", "今日は大きな値下がりはありません。価格は毎日記録しています。")}</section>
 <section class="section related" aria-labelledby="h-genres"><p class="eyebrow">CATEGORY</p>
 <h2 id="h-genres">ジャンルから探す</h2><div class="gcards">{cards}</div></section>
 {guides_home}
