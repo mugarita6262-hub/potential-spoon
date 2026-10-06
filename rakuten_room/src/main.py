@@ -522,7 +522,8 @@ def cmd_digest(cfg: dict) -> None:
     genre_name = GENRE_NAMES.get(str(genre_id), f"ジャンル{genre_id}")
 
     try:
-        items = api.ranking(int(genre_id), 5)
+        from .claims_filter import drop_risky
+        items = drop_risky(api.ranking(int(genre_id), 10))[:5]
     except Exception as exc:  # noqa: BLE001
         print(f"ランキング取得に失敗: {exc}")
         return

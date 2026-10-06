@@ -30,7 +30,9 @@ def gather_candidates(cfg: dict, api: RakutenAPI) -> list[dict]:
             except Exception as exc:  # noqa: BLE001
                 print(f"  お気に入り {url} 取得失敗: {exc}")
 
-    return dedupe(candidates)
+    from .claims_filter import drop_risky
+
+    return drop_risky(dedupe(candidates))
 
 
 def select_items(cfg: dict, api: RakutenAPI, pool: int | None = None) -> list[dict]:
