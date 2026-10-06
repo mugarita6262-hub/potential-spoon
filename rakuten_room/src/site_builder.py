@@ -536,6 +536,8 @@ border:0;background:var(--ink);color:#fff;font-size:20px;box-shadow:0 6px 18px r
 .totop.show{opacity:.9;pointer-events:auto}
 .related .gcards{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
 .related .gcard div{padding:10px 12px}.related .gcard b{font-size:15px}
+.related .gcard div>span:not(.tag){display:none}
+.related .gcard img{aspect-ratio:16/8}
 .sresult{display:grid;gap:10px;list-style:none;margin:0;padding:0}
 .sresult a{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;text-decoration:none}
 .sresult img{width:64px;height:64px;object-fit:contain;border-radius:8px;background:#faf7f2;flex:none}
@@ -644,6 +646,80 @@ vertical-align:middle;font-weight:600}
 .fcols b{color:#fff;display:block;margin-bottom:6px}
 .fcols ul{list-style:none;margin:0;padding:0;line-height:2}
 .fcols a{text-decoration:none}
+
+/* ---- 2026-10-06 リデザイン: 強弱をつける ---- */
+.eyebrow{margin:0 0 2px;font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--brand)}
+.section>h2 .count{display:inline-block;margin-left:10px;font-size:13px;font-weight:700;color:var(--brand-dark);
+background:var(--brand-soft);border-radius:999px;padding:2px 10px;vertical-align:middle}
+.section.feature{background:linear-gradient(180deg,#fff 0%,#fff8f2 100%);border:1px solid var(--line);border-radius:24px;
+padding:22px 20px 24px;box-shadow:var(--shadow)}
+.podium{list-style:none;margin:14px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.item.big{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+padding:16px;box-shadow:var(--shadow);position:relative}
+.item.big:first-child{border:2px solid var(--gold)}
+.picks .item.big:first-child{border:2px solid var(--brand)}
+.big-head{display:flex;align-items:center;gap:8px;min-height:34px}
+.big-head .badges{margin:0}
+.chip-label{font-size:13px;font-weight:800;color:#fff;background:var(--brand);border-radius:999px;padding:4px 12px}
+.picks .item.big:nth-child(2) .chip-label{background:var(--green)}
+.picks .item.big:nth-child(3) .chip-label{background:#5a6b8c}
+.big-img{display:block;margin:10px 0 12px}
+.big-img img,.big-img .noimg{width:100%;height:auto;aspect-ratio:1/1;object-fit:contain;background:#faf7f2;border-radius:14px}
+.item.big .item-name{font-size:15px;line-height:1.5;margin:0 0 6px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.item.big .price{font-size:26px}
+.item.big .trend{min-height:8px}
+.item.big .btns{margin-top:auto;display:flex;flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:8px;padding-top:10px;width:100%}
+.item.big .btn-buy,.item.big .btn-sub{text-align:center;display:block}
+.rows{list-style:none;margin:14px 0 0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.item.row{display:grid;grid-template-columns:30px 64px 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
+.item.row:first-child{border-top:0}
+.item.row .rank{width:28px;height:28px;font-size:13px;background:#f1ebe2;color:var(--sub)}
+.row-img img,.row-img .noimg{width:64px;height:64px;object-fit:contain;border-radius:10px;background:#faf7f2}
+.item.row .item-name{font-size:14px;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.row-meta{font-size:13px}
+.row-side{display:flex;align-items:center;gap:10px;justify-content:flex-end}
+.row-side .price{font-size:18px}
+.btn-buy.sm{padding:7px 16px;font-size:13px}
+.item.row .btn-buy.sm{flex:none !important;width:auto}
+.hscroll{list-style:none;margin:14px -18px 0;padding:4px 18px 14px;display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin}
+.item.mini{display:block;flex:0 0 180px;scroll-snap-align:start;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px;box-shadow:var(--shadow)}
+.mini-img{display:block;position:relative}
+.mini-img img,.mini-img .noimg{width:100%;height:auto;aspect-ratio:1/1;object-fit:contain;background:#faf7f2;border-radius:12px}
+.mini-img .badge{position:absolute;left:6px;top:6px;font-size:12px;background:var(--brand);color:#fff}
+.item.mini .item-name{font-size:13px;line-height:1.45;margin:8px 0 4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.item.mini .price{font-size:18px}
+.tabs{display:flex;gap:6px;margin:12px 0 0;border-bottom:2px solid var(--line)}
+.tab{border:0;background:none;font:inherit;font-weight:700;font-size:15px;color:var(--sub);padding:10px 16px;cursor:pointer;
+border-bottom:3px solid transparent;margin-bottom:-2px}
+.tab.on{color:var(--brand);border-bottom-color:var(--brand)}
+.compare-box{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:4px 16px}
+.compare-box summary{cursor:pointer;padding:12px 0;list-style:none}
+.compare-box summary::-webkit-details-marker{display:none}
+.compare-box summary::after{content:"＋";float:right;color:var(--brand);font-weight:800}
+.compare-box[open] summary::after{content:"－"}
+.h2like{font-size:17px;font-weight:800}
+.guide-cards{list-style:none;margin:14px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.guide-cards a{display:flex;flex-direction:column;height:100%;text-decoration:none;background:var(--surface);border:1px solid var(--line);
+border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:transform .15s}
+.guide-cards a:hover{transform:translateY(-3px)}
+.guide-cards img{width:100%;height:auto;aspect-ratio:16/7;object-fit:cover}
+.guide-cards .g-tag{margin:12px 16px 0;font-size:12px;font-weight:700;color:var(--brand-dark)}
+.guide-cards b{margin:4px 16px 0;font-size:16px;line-height:1.5}
+.guide-cards .g-desc{margin:6px 16px 16px;font-size:13px;color:var(--sub);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media (max-width:760px){
+.podium{grid-template-columns:1fr}
+.item.big{display:grid;grid-template-columns:120px 1fr;column-gap:14px;padding:14px}
+.item.big .big-head{grid-column:1/-1}
+.item.big .big-img{grid-row:2/6;margin:6px 0 0}
+.item.big .item-name{-webkit-line-clamp:2;margin-top:6px}
+.item.big .price{font-size:22px}
+.item.big .btns{grid-column:1/-1;flex-direction:row}
+.item.big .btn-buy,.item.big .btn-sub{flex:1}
+.item.row{grid-template-columns:26px 56px 1fr;gap:10px}
+.row-img img,.row-img .noimg{width:56px;height:56px}
+.row-side{grid-column:2/-1;justify-content:space-between}
+.section.feature{padding:18px 14px}
+}
 @media (max-width:560px){
 .site-header .hrow{gap:10px;min-height:52px}
 .logo span{display:none}
@@ -699,6 +775,10 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 <button class="totop" type="button" aria-label="ページ上部へ" onclick="scrollTo({{top:0,behavior:'smooth'}})">↑</button>
 <script>(function(){{var h=document.getElementById('hdr'),r=document.documentElement;
 function s(){{r.style.setProperty('--hdr-h',h.offsetHeight+'px')}}s();addEventListener('resize',s);
+document.querySelectorAll('.tab').forEach(function(b){{b.addEventListener('click',function(){{
+var box=b.closest('.section');box.querySelectorAll('.tab').forEach(function(x){{var on=x===b;x.classList.toggle('on',on);
+x.setAttribute('aria-selected',on);document.getElementById(x.dataset.tab).hidden=!on}});
+if(typeof gtag==='function')gtag('event','tab_switch',{{tab:b.dataset.tab}})}})}});
 var t=document.querySelector('.totop');addEventListener('scroll',function(){{t.classList.toggle('show',scrollY>600)}},{{passive:true}});
 var links=[].slice.call(document.querySelectorAll('.toc-pills a'));if(!links.length||!('IntersectionObserver'in window))return;
 var io=new IntersectionObserver(function(es){{es.forEach(function(e){{if(e.isIntersecting){{links.forEach(function(a){{
@@ -778,6 +858,132 @@ def _write(path: str, content: str) -> None:
     p = OUT_DIR / path.strip("/") / "index.html"
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content, encoding="utf-8")
+
+
+_REL = 'rel="nofollow sponsored noopener" target="_blank"'
+
+
+def _img(it: dict, size: int) -> str:
+    if not it.get("imageUrl"):
+        return '<div class="noimg"></div>'
+    return (f'<img src="{E(it["imageUrl"])}" alt="{E(_short_name(it["itemName"], 40))}" loading="lazy" '
+            f'decoding="async" width="{size}" height="{size}">')
+
+
+def _buy_btn(it: dict, cls: str = "btn-buy", label: str = "") -> str:
+    is_yahoo = it.get("mall") == "yahoo"
+    text = label or ("Yahoo!で見る" if is_yahoo else "楽天で見る")
+    yc = " btn-yahoo" if is_yahoo else ""
+    return f'<a class="{cls}{yc}" href="{E(_buy_url(it))}" {_REL}>{text}</a>'
+
+
+def _stars(it: dict) -> str:
+    return (f'<span class="stars">★{it["reviewAverage"]:.2f}</span>'
+            f'<span class="muted">（{it["reviewCount"]:,}件）</span>')
+
+
+def _has_drop(it: dict) -> bool:
+    return it.get("drop_pct", 0) >= DROP_MIN_PCT and it.get("days", 0) >= 2
+
+
+def _big_card(rank: int, it: dict, mode: str, label: str = "") -> str:
+    """1〜3位・今日の注目用の大きいカード。"""
+    medal = {1: "gold", 2: "silver", 3: "bronze"}.get(rank, "")
+    url = E(_buy_url(it))
+    chip = (f'<span class="chip-label">{E(label)}</span>' if label
+            else f'<span class="rank {medal}">{rank}</span>')
+    drop = f'<span class="badge badge-drop">{it["drop_pct"]:.0f}%値下がり</span>' if _has_drop(it) else ""
+    low = ('<span class="badge badge-low">記録上の最安値</span>'
+           if it.get("is_all_time_low") and it.get("days", 0) >= 7 else "")
+    was = (f'<s class="was">{_yen(it["reference_price"])}</s>'
+           if drop and it["reference_price"] > it["price"] else "")
+    spark = _sparkline(it["history"]) if it.get("days", 0) >= 2 else ""
+    sub = ""
+    if it.get("mall") != "yahoo" and yahoo_enabled():
+        q = E(quote(_short_name(it["itemName"], 40).rstrip("…")))
+        sub = f'<a class="btn-sub" href="https://shopping.yahoo.co.jp/search?p={q}" {_REL}>Yahoo!で探す</a>'
+    return f"""
+<li class="item big" id="{mode}-{rank}">
+  <div class="big-head">{chip}<span class="badges">{drop}{low}</span></div>
+  <a class="big-img" href="{url}" {_REL}>{_img(it, 240)}</a>
+  <h3 class="item-name"><a href="{url}" {_REL}>{E(_short_name(it["itemName"], 60))}</a></h3>
+  <div class="price-row"><span class="price">{it["price"]:,}<small>円</small></span>{was}</div>
+  <div class="rating">{_stars(it)}</div>
+  <div class="trend">{spark}</div>
+  <div class="btns">{_buy_btn(it)}{sub}</div>
+</li>"""
+
+
+def _row_card(rank: int, it: dict, mode: str) -> str:
+    """4位以下用の1行リスト。"""
+    url = E(_buy_url(it))
+    drop = f'<span class="badge badge-drop">{it["drop_pct"]:.0f}%↓</span>' if _has_drop(it) else ""
+    return f"""
+<li class="item row" id="{mode}-{rank}">
+  <span class="rank">{rank}</span>
+  <a class="row-img" href="{url}" {_REL}>{_img(it, 64)}</a>
+  <div class="row-body"><h3 class="item-name"><a href="{url}" {_REL}>{E(_short_name(it["itemName"], 56))}</a></h3>
+    <div class="row-meta">{_stars(it)}</div></div>
+  <div class="row-side"><span class="price">{it["price"]:,}<small>円</small></span>{drop}{_buy_btn(it, "btn-buy sm", "見る")}</div>
+</li>"""
+
+
+def _mini_card(rank: int, it: dict, mode: str) -> str:
+    """横スクロール用の小さいカード（値下がり中など）。"""
+    url = E(_buy_url(it))
+    was = (f'<s class="was">{_yen(it["reference_price"])}</s>'
+           if it.get("reference_price", 0) > it["price"] else "")
+    return f"""
+<li class="item mini" id="{mode}-{rank}">
+  <a class="mini-img" href="{url}" {_REL}>{_img(it, 160)}<span class="badge badge-drop">{it["drop_pct"]:.0f}%値下がり</span></a>
+  <h3 class="item-name"><a href="{url}" {_REL}>{E(_short_name(it["itemName"], 40))}</a></h3>
+  <div class="price-row"><span class="price">{it["price"]:,}<small>円</small></span>{was}</div>
+</li>"""
+
+
+def _rank_list(items: list[dict], mode: str, empty: str) -> str:
+    """1〜3位は大きいカード、4位以下は1行リスト。"""
+    if not items:
+        return f'<div class="panel"><p class="empty">{empty}</p></div>'
+    top = "".join(_big_card(i + 1, it, mode) for i, it in enumerate(items[:3]))
+    rest = "".join(_row_card(i + 4, it, mode) for i, it in enumerate(items[3:]))
+    return f'<ol class="podium">{top}</ol>' + (f'<ol class="rows" start="4">{rest}</ol>' if rest else "")
+
+
+def _hscroll(items: list[dict], mode: str, empty: str) -> str:
+    if not items:
+        return f'<div class="panel"><p class="empty">{empty}</p></div>'
+    return '<ol class="hscroll">' + "".join(_mini_card(i + 1, it, mode) for i, it in enumerate(items)) + "</ol>"
+
+
+def _today_picks(popular: list[dict], drops: list[dict]) -> str:
+    """ページの主役。評判1位・値下がり1位・手頃で高評価の3つを大きく見せる。"""
+    picks, used = [], set()
+
+    def add(it, label):
+        if it and it["itemCode"] not in used:
+            used.add(it["itemCode"])
+            picks.append((it, label))
+
+    add(popular[0] if popular else None, "評判No.1")
+    add(drops[0] if drops else None, "値下がり率No.1")
+    good = [x for x in popular if x["reviewAverage"] >= 4.3 and x["itemCode"] not in used]
+    add(min(good, key=lambda x: x["price"]) if good else None, "手頃で高評価")
+    for x in popular:
+        if len(picks) >= 3:
+            break
+        add(x, "人気")
+    if not picks:
+        return ""
+    cards = "".join(_big_card(i + 1, it, "pick", label) for i, (it, label) in enumerate(picks))
+    return f'<ol class="podium picks">{cards}</ol>'
+
+
+def _guide_card(g: dict, x: dict) -> str:
+    img = GENRE_IMG.get(g["slug"], "hero")
+    return (f'<li><a href="/{g["slug"]}/{E(x["slug"])}/"><img src="/img/{img}.jpg" alt="" loading="lazy" '
+            f'width="1200" height="675"><span class="g-tag">{g["emoji"]} {E(g["name"])}</span>'
+            f'<b>{E(x["title"])}</b><span class="g-desc">{E(x["desc"])}</span></a></li>')
 
 
 def _items_list(items: list[dict], mode: str, empty: str) -> str:
@@ -886,27 +1092,28 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
         summary, summary_text = _genre_summary(g, popular, drops, items, updated)
         faq_html, faq_ld = _faq(_genre_faq(g, popular, drops, updated))
         ypop = yahoo_data.get(g["slug"], [])
-        yahoo_html = ""
+        rank_basis = (f"レビュー評価（★{MIN_AVG}以上・{MIN_REVIEWS}件以上）の高さと件数を掛け合わせた点数で順位付け"
+                      f"（{updated}更新）。広告料による順位の上下はありません。")
         if ypop:
-            yahoo_html = f"""
-<section class="section" id="yahoo" aria-labelledby="h-yahoo">
-  <h2 id="h-yahoo">Yahoo!ショッピングで評判の良い{E(g["name"])} TOP{len(ypop)}</h2>
-  <p class="basis">Yahoo!ショッピングのレビュー評価（★{MIN_AVG}以上・{MIN_REVIEWS}件以上）を、楽天と同じ基準で順位付けしています（{updated}更新）。楽天のランキングと見比べて、安い方・ポイントが多い方で選べます。</p>
-  {_items_list(ypop, "yahoo", "データを準備中です。")}
-</section>"""
-        pills = ['<a href="#drops">値下がり中</a>', '<a href="#ranking">評判ランキング</a>',
-                 '<a href="#compare">比較表</a>']
-        if ypop:
-            pills.insert(2, '<a href="#yahoo">Yahoo!で比較</a>')
+            ranking_body = f"""
+  <div class="tabs" role="tablist">
+    <button class="tab on" type="button" role="tab" aria-selected="true" data-tab="tab-rakuten">楽天市場</button>
+    <button class="tab" type="button" role="tab" aria-selected="false" data-tab="tab-yahoo">Yahoo!ショッピング</button>
+  </div>
+  <div id="tab-rakuten" class="tabpane">{_rank_list(popular, "pop", "データを準備中です。")}</div>
+  <div id="tab-yahoo" class="tabpane" hidden>{_rank_list(ypop, "yahoo", "データを準備中です。")}</div>"""
+        else:
+            ranking_body = _rank_list(popular, "pop", "データを準備中です。")
+        pills = ['<a href="#picks">今日の注目</a>', '<a href="#ranking">評判ランキング</a>',
+                 '<a href="#drops">値下がり中</a>', '<a href="#compare">比較表</a>']
         if guides:
             pills.append('<a href="#guides">選び方ガイド</a>')
         pills.append('<a href="#faq">よくある質問</a>')
         guides_html = ""
         if guides:
-            guides_html = ('<section class="section" id="guides" aria-labelledby="h-guides"><h2 id="h-guides">選び方ガイド</h2>'
-                           '<ul class="guide-list">' + "".join(
-                               f'<li><a href="{path}{E(x["slug"])}/"><b>{E(x["title"])}</b><span>{E(x["desc"])}</span></a></li>'
-                               for x in guides) + "</ul></section>")
+            guides_html = ('<section class="section" id="guides" aria-labelledby="h-guides">'
+                           '<p class="eyebrow">GUIDE</p><h2 id="h-guides">選び方ガイド</h2>'
+                           '<ul class="guide-cards">' + "".join(_guide_card(g, x) for x in guides) + "</ul></section>")
         notice = f'<p class="notice">{E(g["notice"])}</p>' if g.get("notice") else ""
         body = f"""
 <section class="banner" style="background-image:url('/img/{img}.jpg')"><div class="wrap">
@@ -915,21 +1122,28 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 {summary}
 {notice}
 <nav class="toc-pills" aria-label="ページ内リンク">{"".join(pills)}</nav>
-<section class="section" id="drops" aria-labelledby="h-drops">
-  <h2 id="h-drops">今、値下がりしている{E(g["name"])}</h2>
-  <p class="basis">直近30日に記録した最高値と比べて{DROP_MIN_PCT:.0f}%以上安くなっている商品を、下落率の大きい順に表示しています（{updated}更新）。</p>
-  {_items_list(drops, "drop", "今は大きく値下がりしている商品はありません。価格は毎日記録しているので、下がったものがあればここに並びます。")}
+<section class="section feature" id="picks" aria-labelledby="h-picks">
+  <p class="eyebrow">TODAY'S PICK</p>
+  <h2 id="h-picks">今日の注目の{E(g["name"])}</h2>
+  {_today_picks(popular, drops)}
 </section>
 <section class="section" id="ranking" aria-labelledby="h-ranking">
+  <p class="eyebrow">RANKING</p>
   <h2 id="h-ranking">評判の良い{E(g["name"])}ランキング TOP{len(popular)}</h2>
-  <p class="basis">楽天市場のレビュー評価（★{MIN_AVG}以上・{MIN_REVIEWS}件以上）を対象に、評価の高さとレビュー件数を掛け合わせた点数で順位付けしています（{updated}更新）。広告料による順位の上下はありません。</p>
-  {_items_list(popular, "pop", "データを準備中です。")}
+  <p class="basis">{rank_basis}</p>
+  {ranking_body}
+</section>
+<section class="section" id="drops" aria-labelledby="h-drops">
+  <p class="eyebrow">PRICE DROP</p>
+  <h2 id="h-drops">今、値下がりしている{E(g["name"])}<span class="count">{len(drops)}件</span></h2>
+  <p class="basis">直近30日に記録した最高値より{DROP_MIN_PCT:.0f}%以上安い商品（{updated}更新）。</p>
+  {_hscroll(drops, "drop", "今は大きく値下がりしている商品はありません。価格は毎日記録しているので、下がったものがあればここに並びます。")}
 </section>
 {_a8_box(g)}
-{yahoo_html}
 <section class="section" id="compare" aria-labelledby="h-compare">
-  <h2 id="h-compare">ランキング上位の比較表</h2>
+  <details class="compare-box"><summary><span id="h-compare" class="h2like">ランキング上位の比較表を見る</span></summary>
   {_compare_table(popular)}
+  </details>
 </section>
 {guides_html}
 {faq_html}
@@ -965,7 +1179,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 {_a8_box(g)}
 <section class="section" aria-labelledby="h-rel"><h2 id="h-rel">いま評判の良い{E(g["name"])} TOP5</h2>
 <p class="basis">{updated}更新。詳しくは<a href="{path}#ranking">{E(g["name"])}の評判ランキング</a>へ。</p>
-{_items_list(popular[:5], "pop", "データを準備中です。")}</section>
+{_rank_list(popular[:5], "pop", "データを準備中です。")}</section>
 {_related_genres(g["slug"], genre_data)}
 </div>"""
             ld = _jsonld(crumbs_a_ld, {"@context": "https://schema.org", "@type": "Article", "headline": x["title"],
@@ -979,15 +1193,20 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 
     # ---- トップページ
     top_drops = sorted(((g, d) for g in GENRES for d in genre_data[g["slug"]][2][:3]),
-                       key=lambda gd: gd[1]["drop_pct"], reverse=True)[:8]
+                       key=lambda gd: gd[1]["drop_pct"], reverse=True)[:16]
     cards = "".join(
         f'<a class="gcard" href="/{g["slug"]}/"><img src="/img/{GENRE_IMG[g["slug"]]}.jpg" alt="" loading="lazy" '
         f'width="1200" height="675"><div><b>{E(g["name"])}</b><span>{E(g["lead"])}</span>'
         f'<span class="tag">{_genre_tag(genre_data[g["slug"]])}</span></div></a>' for g in GENRES)
     guides_all = [(g, x) for g in GENRES for x in _guides(g["slug"])]
-    guides_home = ('<section class="section" aria-labelledby="h-g"><h2 id="h-g">選び方ガイド</h2><ul class="guide-list">'
-                   + "".join(f'<li><a href="/{g["slug"]}/{E(x["slug"])}/"><b>{E(x["title"])}</b><span>{E(g["name"])}｜{E(x["desc"])}</span></a></li>'
-                             for g, x in guides_all[:6]) + "</ul></section>") if guides_all else ""
+    first_per_genre, seen_g = [], set()
+    for g, x in guides_all:
+        if g["slug"] not in seen_g:
+            seen_g.add(g["slug"])
+            first_per_genre.append((g, x))
+    guides_home = ('<section class="section" aria-labelledby="h-g"><p class="eyebrow">GUIDE</p>'
+                   '<h2 id="h-g">選び方ガイド</h2><ul class="guide-cards">'
+                   + "".join(_guide_card(g, x) for g, x in first_per_genre[:6]) + "</ul></section>") if guides_all else ""
     n_drops = sum(len(v[2]) for v in genre_data.values())
     home_summary = (f"{updated}時点で、{len(GENRES)}ジャンル{total_items}商品の価格を記録しています。"
                     f"直近30日の最高値から5%以上値下がりしている商品は{n_drops}件です。")
@@ -999,10 +1218,12 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 </div></section>
 <div class="wrap">
 <section class="summary" aria-labelledby="h-sum"><h2 id="h-sum">今日のまとめ（{updated}）</h2><p>{E(home_summary)}</p></section>
-<section class="section" aria-labelledby="h-genres"><h2 id="h-genres">ジャンルから探す</h2><div class="gcards">{cards}</div></section>
-<section class="section" aria-labelledby="h-drops"><h2 id="h-drops">今日の値下がりピックアップ</h2>
+<section class="section feature" aria-labelledby="h-drops"><p class="eyebrow">PRICE DROP</p>
+<h2 id="h-drops">今日の値下がりピックアップ<span class="count">{n_drops}件</span></h2>
 <p class="basis">各ジャンルで直近30日の最高値から{DROP_MIN_PCT:.0f}%以上下がった商品（{updated}更新）。</p>
-{_items_list([d for _, d in top_drops], "drop", "今日は大きな値下がりはありません。価格は毎日記録しています。")}</section>
+{_hscroll([d for _, d in top_drops], "drop", "今日は大きな値下がりはありません。価格は毎日記録しています。")}</section>
+<section class="section related" aria-labelledby="h-genres"><p class="eyebrow">CATEGORY</p>
+<h2 id="h-genres">ジャンルから探す</h2><div class="gcards">{cards}</div></section>
 {guides_home}
 </div>"""
     ld = _jsonld({"@context": "https://schema.org", "@type": "WebSite", "name": SITE_NAME, "url": SITE_URL,
