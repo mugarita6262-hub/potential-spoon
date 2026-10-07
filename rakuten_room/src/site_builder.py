@@ -89,6 +89,46 @@ GENRES = [
      "lead": "キャンプ道具は、シーズン前後の値下がりでそろえるのがおすすめ。",
      "keywords": ["キャンプ チェア", "寝袋 シュラフ", "クーラーボックス", "ランタン LED"],
      "a8_genres": ["アウトドア"]},
+    {"slug": "heater", "name": "暖房・加湿", "emoji": "🔥",
+     "lead": "寒くなる前がいちばん選べる。暖房と加湿器は、値下がりの早いうちに。",
+     "keywords": ["セラミックヒーター", "電気毛布", "こたつ", "加湿器"],
+     "a8_genres": ["家電"]},
+    {"slug": "cleaner", "name": "掃除機", "emoji": "🧹",
+     "lead": "コードレスもロボットも、型落ちや値下がりのタイミングで差がつきます。",
+     "keywords": ["コードレス掃除機", "ロボット掃除機", "ハンディクリーナー", "布団クリーナー"],
+     "a8_genres": ["家電"]},
+    {"slug": "towel", "name": "タオル", "emoji": "🛁",
+     "lead": "毎日使うタオルは、まとめ買いでそろえ直すと1枚あたりがぐっと安く。",
+     "keywords": ["バスタオル", "フェイスタオル", "今治タオル", "ホテルタオル"],
+     "a8_genres": ["日用品"]},
+    {"slug": "toy", "name": "おもちゃ・知育", "emoji": "🧸",
+     "lead": "誕生日やクリスマスのプレゼントは、評判と値下がりで早めに確保。",
+     "keywords": ["知育玩具", "ブロック おもちゃ", "木のおもちゃ", "パズル 子供"],
+     "a8_genres": ["ベビー・キッズ"]},
+    {"slug": "osechi", "name": "おせち", "emoji": "🎍",
+     "lead": "おせちは予約が早いほど割引が大きいことも。人気のものから売り切れます。",
+     "keywords": ["おせち 2027", "おせち 冷凍", "おせち 2人前", "おせち 4人前"],
+     "a8_genres": ["食品・宅食"]},
+    {"slug": "meat", "name": "肉・海鮮", "emoji": "🥩",
+     "lead": "お取り寄せの肉やカニは、訳ありや値下がりで買うと満足度が段違い。",
+     "keywords": ["訳あり 牛肉", "ズワイガニ", "うなぎ 蒲焼き", "ハンバーグ 冷凍"],
+     "a8_genres": ["食品・宅食"]},
+    {"slug": "fruit", "name": "果物", "emoji": "🍊",
+     "lead": "旬の果物は、産地直送のまとめ買いが安くておいしい。",
+     "keywords": ["みかん 訳あり", "りんご 訳あり", "シャインマスカット", "柿"],
+     "a8_genres": ["食品・宅食"]},
+    {"slug": "phone", "name": "スマホ周辺", "emoji": "📱",
+     "lead": "充電器やケーブルは消耗品。評判の良いものを安いときに。",
+     "keywords": ["USB-C 充電器", "充電ケーブル", "スマホスタンド", "ワイヤレス充電器"],
+     "a8_genres": ["家電"]},
+    {"slug": "pcgear", "name": "PC周辺", "emoji": "⌨️",
+     "lead": "マウスやキーボードは、毎日使うから評判で選んで値下がりで買う。",
+     "keywords": ["ワイヤレスマウス", "ワイヤレスキーボード", "モニター 24インチ", "USBハブ"],
+     "a8_genres": ["家電"]},
+    {"slug": "gift", "name": "ギフト・お歳暮", "emoji": "🎁",
+     "lead": "お歳暮や内祝いは、早割と評判で選ぶと失敗しません。",
+     "keywords": ["お歳暮 ギフト", "カタログギフト", "内祝い お菓子", "グルメギフト"],
+     "a8_genres": ["ギフト"]},
 ]
 
 MIN_REVIEWS = 20
@@ -204,11 +244,41 @@ E = html.escape
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "site_assets"
 GENRE_BY_SLUG = {g["slug"]: g for g in GENRES}
 GENRE_IMG = {g["slug"]: g["slug"] for g in GENRES}
+# 楽天のキーワード検索は関係の薄い商品も返すので、ジャンルごとに「商品名に含むべき言葉」で絞る
+# （2026-10-07、暖房に座椅子・靴下、タオルにおむつケーキ、スマホ周辺にスーツケースが入っていた）
+GENRE_MUST = {
+    "heater": ["ヒーター", "ストーブ", "毛布", "こたつ", "コタツ", "加湿器", "暖房", "ホットカーペット"],
+    "cleaner": ["掃除機", "クリーナー", "ロボット"],
+    "towel": ["タオル"],
+    "toy": ["おもちゃ", "玩具", "ブロック", "パズル", "ままごと", "知育", "積み木", "レゴ", "トイ"],
+    "osechi": ["おせち"],
+    "fruit": ["みかん", "りんご", "林檎", "柿", "マスカット", "ぶどう", "葡萄", "梨", "いちご", "苺", "フルーツ", "果物", "柑橘", "メロン", "桃"],
+    "phone": ["充電", "ケーブル", "スマホ", "iPhone", "アダプタ", "USB"],
+    "pcgear": ["マウス", "キーボード", "モニター", "ディスプレイ", "ハブ", "ドック"],
+}
+GENRE_EXCLUDE = {"heater": ["ソックス", "靴下", "スリッパ"], "towel": ["おむつケーキ"], "toy": ["おむつケーキ"], "phone": ["スーツケース", "キャリー"],
+                 "fruit": ["干し芋", "干しいも", "栗"]}
+
+
+def _genre_ok(g: dict, it: dict) -> bool:
+    name = it.get("itemName", "")
+    # 商品名の後ろには検索用の関連語が詰め込まれていることが多いので、
+    # キャンペーン表記【】などを除いた先頭30文字で「何の商品か」を判定する
+    head = re.sub(r"[【\[［＼\][^】\]］／/]*[】\]］／/]", " ", name)
+    head = re.sub(r"\s+", " ", head).strip()[:30]
+    must = GENRE_MUST.get(g["slug"])
+    if must and not any(w in head for w in must):
+        return False
+    return not any(w in name for w in GENRE_EXCLUDE.get(g["slug"], []))
+
+
 # グローバルメニュー用の短い表記（15ジャンルを1〜2行に収めるため）
 NAV_SHORT = {"coffee": "コーヒー・お茶", "sleep": "寝具", "kitchen": "キッチン", "pet": "ペット", "water": "水・飲料",
              "rice": "お米・食品", "contact": "コンタクト", "baby": "ベビー", "daily": "日用品", "detergent": "洗剤・掃除",
              "alcohol": "お酒", "bousai": "防災", "instant": "インスタント・お菓子", "interior": "インテリア",
-             "outdoor": "アウトドア"}
+             "outdoor": "アウトドア", "heater": "暖房・加湿", "cleaner": "掃除機", "towel": "タオル",
+             "toy": "おもちゃ", "osechi": "おせち", "meat": "肉・海鮮", "fruit": "果物", "phone": "スマホ周辺",
+             "pcgear": "PC周辺", "gift": "ギフト"}
 GA4_ID = "G-MJGWNG8KND"
 GA4_TAG = f"""<script async src="https://www.googletagmanager.com/gtag/js?id={GA4_ID}"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}
@@ -1164,11 +1234,12 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
     yahoo_data: dict[str, list[dict]] = {}
     total_items = 0
     for g in GENRES:
-        items = items_by_genre.get(g["slug"], [])
+        items = [it for it in items_by_genre.get(g["slug"], []) if _genre_ok(g, it)]
         total_items += len(items)
         popular, drops = rankings(items, hist)
         genre_data[g["slug"]] = (items, popular, drops)
-        ypop = rankings(items_by_genre.get(f"yahoo:{g['slug']}", []), hist)[0] if yahoo_enabled() else []
+        yitems = [it for it in items_by_genre.get(f"yahoo:{g['slug']}", []) if _genre_ok(g, it)]
+        ypop = rankings(yitems, hist)[0] if yahoo_enabled() else []
         yahoo_data[g["slug"]] = ypop
 
     # ---- ジャンルページ
