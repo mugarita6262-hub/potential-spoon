@@ -272,6 +272,28 @@ def _genre_ok(g: dict, it: dict) -> bool:
     return not any(w in name for w in GENRE_EXCLUDE.get(g["slug"], []))
 
 
+# ジャンルが増えてきたので、メニュー・トップ・関連ジャンルは大きなカテゴリでまとめる
+CATEGORIES = [
+    {"slug": "food", "name": "食品・飲み物", "emoji": "🍙",
+     "genres": ["coffee", "water", "rice", "instant", "meat", "fruit", "alcohol", "osechi"]},
+    {"slug": "daily", "name": "日用品・消耗品", "emoji": "🧻",
+     "genres": ["daily", "detergent", "towel", "baby", "contact", "pet"]},
+    {"slug": "appliance", "name": "家電・ガジェット", "emoji": "🔌",
+     "genres": ["heater", "cleaner", "phone", "pcgear"]},
+    {"slug": "home", "name": "住まい・インテリア", "emoji": "🛋️",
+     "genres": ["sleep", "kitchen", "interior"]},
+    {"slug": "season", "name": "レジャー・季節・ギフト", "emoji": "🎁",
+     "genres": ["outdoor", "bousai", "toy", "gift"]},
+]
+_assigned = [s for c in CATEGORIES for s in c["genres"]]
+assert sorted(_assigned) == sorted(g["slug"] for g in GENRES), "カテゴリに入っていないジャンルがある"
+CAT_OF = {s: c for c in CATEGORIES for s in c["genres"]}
+
+
+def _cat_genres(c: dict) -> list[dict]:
+    return [GENRE_BY_SLUG[s] for s in c["genres"]]
+
+
 # グローバルメニュー用の短い表記（15ジャンルを1〜2行に収めるため）
 NAV_SHORT = {"coffee": "コーヒー・お茶", "sleep": "寝具", "kitchen": "キッチン", "pet": "ペット", "water": "水・飲料",
              "rice": "お米・食品", "contact": "コンタクト", "baby": "ベビー", "daily": "日用品", "detergent": "洗剤・掃除",
@@ -800,6 +822,34 @@ border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:
 .section.feature{padding:18px 14px}
 }
 
+
+/* ---- カテゴリでまとめたメニュー ---- */
+.catnav{gap:6px}
+.catbtn{white-space:nowrap;border:1px solid var(--line);background:#fff;font:inherit;font-size:14px;font-weight:700;color:var(--sub);
+padding:6px 12px;border-radius:999px;cursor:pointer}
+.catbtn .caret{font-size:11px;margin-left:4px;color:var(--muted)}
+.catbtn:hover,.catbtn[aria-expanded="true"]{border-color:var(--brand);color:var(--brand-dark)}
+.catbtn.cur{background:var(--brand-soft);border-color:var(--brand-soft);color:var(--brand-dark)}
+.catpanel{position:absolute;left:0;right:0;top:100%;background:#fff;border-top:1px solid var(--line);
+box-shadow:0 14px 30px rgba(40,35,29,.14);padding:14px 0 18px;z-index:40}
+.catpanel-h{margin:0 0 8px;font-weight:800;font-size:15px}
+.catpanel ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.catpanel a{display:block;text-decoration:none;padding:10px 14px;border:1px solid var(--line);border-radius:12px;font-weight:700;font-size:14px}
+.catpanel a:hover,.catpanel a[aria-current]{border-color:var(--brand);color:var(--brand-dark);background:var(--brand-soft)}
+.cat-h{margin:22px 0 10px;font-size:18px}
+.chipgroups{margin-top:22px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.chipgroups-h{margin:0 0 6px;font-weight:800;font-size:14px;color:var(--sub)}
+.chipgroup{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-top:1px dashed var(--line)}
+.chipgroup:first-of-type{border-top:0}
+.chipgroup b{font-size:13px;margin-right:4px;min-width:150px}
+.chipgroup a{font-size:13px;text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--sub)}
+.chipgroup a:hover{border-color:var(--brand);color:var(--brand-dark)}
+.site-footer .fcat{margin-bottom:8px}
+.site-footer .fcat b{display:block;font-size:13px;margin-bottom:2px}
+.site-footer .fcat a{display:inline-block;margin:0 10px 2px 0;font-size:13px}
+@media (max-width:760px){.chipgroup b{min-width:100%}
+.catpanel ul{grid-template-columns:1fr 1fr}.catpanel a{padding:9px 10px;font-size:13px}}
+
 /* ---- 値下がりボード（ページ上部の主役） ---- */
 .dropboard{position:relative;margin:-36px 0 8px;padding:22px 20px 18px;border-radius:24px;color:#fff;
 background:linear-gradient(135deg,#c2582c 0%,#93421f 100%);box-shadow:0 14px 40px rgba(147,66,31,.28);overflow:hidden}
@@ -856,11 +906,22 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
           og_image: str = "/img/hero.jpg", ld: str = "", og_type: str = "website", noindex: bool = False) -> str:
     robots = "noindex,follow" if noindex else "index,follow,max-image-preview:large"
     cur_attr = ' aria-current="page"'
-    nav = "".join(f'<a href="/{g["slug"]}/"{cur_attr if g["slug"] == current else ""} title="{E(g["name"])}">'
-                  f'{E(NAV_SHORT.get(g["slug"], g["name"]))}</a>' for g in GENRES)
+    cur_cat = CAT_OF.get(current, {}).get("slug", "")
+    nav = "".join(
+        f'<button type="button" class="catbtn{" cur" if c["slug"] == cur_cat else ""}" aria-expanded="false" '
+        f'aria-controls="cat-{c["slug"]}">{c["emoji"]} {E(c["name"])}<span class="caret">▾</span></button>'
+        for c in CATEGORIES)
+    panels = "".join(
+        f'<div class="catpanel" id="cat-{c["slug"]}" hidden><div class="wrap"><p class="catpanel-h">{c["emoji"]} {E(c["name"])}</p><ul>'
+        + "".join(f'<li><a href="/{g["slug"]}/"{cur_attr if g["slug"] == current else ""}>{g["emoji"]} {E(g["name"])}</a></li>'
+                  for g in _cat_genres(c))
+        + "</ul></div></div>" for c in CATEGORIES)
     full_title = f"{title}｜{SITE_NAME}" if title != SITE_NAME else f"{SITE_NAME}｜毎日の価格記録で買い時が分かる"
     yahoo_credit = (YAHOO_CREDIT if yahoo_enabled() else "")
-    footer_genres = "".join(f'<li><a href="/{g["slug"]}/">{E(g["name"])}の買い時</a></li>' for g in GENRES)
+    footer_genres = "".join(
+        f'<li class="fcat"><b>{E(c["name"])}</b>'
+        + "".join(f'<a href="/{g["slug"]}/">{E(g["name"])}</a>' for g in _cat_genres(c)) + "</li>"
+        for c in CATEGORIES)
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -883,12 +944,20 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 <header class="site-header" id="hdr">
 <div class="wrap hrow"><a class="logo" href="/" aria-label="{SITE_NAME} トップ">{LOGO_SVG}<span>買い時<em>ナビ</em></span></a>
 <form class="sbox" action="/search/" method="get" role="search"><input type="search" name="q" placeholder="商品名・ジャンルで探す" aria-label="サイト内検索" enterkeyhint="search"><button type="submit">検索</button></form></div>
-<div class="wrap hnav"><nav class="gnav" aria-label="ジャンル">{nav}</nav></div>
+<div class="wrap hnav"><nav class="gnav catnav" aria-label="カテゴリ">{nav}</nav></div>
+{panels}
 </header>
 <main>{body}</main>
 <button class="totop" type="button" aria-label="ページ上部へ" onclick="scrollTo({{top:0,behavior:'smooth'}})">↑</button>
 <script>(function(){{var h=document.getElementById('hdr'),r=document.documentElement;
 function s(){{r.style.setProperty('--hdr-h',h.offsetHeight+'px')}}s();addEventListener('resize',s);
+var cbs=[].slice.call(document.querySelectorAll('.catbtn'));function closeCats(){{cbs.forEach(function(x){{
+x.setAttribute('aria-expanded','false');document.getElementById(x.getAttribute('aria-controls')).hidden=true}})}}
+cbs.forEach(function(b){{b.addEventListener('click',function(e){{e.stopPropagation();var open=b.getAttribute('aria-expanded')==='true';
+closeCats();if(!open){{b.setAttribute('aria-expanded','true');document.getElementById(b.getAttribute('aria-controls')).hidden=false;
+if(typeof gtag==='function')gtag('event','category_open',{{category:b.getAttribute('aria-controls')}})}}}})}});
+document.addEventListener('click',function(e){{if(!e.target.closest('.catpanel'))closeCats()}});
+document.addEventListener('keydown',function(e){{if(e.key==='Escape')closeCats()}});
 document.querySelectorAll('.tab').forEach(function(b){{b.addEventListener('click',function(){{
 var box=b.closest('.section');box.querySelectorAll('.tab').forEach(function(x){{var on=x===b;x.classList.toggle('on',on);
 x.setAttribute('aria-selected',on);document.getElementById(x.dataset.tab).hidden=!on}});
@@ -918,14 +987,28 @@ def _genre_tag(data: tuple) -> str:
     return f"{len(drops)}件 値下がり中" if drops else f"評判ランキング TOP{len(popular)}"
 
 
+def _gcard_small(g: dict, genre_data: dict) -> str:
+    return (f'<a class="gcard" href="/{g["slug"]}/"><img src="/img/{GENRE_IMG[g["slug"]]}.jpg" alt="" loading="lazy" '
+            f'width="1200" height="675"><div><b>{g["emoji"]} {E(g["name"])}</b>'
+            f'<span class="tag">{_genre_tag(genre_data[g["slug"]])}</span></div></a>')
+
+
 def _related_genres(cur: str, genre_data: dict) -> str:
-    cards = "".join(
-        f'<a class="gcard" href="/{g["slug"]}/"><img src="/img/{GENRE_IMG[g["slug"]]}.jpg" alt="" loading="lazy" '
-        f'width="1200" height="675"><div><b>{g["emoji"]} {E(g["name"])}</b>'
-        f'<span class="tag">{_genre_tag(genre_data[g["slug"]])}</span></div></a>'
-        for g in GENRES if g["slug"] != cur)
-    return (f'<section class="section related" aria-labelledby="h-other"><h2 id="h-other">ほかのジャンルの買い時もチェック</h2>'
-            f'<div class="gcards">{cards}</div></section>')
+    """同じカテゴリのジャンルを写真つきで先に、ほかのカテゴリはチップで並べる。"""
+    cat = CAT_OF.get(cur)
+    same = [g for g in _cat_genres(cat) if g["slug"] != cur] if cat else []
+    head = ""
+    if same:
+        head = (f'<h2 id="h-other">{cat["emoji"]} 同じ「{E(cat["name"])}」の買い時</h2>'
+                f'<div class="gcards">{"".join(_gcard_small(g, genre_data) for g in same)}</div>')
+    others = "".join(
+        f'<div class="chipgroup"><b>{c["emoji"]} {E(c["name"])}</b>'
+        + "".join(f'<a href="/{g["slug"]}/">{E(g["name"])}</a>' for g in _cat_genres(c) if g["slug"] != cur) + "</div>"
+        for c in CATEGORIES if c is not cat)
+    if not head:
+        head = '<h2 id="h-other">ほかのジャンルの買い時もチェック</h2>'
+    return (f'<section class="section related" aria-labelledby="h-other">{head}'
+            f'<div class="chipgroups"><p class="chipgroups-h">ほかのカテゴリ</p>{others}</div></section>')
 
 
 SEARCH_JS = r"""(function(){var q=new URLSearchParams(location.search).get('q')||'',inp=document.getElementById('sq'),
@@ -1353,9 +1436,9 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
     top_drops = sorted(((g, d) for g in GENRES for d in genre_data[g["slug"]][2][:3]),
                        key=lambda gd: gd[1]["drop_pct"], reverse=True)[:16]
     cards = "".join(
-        f'<a class="gcard" href="/{g["slug"]}/"><img src="/img/{GENRE_IMG[g["slug"]]}.jpg" alt="" loading="lazy" '
-        f'width="1200" height="675"><div><b>{E(g["name"])}</b><span>{E(g["lead"])}</span>'
-        f'<span class="tag">{_genre_tag(genre_data[g["slug"]])}</span></div></a>' for g in GENRES)
+        f'<h3 class="cat-h" id="c-{c["slug"]}">{c["emoji"]} {E(c["name"])}</h3>'
+        f'<div class="gcards">{"".join(_gcard_small(g, genre_data) for g in _cat_genres(c))}</div>'
+        for c in CATEGORIES)
     guides_all = [(g, x) for g in GENRES for x in _guides(g["slug"])]
     first_per_genre, seen_g = [], set()
     for g, x in guides_all:
@@ -1388,7 +1471,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 {home_board}
 <section class="summary" aria-labelledby="h-sum"><h2 id="h-sum">今日のまとめ（{updated}）</h2><p>{E(home_summary)}</p></section>
 <section class="section related" aria-labelledby="h-genres"><p class="eyebrow">CATEGORY</p>
-<h2 id="h-genres">ジャンルから探す</h2><div class="gcards">{cards}</div></section>
+<h2 id="h-genres">カテゴリから探す</h2>{cards}</section>
 {guides_home}
 </div>"""
     ld = _jsonld({"@context": "https://schema.org", "@type": "WebSite", "name": SITE_NAME, "url": SITE_URL,
