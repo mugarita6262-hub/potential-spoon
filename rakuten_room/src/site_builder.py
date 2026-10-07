@@ -771,6 +771,9 @@ border-radius:999px;padding:4px 12px}
 .item-foot{flex-wrap:wrap}.btns{width:100%}.btn-buy,.btn-sub{flex:1;text-align:center}
 }
 """
+# CSSの中身が変わるたびに変わる番号。ブラウザに古いstyle.cssを使い回させないため
+# （同じ日に何度もデザインを変えると、日付の番号では更新されなかった）
+CSS_VER = __import__("hashlib").md5(CSS.encode("utf-8")).hexdigest()[:8]
 
 ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#b8562f"/><path d="M14 20 L28 34 L36 26 L50 42" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M40 42 H50 V32" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>"""
 LOGO_SVG = ('<svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true">'
@@ -801,7 +804,7 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 <meta property="og:url" content="{SITE_URL}{path}"><meta property="og:image" content="{SITE_URL}{og_image}">
 <meta property="og:locale" content="ja_JP"><meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
-<link rel="stylesheet" href="/style.css?v={date.today().strftime('%Y%m%d')}">
+<link rel="stylesheet" href="/style.css?v={CSS_VER}">
 {GA4_TAG}
 {_linkswitch_tag()}
 {ld}
