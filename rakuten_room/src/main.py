@@ -556,6 +556,65 @@ def cmd_digest(cfg: dict) -> None:
     print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
 
 
+def cmd_sitedrop(cfg: dict) -> None:
+    """買い時ナビの「値下がり速報」をThreadsに出す（フック＋サイトの値下がり部分へのリンク）。
+
+    サイトならではの「毎日の値下がり記録」をSNSで見せて、サイトへの流入を作るための投稿。
+    値下がりの多いジャンルから選び、同じジャンルは cooldown 日あける。
+    """
+    import json as _json
+
+    from .content_captions import build_site_post_text, generate_sitedrop_caption
+    from .price_history import load_all
+    from .site_builder import GENRES, SITE_ITEMS_FILE, SITE_URL, _genre_ok, _short_name, rankings
+    from .sns_posted_log import posted_today as sns_posted_today
+    from .sns_posted_log import record_posted as sns_record_posted
+    from .sns_posted_log import recently_posted_keys
+
+    sc = cfg.get("sitedrop", {}) or {}
+    if not sc.get("enabled", True):
+        print("sitedrop投稿は設定(sitedrop.enabled)で無効になっています。")
+        return
+    if not _ensure_threads_ready(cfg):
+        return
+
+    data = _json.loads(SITE_ITEMS_FILE.read_text(encoding="utf-8"))
+    hist = load_all()
+    skip = recently_posted_keys(int(sc.get("repost_cooldown_days", 3)), platform="threads")
+    cands = []
+    for g in GENRES:
+        if f"sitedrop:{g['slug']}" in skip:
+            continue
+        items = [it for it in data.get(g["slug"], []) if _genre_ok(g, it)]
+        _, drops = rankings(items, hist)
+        if len(drops) >= int(sc.get("min_drops", 2)):
+            cands.append((len(drops), g, drops))
+    if not cands:
+        print("値下がりを紹介できるジャンルがありません（件数が少ないか、すべてクールダウン中）。")
+        return
+    cands.sort(key=lambda x: (x[0], max(d["drop_pct"] for d in x[2])), reverse=True)
+    n, g, drops = cands[0]
+    max_pct = max(d["drop_pct"] for d in drops)
+    print(f"今回の値下がり速報: {g['name']}（{n}件、最大{max_pct:.0f}%）")
+    hook, caption = generate_sitedrop_caption(g["name"], n, max_pct, [_short_name(d["itemName"], 30) for d in drops[:3]])
+    if not hook or not caption:
+        print("紹介文の生成に失敗しました。")
+        return
+
+    url = f"{SITE_URL}/{g['slug']}/?utm_source=threads&utm_medium=social&utm_campaign={g['slug']}-drops#drops"
+    text = build_site_post_text(url, caption, disclosure=sc.get("disclosure") or "PR")
+    base = {"itemCode": f"sitedrop:{g['slug']}", "itemUrl": url, "itemName": f"{g['name']}の値下がり速報"}
+    category = f"sitedrop:{g['name']}"
+    try:
+        post_id, mode = _post_hook_then_reply(cfg, hook, text, record_base=base, category=category)
+        sns_record_posted(base, platform="threads", post_id=post_id, category=category, link_mode=mode)
+        print(f"✅ Threads投稿完了（値下がり速報: {g['name']}） -> id={post_id}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"❌ 投稿失敗: {exc}")
+
+    print(f"\n本日のThreads投稿累計 {sns_posted_today('threads')} 件")
+
+
 def cmd_sitepost(cfg: dict) -> None:
     """買い時ナビ（自分のサイト）の選び方ガイドを紹介する（フック＋リンク付き返信）。
 
@@ -1086,7 +1145,7 @@ def main() -> int:
         cmd_daily(cfg)
     elif cmd == "collect":
         cmd_collect(cfg)
-    elif cmd in ("sns", "a8", "digest", "sitepost", "trend", "calendar", "trivia", "instagram"):
+    elif cmd in ("sns", "a8", "digest", "sitepost", "sitedrop", "trend", "calendar", "trivia", "instagram"):
         from .job_lock import posting_lock
 
         with posting_lock() as acquired:
@@ -1101,6 +1160,8 @@ def main() -> int:
                 cmd_digest(cfg)
             elif cmd == "sitepost":
                 cmd_sitepost(cfg)
+            elif cmd == "sitedrop":
+                cmd_sitedrop(cfg)
             elif cmd == "trend":
                 cmd_trend(cfg)
             elif cmd == "calendar":

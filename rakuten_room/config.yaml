@@ -117,8 +117,14 @@ sitepost:
   enabled: true
   repost_cooldown_days: 21
   disclosure: PR
-trend:
+sitedrop:
   enabled: true
+  repost_cooldown_days: 3
+  min_drops: 2
+  disclosure: PR
+# 2026-10-07: リンクなしで空振りも多かったので、サイトへの流入を作る sitedrop に置き換え
+trend:
+  enabled: false
   run_in_daily: false
   lookback_days: 7
   min_sample: 3
@@ -223,7 +229,13 @@ server:
     - '20:45'
   - - '20:45'
     - '23:30'
-  trend_runs_per_day: 1
+  trend_runs_per_day: 0
+  sitedrop_window:
+  - - '18:30'
+    - '20:45'
+  - - '20:45'
+    - '23:30'
+  sitedrop_runs_per_day: 1
   calendar_window:
   - '19:00'
   - '21:00'

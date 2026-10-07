@@ -179,6 +179,32 @@ hookの問いかけに自分で答えたうえで「このへん調べてまと�
     return (rows[0].get("hook") or "").strip(), (rows[0].get("caption") or "").strip()
 
 
+def generate_sitedrop_caption(genre_name: str, n_drops: int, max_pct: float, examples: list[str]) -> tuple[str, str]:
+    """買い時ナビの値下がり状況を伝える (フック投稿, 紹介投稿)。リンク・PRは呼び出し側で付与。"""
+    ex = "\n".join(f"- {e}" for e in examples)
+    instruction = f"""\
+自分で毎日価格を記録しているサイトで、「{genre_name}」が今けっこう値下がりしています。
+- 直近30日の最高値より5%以上安くなっている商品: {n_drops}件
+- いちばん大きい下がり幅: {max_pct:.0f}%
+- 値下がりしている商品の例（captionの参考。hookには出さない）:
+{ex}
+
+hookは「{genre_name}」にまつわる日常の話題（買い置き・まとめ買い・値段の感覚など）で、
+値下がりの具体的な数字や商品には触れない。captionではhookの問いかけに自分で答えたうえで、
+「ちなみに今、{genre_name}が{n_drops}件値下がりしてて、最大{max_pct:.0f}%安くなってたのでまとめてます」のように
+**数字を入れて**値下がり状況を伝え、まとめページを自然に紹介する（商品名・ブランド名は出さない）。
+
+{SPLIT_RULES}
+
+# 出力形式（これ以外は何も出力しない。JSON配列のみ）
+[{{"hook": "フック投稿", "caption": "紹介投稿"}}]
+"""
+    rows = _call_rows(instruction)
+    if not rows:
+        return "", ""
+    return (rows[0].get("hook") or "").strip(), (rows[0].get("caption") or "").strip()
+
+
 def build_site_post_text(url: str, caption: str, disclosure: str = "PR") -> str:
     """サイト紹介用: サイトにアフィリエイトリンクがあるのでPR表記あり。"""
     return f"{caption}\n\n{url}\n#{disclosure} #買い時ナビ".strip()

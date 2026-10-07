@@ -42,6 +42,7 @@ JOBS = {
     "a8": ("Threads: A8ローテーション投稿（Claude課金・1日1回想定）", True),
     "digest": ("Threads: ジャンル別売れ筋ダイジェスト（Claude課金・リンクあり）", True),
     "sitepost": ("Threads: 買い時ナビのガイド紹介（Claude課金・サイトへのリンクあり）", True),
+    "sitedrop": ("Threads: 買い時ナビの値下がり速報（Claude課金・サイトへのリンクあり）", True),
     "trend": ("Threads: ジャンル価格トレンド速報（Claude課金・リンクなし）", True),
     "calendar": ("Threads: セール・お得日リマインド（Claude課金・リンクなし）", True),
     "trivia": ("Threads: ミニ知識・あるあるネタ（Claude課金・リンクなし）", True),
@@ -112,7 +113,7 @@ def _alert_api_credit(output: str) -> None:
         pass
 
 
-_POSTING_JOBS = {"sns", "a8", "digest", "sitepost", "trend", "calendar", "trivia", "instagram"}
+_POSTING_JOBS = {"sns", "a8", "digest", "sitepost", "sitedrop", "trend", "calendar", "trivia", "instagram"}
 
 
 def run_job(name: str) -> str:
@@ -144,6 +145,8 @@ def run_job(name: str) -> str:
                             cli.cmd_digest(cfg)
                         elif name == "sitepost":
                             cli.cmd_sitepost(cfg)
+                        elif name == "sitedrop":
+                            cli.cmd_sitedrop(cfg)
                         elif name == "trend":
                             cli.cmd_trend(cfg)
                         elif name == "calendar":
