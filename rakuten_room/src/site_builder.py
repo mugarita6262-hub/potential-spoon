@@ -879,7 +879,7 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 {_linkswitch_tag()}
 {ld}
 </head><body>
-<div class="prbar">当サイトはアフィリエイト広告（楽天アフィリエイト・A8.net）を利用しています</div>
+<div class="prbar">当サイトはアフィリエイト広告（楽天アフィリエイト・A8.net・バリューコマース）を利用しています</div>
 <header class="site-header" id="hdr">
 <div class="wrap hrow"><a class="logo" href="/" aria-label="{SITE_NAME} トップ">{LOGO_SVG}<span>買い時<em>ナビ</em></span></a>
 <form class="sbox" action="/search/" method="get" role="search"><input type="search" name="q" placeholder="商品名・ジャンルで探す" aria-label="サイト内検索" enterkeyhint="search"><button type="submit">検索</button></form></div>
@@ -1413,7 +1413,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 <li>順位はこれらの数値だけで機械的に決めており、広告料などによって順位を上下させることはありません。</li>
 </ul>
 <h2>広告について</h2>
-<p>当サイトのリンクの多くはアフィリエイトリンク（楽天アフィリエイト・A8.net）です。リンク経由で購入・申込があった場合、当サイトに報酬が支払われることがあります。報酬の有無はランキングの順位に影響しません。</p>
+<p>当サイトのリンクの多くはアフィリエイトリンク（楽天アフィリエイト・A8.net・バリューコマース）です。リンク経由で購入・申込があった場合、当サイトに報酬が支払われることがあります。報酬の有無はランキングの順位に影響しません。</p>
 <h2>運営者</h2>
 <p>aki.h190。Instagram・Threadsで「日々のくらしで見つけた、これ良かった」を発信しています。</p>
 <h2>写真について</h2>
@@ -1423,14 +1423,14 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                            ld=_jsonld(_breadcrumb([("ホーム", "/"), ("このサイトについて", "/about/")])[1],
                                       {"@context": "https://schema.org", "@type": "AboutPage", "name": "このサイトについて",
                                        "url": f"{SITE_URL}/about/", "publisher": PUBLISHER})))
-    yahoo_privacy = ('<tr><td>株式会社バリューコマース（Yahoo!ショッピングのアフィリエイト）</td>'
-                     '<td>リンクのクリック情報、Cookie識別子</td><td>成果報酬の計測</td></tr>') if yahoo_enabled() else ""
+    yahoo_privacy = ('<tr><td>株式会社バリューコマース（Yahoo!ショッピング・各ショップのアフィリエイト、LinkSwitch）</td>'
+                     '<td>リンクのクリック情報、Cookie識別子、閲覧ページのURL</td><td>成果報酬の計測</td></tr>')
     privacy = f"""
 <section class="banner" style="background-image:url('/img/hero.jpg')"><div class="wrap">
 {_breadcrumb([("ホーム", "/"), ("プライバシーポリシー", "/privacy/")])[0]}<h1>プライバシーポリシー</h1></div></section>
 <div class="wrap"><article class="article" style="margin-top:24px">
 <p>当サイトでは、お問い合わせ等で取得した個人情報を、本人の同意なく第三者に提供することはありません。</p>
-<p>当サイトはアフィリエイトプログラム（楽天アフィリエイト・A8.net）を利用しています。リンクのクリックや購入の計測のため、提携先がCookieを使用することがあります。Cookieはブラウザの設定で無効にできます。</p>
+<p>当サイトはアフィリエイトプログラム（楽天アフィリエイト・A8.net・バリューコマース）を利用しています。リンクのクリックや購入の計測のため、提携先がCookieを使用することがあります。Cookieはブラウザの設定で無効にできます。</p>
 <h2>アクセス解析ツールについて</h2>
 <p>当サイトでは、サイトの利用状況を把握して改善するために、Google LLCのアクセス解析ツール「Googleアナリティクス」を使用しています。Googleアナリティクスは、Cookieを使って、閲覧したページ、滞在時間、どのページのリンクがクリックされたかといった情報を収集します。収集される情報に、氏名など個人を特定する情報は含まれません。</p>
 <p>この機能はブラウザのCookieを無効にすることで拒否できます。詳しくは<a href="https://marketingplatform.google.com/about/analytics/terms/jp/" target="_blank" rel="noopener">Googleアナリティクス利用規約</a>と<a href="https://policies.google.com/technologies/partner-sites?hl=ja" target="_blank" rel="noopener">Googleのサービスを使用するサイトやアプリから収集した情報のGoogleによる使用</a>をご確認ください。</p>
