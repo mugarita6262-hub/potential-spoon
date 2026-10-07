@@ -204,6 +204,11 @@ E = html.escape
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "site_assets"
 GENRE_BY_SLUG = {g["slug"]: g for g in GENRES}
 GENRE_IMG = {g["slug"]: g["slug"] for g in GENRES}
+# グローバルメニュー用の短い表記（15ジャンルを1〜2行に収めるため）
+NAV_SHORT = {"coffee": "コーヒー・お茶", "sleep": "寝具", "kitchen": "キッチン", "pet": "ペット", "water": "水・飲料",
+             "rice": "お米・食品", "contact": "コンタクト", "baby": "ベビー", "daily": "日用品", "detergent": "洗剤・掃除",
+             "alcohol": "お酒", "bousai": "防災", "instant": "インスタント・お菓子", "interior": "インテリア",
+             "outdoor": "アウトドア"}
 GA4_ID = "G-MJGWNG8KND"
 GA4_TAG = f"""<script async src="https://www.googletagmanager.com/gtag/js?id={GA4_ID}"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}
@@ -498,7 +503,11 @@ border-radius:999px;padding:0 6px 0 14px}
 .logo em{font-style:normal;color:var(--brand)}
 .gnav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
 .gnav::-webkit-scrollbar{display:none}
-.gnav a{white-space:nowrap;font-size:14px;font-weight:600;text-decoration:none;padding:7px 12px;border-radius:999px;color:var(--sub)}
+.gnav a{white-space:nowrap;font-size:14px;font-weight:600;text-decoration:none;padding:6px 11px;border-radius:999px;color:var(--sub)}
+@media (min-width:761px){.gnav{flex-wrap:wrap;overflow:visible;row-gap:2px}}
+@media (max-width:760px){.site-header .hnav{position:relative}
+.site-header .hnav::after{content:"";position:absolute;right:0;top:0;bottom:6px;width:36px;pointer-events:none;
+background:linear-gradient(90deg,rgba(255,255,255,0),#fff)}}
 .gnav a:hover,.gnav a[aria-current]{background:var(--brand-soft);color:var(--brand-dark)}
 /* hero */
 .hero{position:relative;color:#fff;background:#3a2e24 center/cover no-repeat;isolation:isolate}
@@ -774,8 +783,8 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
           og_image: str = "/img/hero.jpg", ld: str = "", og_type: str = "website", noindex: bool = False) -> str:
     robots = "noindex,follow" if noindex else "index,follow,max-image-preview:large"
     cur_attr = ' aria-current="page"'
-    nav = "".join(f'<a href="/{g["slug"]}/"{cur_attr if g["slug"] == current else ""}>'
-                  f'{E(g["name"])}</a>' for g in GENRES)
+    nav = "".join(f'<a href="/{g["slug"]}/"{cur_attr if g["slug"] == current else ""} title="{E(g["name"])}">'
+                  f'{E(NAV_SHORT.get(g["slug"], g["name"]))}</a>' for g in GENRES)
     full_title = f"{title}｜{SITE_NAME}" if title != SITE_NAME else f"{SITE_NAME}｜毎日の価格記録で買い時が分かる"
     yahoo_credit = (YAHOO_CREDIT if yahoo_enabled() else "")
     footer_genres = "".join(f'<li><a href="/{g["slug"]}/">{E(g["name"])}の買い時</a></li>' for g in GENRES)
