@@ -299,7 +299,13 @@ def _post_hook_then_reply(cfg: dict, hook: str, text: str, image_url: str | None
     from .sns_posted_log import record_posted as sns_record_posted
     from .threads_poster import post_to_threads
 
-    mode = "quote" if last_link_mode() == "reply" else "reply"
+    # 2026-10-08 A/Bテスト終了: ツリーのリンク投稿はフックの数%（0回の日も）しか見られず、
+    # 引用は2〜3割に届いた。以後は引用に固定（config の sns.threads.link_mode で reply/ab に戻せる）
+    lm = ((cfg.get("sns", {}) or {}).get("threads", {}) or {}).get("link_mode", "quote")
+    if lm == "ab":
+        mode = "quote" if last_link_mode() == "reply" else "reply"
+    else:
+        mode = "reply" if lm == "reply" else "quote"
     hook_id = _post_to_threads_notified(cfg, hook)
     if record_base is not None:
         sns_record_posted(
