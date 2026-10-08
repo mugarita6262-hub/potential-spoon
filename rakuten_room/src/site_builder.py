@@ -129,6 +129,22 @@ GENRES = [
      "lead": "お歳暮や内祝いは、早割と評判で選ぶと失敗しません。",
      "keywords": ["お歳暮 ギフト", "カタログギフト", "内祝い お菓子", "グルメギフト"],
      "a8_genres": ["ギフト"]},
+    {"slug": "kaden", "name": "調理家電", "emoji": "🍚",
+     "lead": "炊飯器や電子レンジは、新モデルが出る前後の値下がりが狙い目です。",
+     "keywords": ["炊飯器", "電子レンジ", "オーブントースター", "電気圧力鍋"],
+     "a8_genres": ["家電"]},
+    {"slug": "car", "name": "カー用品", "emoji": "🚗",
+     "lead": "ドラレコやチャイルドシートは、評判と値下がりで納得の一台を。",
+     "keywords": ["ドライブレコーダー", "カーナビ ポータブル", "チャイルドシート", "車載 スマホホルダー"],
+     "a8_genres": ["カー用品"]},
+    {"slug": "randoseru", "name": "ランドセル", "emoji": "🎒",
+     "lead": "6年間使うランドセルは、人気モデルが売り切れる前に比べて選びたい。",
+     "keywords": ["ランドセル 2027", "ランドセル 女の子", "ランドセル 男の子", "ランドセルカバー"],
+     "a8_genres": ["ベビー・キッズ"]},
+    {"slug": "roomwear", "name": "ルームウェア・スリッパ", "emoji": "🧦",
+     "lead": "毎日着る部屋着とスリッパは、寒くなる前の値下がりでそろえ直し。",
+     "keywords": ["ルームウェア レディース", "ルームウェア メンズ", "着る毛布", "スリッパ 冬"],
+     "a8_genres": ["ファッション"]},
 ]
 
 MIN_REVIEWS = 20
@@ -255,6 +271,10 @@ GENRE_MUST = {
     "fruit": ["みかん", "りんご", "林檎", "柿", "マスカット", "ぶどう", "葡萄", "梨", "いちご", "苺", "フルーツ", "果物", "柑橘", "メロン", "桃"],
     "phone": ["充電", "ケーブル", "スマホ", "iPhone", "アダプタ", "USB"],
     "pcgear": ["マウス", "キーボード", "モニター", "ディスプレイ", "ハブ", "ドック"],
+    "kaden": ["炊飯", "レンジ", "トースター", "圧力鍋", "ホットプレート", "ホットクック", "調理"],
+    "car": ["ドライブレコーダー", "ドラレコ", "カーナビ", "ナビ", "チャイルドシート", "ジュニアシート", "車載", "車"],
+    "randoseru": ["ランドセル"],
+    "roomwear": ["ルームウェア", "パジャマ", "スリッパ", "着る毛布", "ルームシューズ", "部屋着", "ガウン"],
 }
 GENRE_EXCLUDE = {"heater": ["ソックス", "靴下", "スリッパ"], "towel": ["おむつケーキ"], "toy": ["おむつケーキ"], "phone": ["スーツケース", "キャリー"],
                  "fruit": ["干し芋", "干しいも", "栗"]}
@@ -279,11 +299,11 @@ CATEGORIES = [
     {"slug": "daily", "name": "日用品・消耗品", "emoji": "🧻",
      "genres": ["daily", "detergent", "towel", "baby", "contact", "pet"]},
     {"slug": "appliance", "name": "家電・ガジェット", "emoji": "🔌",
-     "genres": ["heater", "cleaner", "phone", "pcgear"]},
+     "genres": ["heater", "cleaner", "kaden", "phone", "pcgear"]},
     {"slug": "home", "name": "住まい・インテリア", "emoji": "🛋️",
-     "genres": ["sleep", "kitchen", "interior"]},
+     "genres": ["sleep", "kitchen", "interior", "roomwear"]},
     {"slug": "season", "name": "レジャー・季節・ギフト", "emoji": "🎁",
-     "genres": ["outdoor", "bousai", "toy", "gift"]},
+     "genres": ["outdoor", "bousai", "toy", "randoseru", "car", "gift"]},
 ]
 _assigned = [s for c in CATEGORIES for s in c["genres"]]
 assert sorted(_assigned) == sorted(g["slug"] for g in GENRES), "カテゴリに入っていないジャンルがある"
@@ -300,7 +320,8 @@ NAV_SHORT = {"coffee": "コーヒー・お茶", "sleep": "寝具", "kitchen": "�
              "alcohol": "お酒", "bousai": "防災", "instant": "インスタント・お菓子", "interior": "インテリア",
              "outdoor": "アウトドア", "heater": "暖房・加湿", "cleaner": "掃除機", "towel": "タオル",
              "toy": "おもちゃ", "osechi": "おせち", "meat": "肉・海鮮", "fruit": "果物", "phone": "スマホ周辺",
-             "pcgear": "PC周辺", "gift": "ギフト"}
+             "pcgear": "PC周辺", "gift": "ギフト", "kaden": "調理家電", "car": "カー用品",
+             "randoseru": "ランドセル", "roomwear": "ルームウェア"}
 GA4_ID = "G-MJGWNG8KND"
 GA4_TAG = f"""<script async src="https://www.googletagmanager.com/gtag/js?id={GA4_ID}"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}
