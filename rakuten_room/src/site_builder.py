@@ -145,6 +145,22 @@ GENRES = [
      "lead": "毎日着る部屋着とスリッパは、寒くなる前の値下がりでそろえ直し。",
      "keywords": ["ルームウェア レディース", "ルームウェア メンズ", "着る毛布", "スリッパ 冬"],
      "a8_genres": ["ファッション"]},
+    {"slug": "techo", "name": "手帳・カレンダー", "emoji": "📒",
+     "lead": "来年の手帳は、種類がそろっている秋のうちに選ぶのが正解。",
+     "keywords": ["手帳 2027", "手帳 ウィークリー", "カレンダー 2027 壁掛け", "卓上カレンダー 2027"],
+     "a8_genres": ["文房具"]},
+    {"slug": "bicycle", "name": "自転車", "emoji": "🚲",
+     "lead": "通勤・通学・子ども乗せ。毎日乗る一台は、評判と値下がりで選びたい。",
+     "keywords": ["自転車 27インチ", "電動アシスト自転車", "子供乗せ 自転車", "自転車 ヘルメット"],
+     "a8_genres": ["自転車"]},
+    {"slug": "battery", "name": "電池・電球", "emoji": "🔋",
+     "lead": "電池や電球は、切れる前にまとめ買いしておくと安心で安い。",
+     "keywords": ["単3 電池 アルカリ", "充電池 単3", "LED電球 E26", "LED電球 E17"],
+     "a8_genres": ["日用品"]},
+    {"slug": "clothcare", "name": "衣類ケア", "emoji": "👔",
+     "lead": "アイロンやスチーマーで、毎朝の身支度をもっとラクに。",
+     "keywords": ["衣類スチーマー", "アイロン コードレス", "毛玉取り器", "アイロン台"],
+     "a8_genres": ["家電"]},
 ]
 
 MIN_REVIEWS = 20
@@ -228,7 +244,7 @@ def _history(it: dict, hist: dict) -> list[dict]:
 def _enrich(it: dict, hist: dict) -> dict:
     from .price_history import price_drop
     rows = _history(it, hist)
-    info = price_drop(it, lookback_days=30)
+    info = price_drop(it, lookback_days=30, history=hist)
     prices = [r["price"] for r in rows]
     return {**it, **info, "history": rows,
             "days": len(rows), "low": min(prices) if prices else it["price"],
@@ -274,10 +290,16 @@ GENRE_MUST = {
     "kaden": ["炊飯", "レンジ", "トースター", "圧力鍋", "ホットプレート", "ホットクック", "調理"],
     "car": ["ドライブレコーダー", "ドラレコ", "カーナビ", "ナビ", "チャイルドシート", "ジュニアシート", "車載", "車"],
     "randoseru": ["ランドセル"],
+    "techo": ["手帳", "カレンダー", "ダイアリー", "スケジュール"],
+    "bicycle": ["自転車", "サイクル", "ヘルメット", "アシスト"],
+    "battery": ["電池", "充電池", "電球", "LED"],
+    "clothcare": ["スチーマー", "アイロン", "毛玉", "スチーム"],
     "roomwear": ["ルームウェア", "パジャマ", "スリッパ", "着る毛布", "ルームシューズ", "部屋着", "ガウン"],
 }
 GENRE_EXCLUDE = {"kaden": ["お椀", "汁椀", "食器", "ラック", "ゆで卵", "容器", "保存", "皿", "カバー", "マット"],
                  "car": ["自転車", "保護マット"], "roomwear": ["甚平", "夏用", "父の日"],
+                 "bicycle": ["カバー", "レインコート", "ポンチョ"], "clothcare": ["ヘアアイロン", "ヘア"],
+                 "battery": ["ペンダント", "シーリング", "スタンド", "ライト 北欧"],
                  "heater": ["ソックス", "靴下", "スリッパ"], "towel": ["おむつケーキ"], "toy": ["おむつケーキ"], "phone": ["スーツケース", "キャリー"],
                  "fruit": ["干し芋", "干しいも", "栗"]}
 
@@ -299,13 +321,13 @@ CATEGORIES = [
     {"slug": "food", "name": "食品・飲み物", "emoji": "🍙",
      "genres": ["coffee", "water", "rice", "instant", "meat", "fruit", "alcohol", "osechi"]},
     {"slug": "daily", "name": "日用品・消耗品", "emoji": "🧻",
-     "genres": ["daily", "detergent", "towel", "baby", "contact", "pet"]},
+     "genres": ["daily", "detergent", "towel", "battery", "baby", "contact", "pet"]},
     {"slug": "appliance", "name": "家電・ガジェット", "emoji": "🔌",
-     "genres": ["heater", "cleaner", "kaden", "phone", "pcgear"]},
+     "genres": ["heater", "cleaner", "kaden", "clothcare", "phone", "pcgear"]},
     {"slug": "home", "name": "住まい・インテリア", "emoji": "🛋️",
      "genres": ["sleep", "kitchen", "interior", "roomwear"]},
     {"slug": "season", "name": "レジャー・季節・ギフト", "emoji": "🎁",
-     "genres": ["outdoor", "bousai", "toy", "randoseru", "car", "gift"]},
+     "genres": ["outdoor", "bicycle", "bousai", "toy", "randoseru", "car", "techo", "gift"]},
 ]
 _assigned = [s for c in CATEGORIES for s in c["genres"]]
 assert sorted(_assigned) == sorted(g["slug"] for g in GENRES), "カテゴリに入っていないジャンルがある"
@@ -323,7 +345,8 @@ NAV_SHORT = {"coffee": "コーヒー・お茶", "sleep": "寝具", "kitchen": "�
              "outdoor": "アウトドア", "heater": "暖房・加湿", "cleaner": "掃除機", "towel": "タオル",
              "toy": "おもちゃ", "osechi": "おせち", "meat": "肉・海鮮", "fruit": "果物", "phone": "スマホ周辺",
              "pcgear": "PC周辺", "gift": "ギフト", "kaden": "調理家電", "car": "カー用品",
-             "randoseru": "ランドセル", "roomwear": "ルームウェア"}
+             "randoseru": "ランドセル", "roomwear": "ルームウェア", "techo": "手帳", "bicycle": "自転車",
+             "battery": "電池・電球", "clothcare": "衣類ケア"}
 GA4_ID = "G-MJGWNG8KND"
 GA4_TAG = f"""<script async src="https://www.googletagmanager.com/gtag/js?id={GA4_ID}"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}

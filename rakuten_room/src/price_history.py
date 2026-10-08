@@ -56,7 +56,7 @@ def load_all() -> dict[str, list[dict]]:
     return _load()
 
 
-def price_drop(item: dict, lookback_days: int = 30) -> dict:
+def price_drop(item: dict, lookback_days: int = 30, history: dict | None = None) -> dict:
     """値下がり情報を返す。
 
     {"drop_pct": 直近参考価格からの下落率(%), "reference_price": 参考にした価格,
@@ -67,7 +67,8 @@ def price_drop(item: dict, lookback_days: int = 30) -> dict:
     key = item.get("itemCode") or item.get("itemUrl")
     price = int(item.get("price", 0) or 0)
     today = date.today().isoformat()
-    rows = _load().get(key, [])
+    # 呼び出し側で読み込み済みの履歴を渡せる（毎回ファイルを読むとサイト生成が数分かかった）
+    rows = (history if history is not None else _load()).get(key, [])
     past = [r["price"] for r in rows if r["date"] != today]
 
     if not past or not price:
