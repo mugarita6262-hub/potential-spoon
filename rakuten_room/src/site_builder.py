@@ -279,6 +279,11 @@ GENRE_IMG = {g["slug"]: g["slug"] for g in GENRES}
 # 楽天のキーワード検索は関係の薄い商品も返すので、ジャンルごとに「商品名に含むべき言葉」で絞る
 # （2026-10-07、暖房に座椅子・靴下、タオルにおむつケーキ、スマホ周辺にスーツケースが入っていた）
 GENRE_MUST = {
+    "coffee": ["コーヒー", "珈琲", "紅茶", "茶", "ドリップ", "ティー", "カフェ", "豆"],
+    "kitchen": ["フライパン", "ケトル", "保存容器", "洗剤", "鍋", "包丁", "まな板", "キッチン", "ポット", "容器", "食器"],
+    "daily": ["トイレットペーパー", "ティッシュ", "キッチンペーパー", "ゴミ袋", "ごみ袋", "ポリ袋", "ペーパー"],
+    "detergent": ["洗剤", "柔軟剤", "掃除", "シート", "洗濯", "漂白", "クリーナー"],
+    "water": ["水", "ウォーター", "炭酸", "お茶", "茶", "ジュース", "飲料"],
     "heater": ["ヒーター", "ストーブ", "毛布", "こたつ", "コタツ", "加湿器", "暖房", "ホットカーペット"],
     "cleaner": ["掃除機", "クリーナー", "ロボット"],
     "towel": ["タオル"],
@@ -296,7 +301,9 @@ GENRE_MUST = {
     "clothcare": ["スチーマー", "アイロン", "毛玉", "スチーム"],
     "roomwear": ["ルームウェア", "パジャマ", "スリッパ", "着る毛布", "ルームシューズ", "部屋着", "ガウン"],
 }
-GENRE_EXCLUDE = {"kaden": ["お椀", "汁椀", "食器", "ラック", "ゆで卵", "容器", "保存", "皿", "カバー", "マット"],
+GENRE_EXCLUDE = {"daily": ["ケース", "カバー", "ホルダー"], "detergent": ["詰め替えボトル", "ディスペンサー", "空ボトル"],
+                 "kitchen": ["切身", "サバ", "鮭", "肉"],
+                 "kaden": ["お椀", "汁椀", "食器", "ラック", "ゆで卵", "容器", "保存", "皿", "カバー", "マット"],
                  "car": ["自転車", "保護マット"], "roomwear": ["甚平", "夏用", "父の日"],
                  "bicycle": ["カバー", "レインコート", "ポンチョ"], "clothcare": ["ヘアアイロン", "ヘア"],
                  "battery": ["ペンダント", "シーリング", "スタンド", "ライト 北欧"],
@@ -374,6 +381,8 @@ def _linkswitch_tag() -> str:
 YAHOO_CREDIT = ('<p><!-- Begin Yahoo! JAPAN Web Services Attribution Snippet -->'
                 '<a href="https://developer.yahoo.co.jp/sitemap/" target="_blank" rel="noopener">Webサービス by Yahoo! JAPAN</a>'
                 '<!-- End Yahoo! JAPAN Web Services Attribution Snippet --></p>')
+AUTHOR = {"@type": "Person", "name": "aki.h190", "url": f"{SITE_URL}/about/",
+          "sameAs": ["https://www.instagram.com/aki.h190/", "https://www.threads.net/@aki.h190"]}
 PUBLISHER = {"@type": "Organization", "name": SITE_NAME, "url": SITE_URL,
              "logo": {"@type": "ImageObject", "url": f"{SITE_URL}/img/icon-512.png"}}
 
@@ -869,6 +878,19 @@ border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:
 }
 
 
+
+/* ---- カテゴリのまとめページ ---- */
+.catall{margin-left:12px;font-size:13px;font-weight:700;color:var(--brand)}
+.cat-h a{text-decoration:none;color:inherit}
+.cat-h a span{margin-left:10px;font-size:13px;color:var(--brand);font-weight:700}
+.cat-tops{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.cat-tops a{display:flex;flex-direction:column;gap:2px;height:100%;text-decoration:none;background:var(--surface);
+border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.cat-tops a:hover{border-color:var(--brand)}
+.cat-tops b{font-size:15px}
+.cat-tops span{font-size:13px;color:var(--sub)}
+.cat-tops em{font-style:normal;font-size:13px;font-weight:700;color:var(--brand-dark)}
+
 /* ---- カテゴリでまとめたメニュー ---- */
 .catnav{gap:6px}
 .catbtn{white-space:nowrap;border:1px solid var(--line);background:#fff;font:inherit;font-size:14px;font-weight:700;color:var(--sub);
@@ -939,6 +961,7 @@ border-radius:999px;padding:4px 12px}
 """
 # CSSの中身が変わるたびに変わる番号。ブラウザに古いstyle.cssを使い回させないため
 # （同じ日に何度もデザインを変えると、日付の番号では更新されなかった）
+ABOUT_UPDATED = "2026-10-08"  # 運営情報・プライバシーポリシーを書き換えたらこの日付も更新する
 CSS_VER = __import__("hashlib").md5(CSS.encode("utf-8")).hexdigest()[:8]
 
 ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#b8562f"/><path d="M14 20 L28 34 L36 26 L50 42" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M40 42 H50 V32" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>"""
@@ -958,7 +981,8 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
         f'aria-controls="cat-{c["slug"]}">{c["emoji"]} {E(c["name"])}<span class="caret">▾</span></button>'
         for c in CATEGORIES)
     panels = "".join(
-        f'<div class="catpanel" id="cat-{c["slug"]}" hidden><div class="wrap"><p class="catpanel-h">{c["emoji"]} {E(c["name"])}</p><ul>'
+        f'<div class="catpanel" id="cat-{c["slug"]}" hidden><div class="wrap"><p class="catpanel-h">{c["emoji"]} {E(c["name"])}'
+        f'<a class="catall" href="/c/{c["slug"]}/">まとめを見る →</a></p><ul>'
         + "".join(f'<li><a href="/{g["slug"]}/"{cur_attr if g["slug"] == current else ""}>{g["emoji"]} {E(g["name"])}</a></li>'
                   for g in _cat_genres(c))
         + "</ul></div></div>" for c in CATEGORIES)
@@ -974,6 +998,7 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 <title>{E(full_title)}</title>
 <meta name="description" content="{E(desc)}">
 <link rel="canonical" href="{SITE_URL}{path}">
+<link rel="preload" as="image" href="{og_image}" fetchpriority="high">
 <meta name="robots" content="{robots}">
 <meta name="theme-color" content="#b8562f">
 <meta property="og:site_name" content="{SITE_NAME}"><meta property="og:type" content="{og_type}">
@@ -1106,10 +1131,18 @@ def _write(path: str, content: str) -> None:
 _REL = 'rel="nofollow sponsored noopener" target="_blank"'
 
 
+def _thumb(url: str, size: int) -> str:
+    """楽天の商品画像は元サイズ（900px・200KB前後）のまま読むと重いので、表示サイズの2倍程度に縮小した版を使う。"""
+    if "thumbnail.image.rakuten.co.jp" in url and "_ex=" not in url:
+        px = 128 if size <= 64 else (300 if size <= 160 else 400)
+        return f"{url.split('?')[0]}?_ex={px}x{px}"
+    return url
+
+
 def _img(it: dict, size: int) -> str:
     if not it.get("imageUrl"):
         return '<div class="noimg"></div>'
-    return (f'<img src="{E(it["imageUrl"])}" alt="{E(_short_name(it["itemName"], 40))}" loading="lazy" '
+    return (f'<img src="{E(_thumb(it["imageUrl"], size))}" alt="{E(_short_name(it["itemName"], 40))}" loading="lazy" '
             f'decoding="async" width="{size}" height="{size}">')
 
 
@@ -1377,7 +1410,9 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
         path = f"/{g['slug']}/"
         img = GENRE_IMG.get(g["slug"], "hero")
         guides = _guides(g["slug"])
-        crumbs, crumbs_ld = _breadcrumb([("ホーム", "/"), (f"{g['name']}の買い時", path)])
+        cat = CAT_OF[g["slug"]]
+        crumbs, crumbs_ld = _breadcrumb([("ホーム", "/"), (cat["name"], f"/c/{cat['slug']}/"),
+                                         (f"{g['name']}の買い時", path)])
         summary, summary_text = _genre_summary(g, popular, drops, items, updated)
         rich = [_enrich(it, hist) for it in items]
         board = _drop_board(f"今の{g['name']}の値下がり状況", _drop_stats(rich, drops), drops,
@@ -1450,7 +1485,8 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
         for x in guides:
             apath = f"{path}{x['slug']}/"
             art_html, toc = _md_to_html(x["md"])
-            crumbs_a, crumbs_a_ld = _breadcrumb([("ホーム", "/"), (f"{g['name']}の買い時", path), (x["title"], apath)])
+            crumbs_a, crumbs_a_ld = _breadcrumb([("ホーム", "/"), (cat["name"], f"/c/{cat['slug']}/"),
+                                                 (f"{g['name']}の買い時", path), (x["title"], apath)])
             toc_html = ('<nav class="toc" aria-label="目次"><b>目次</b><ol>' + "".join(
                 f'<li><a href="#{hid}">{E(t)}</a></li>' for hid, t in toc) + "</ol></nav>") if len(toc) >= 2 else ""
             body = f"""
@@ -1472,17 +1508,67 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
             ld = _jsonld(crumbs_a_ld, {"@context": "https://schema.org", "@type": "Article", "headline": x["title"],
                                         "description": x["desc"], "datePublished": x["updated"], "dateModified": x["updated"],
                                         "image": f"{SITE_URL}/img/{img}.jpg", "mainEntityOfPage": f"{SITE_URL}{apath}",
-                                        "author": {"@type": "Person", "name": "aki.h190", "url": f"{SITE_URL}/about/"},
+                                        "author": AUTHOR,
                                         "publisher": PUBLISHER})
             _write(apath, _page(x["title"], body, x["desc"], apath, current=g["slug"],
                                 og_image=f"/img/{img}.jpg", ld=ld, og_type="article"))
             pages += 1
 
+    # ---- カテゴリのまとめページ
+    for c in CATEGORIES:
+        cpath = f"/c/{c['slug']}/"
+        gs = _cat_genres(c)
+        c_items = [it for g in gs for it in genre_data[g["slug"]][0]]
+        c_drops = sorted((d for g in gs for d in genre_data[g["slug"]][2]), key=lambda d: d["drop_pct"], reverse=True)
+        c_rich = [_enrich(it, hist) for it in c_items]
+        crumbs_c, crumbs_c_ld = _breadcrumb([("ホーム", "/"), (c["name"], cpath)])
+        hot = [g for g in sorted(gs, key=lambda g: len(genre_data[g["slug"]][2]), reverse=True)
+               if genre_data[g["slug"]][2]][:4]
+        hot_html = ('<div class="db-hot"><span>値下がりが多いジャンル</span>' + "".join(
+            f'<a href="/{g["slug"]}/#drops">{g["emoji"]} {E(g["name"])} <b>{len(genre_data[g["slug"]][2])}件</b></a>'
+            for g in hot) + "</div>") if hot else ""
+        board_c = _drop_board(f"{c['name']}の値下がり状況", _drop_stats(c_rich, c_drops), c_drops[:16],
+                              _near_drops(c_rich), updated, extra=hot_html)
+        tops = "".join(
+            f'<li><a href="/{g["slug"]}/#ranking"><b>{g["emoji"]} {E(g["name"])}</b>'
+            f'<span>{E(_short_name(genre_data[g["slug"]][1][0]["itemName"], 44))}</span>'
+            f'<em>{genre_data[g["slug"]][1][0]["price"]:,}円・★{genre_data[g["slug"]][1][0]["reviewAverage"]:.2f}</em></a></li>'
+            for g in gs if genre_data[g["slug"]][1])
+        c_guides = [(g, x) for g in gs for x in _guides(g["slug"])]
+        guides_c = ('<section class="section"><p class="eyebrow">GUIDE</p><h2>選び方ガイド</h2><ul class="guide-cards">'
+                    + "".join(_guide_card(g, x) for g, x in c_guides) + "</ul></section>") if c_guides else ""
+        others = "".join(f'<a href="/c/{o["slug"]}/">{o["emoji"]} {E(o["name"])}</a>' for o in CATEGORIES if o is not c)
+        c_summary = (f"{updated}時点で、{c['name']}の{len(gs)}ジャンル・{len(c_items)}商品の価格を記録しています。"
+                     f"直近30日の最高値から5%以上値下がりしている商品は{len(c_drops)}件です。")
+        cimg = GENRE_IMG.get(gs[0]["slug"], "hero")
+        body = f"""
+<section class="banner" style="background-image:url('/img/{cimg}.jpg')"><div class="wrap">
+{crumbs_c}<h1>{E(c["name"])}の買い時｜値下がり・評判ランキング</h1><p>{E("・".join(g["name"] for g in gs))}の価格を毎日記録しています。</p></div></section>
+<div class="wrap">
+{board_c}
+<section class="summary" aria-labelledby="h-csum"><h2 id="h-csum">結論：{E(updated)}時点の{E(c["name"])}</h2><p>{E(c_summary)}</p></section>
+<section class="section related"><p class="eyebrow">CATEGORY</p><h2>{E(c["name"])}のジャンル</h2>
+<div class="gcards">{"".join(_gcard_small(g, genre_data) for g in gs)}</div></section>
+<section class="section"><p class="eyebrow">RANKING</p><h2>ジャンルごとの評判No.1</h2><ul class="cat-tops">{tops}</ul></section>
+{guides_c}
+<div class="chipgroups"><p class="chipgroups-h">ほかのカテゴリ</p><div class="chipgroup">{others}</div></div>
+</div>"""
+        ld_c = _jsonld(crumbs_c_ld, {
+            "@context": "https://schema.org", "@type": "CollectionPage", "name": f"{c['name']}の買い時",
+            "url": f"{SITE_URL}{cpath}", "dateModified": today, "description": c_summary, "publisher": PUBLISHER,
+            "mainEntity": {"@type": "ItemList", "itemListElement": [
+                {"@type": "ListItem", "position": i + 1, "url": f"{SITE_URL}/{g['slug']}/", "name": f"{g['name']}の買い時"}
+                for i, g in enumerate(gs)]}})
+        _write(cpath, _page(f"{c['name']}の買い時｜値下がり・評判ランキング【{now.year}年{now.month}月】", body,
+                            f"{c_summary} {'・'.join(g['name'] for g in gs)}の値下がり中の商品と評判ランキングをまとめています。"[:150],
+                            cpath, current=gs[0]["slug"] if False else "", og_image=f"/img/{cimg}.jpg", ld=ld_c))
+        pages += 1
+
     # ---- トップページ
     top_drops = sorted(((g, d) for g in GENRES for d in genre_data[g["slug"]][2][:3]),
                        key=lambda gd: gd[1]["drop_pct"], reverse=True)[:16]
     cards = "".join(
-        f'<h3 class="cat-h" id="c-{c["slug"]}">{c["emoji"]} {E(c["name"])}</h3>'
+        f'<h3 class="cat-h" id="c-{c["slug"]}"><a href="/c/{c["slug"]}/">{c["emoji"]} {E(c["name"])}<span>まとめを見る →</span></a></h3>'
         f'<div class="gcards">{"".join(_gcard_small(g, genre_data) for g in _cat_genres(c))}</div>'
         for c in CATEGORIES)
     guides_all = [(g, x) for g in GENRES for x in _guides(g["slug"])]
@@ -1543,8 +1629,21 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 </ul>
 <h2>広告について</h2>
 <p>当サイトのリンクの多くはアフィリエイトリンク（楽天アフィリエイト・A8.net・バリューコマース）です。リンク経由で購入・申込があった場合、当サイトに報酬が支払われることがあります。報酬の有無はランキングの順位に影響しません。</p>
+<h2>編集方針</h2>
+<ul>
+<li><b>価格データ</b>：楽天市場（楽天ウェブサービスAPI）とYahoo!ショッピング（Yahoo!デベロッパーネットワークAPI）から毎朝自動で取得し、当サイトで価格を記録しています。人の手で数字を書き換えることはありません。</li>
+<li><b>選び方ガイド</b>：メーカーの公開情報や、国・業界団体などの公的な情報をもとに、選ぶときの考え方をまとめています。使ってもいない商品を「使ってみた」と書くことはしません。</li>
+<li><b>表現への配慮</b>：健康・美容・体への効果をうたう表現（医薬品的な効能など）は使いません。安全に関わる商品（チャイルドシートなど）は、法律や安全基準の情報を優先して記載しています。</li>
+<li><b>間違いの訂正</b>：内容に誤りがあった場合は、確認でき次第すみやかに修正します。お気づきの点は下記の連絡先までお知らせください。</li>
+</ul>
 <h2>運営者</h2>
-<p>aki.h190。Instagram・Threadsで「日々のくらしで見つけた、これ良かった」を発信しています。</p>
+<p>aki.h190。毎日の暮らしで使う定番アイテムを「いつ買うのがお得か」の視点で調べ、Instagram・Threadsで「日々のくらしで見つけた、これ良かった」を発信しています。</p>
+<ul>
+<li>Instagram：<a href="https://www.instagram.com/aki.h190/" target="_blank" rel="noopener">@aki.h190</a></li>
+<li>Threads：<a href="https://www.threads.net/@aki.h190" target="_blank" rel="noopener">@aki.h190</a></li>
+</ul>
+<h2>お問い合わせ</h2>
+<p>内容の誤りのご指摘や掲載についてのご連絡は、InstagramまたはThreadsのメッセージ（DM）からお送りください。</p>
 <h2>写真について</h2>
 <p>当サイトのイメージ写真は <a href="https://unsplash.com/" target="_blank" rel="noopener">Unsplash</a> のフリー素材を使用しています。商品画像は楽天市場の各ショップのものです。</p>
 </article></div>"""
@@ -1575,6 +1674,17 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                              ld=_jsonld(_breadcrumb([("ホーム", "/"), ("プライバシーポリシー", "/privacy/")])[1])))
     pages += 2
 
+    # ---- 404（存在しないURLに来た人をトップ・カテゴリへ案内。Caddy の handle_errors で返す）
+    nf = f"""
+<div class="wrap"><section class="section" style="margin-top:28px"><p class="eyebrow">404</p>
+<h1 style="font-size:24px">お探しのページが見つかりませんでした</h1>
+<p>ページが移動したか、URLが間違っている可能性があります。下のカテゴリや検索から探してみてください。</p>
+<form class="sbox" action="/search/" method="get" role="search" style="margin:12px 0 16px;max-width:560px"><input type="search" name="q" placeholder="商品名・ジャンルで探す" aria-label="サイト内検索"><button type="submit">検索</button></form>
+<div class="chipgroups"><p class="chipgroups-h">カテゴリから探す</p><div class="chipgroup">{"".join(f'<a href="/c/{c["slug"]}/">{c["emoji"]} {E(c["name"])}</a>' for c in CATEGORIES)}</div></div>
+<p style="margin-top:16px"><a href="/">トップページへ戻る</a></p></section></div>"""
+    (OUT_DIR / "404.html").write_text(_page("ページが見つかりません", nf, "お探しのページが見つかりませんでした。", "/404.html",
+                                            noindex=True), encoding="utf-8")
+
     # ---- サイト内検索
     (OUT_DIR / "search.json").write_text(json.dumps(_search_index(genre_data), ensure_ascii=False,
                                                     separators=(",", ":")), encoding="utf-8")
@@ -1589,10 +1699,13 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
     pages += 1
 
     # ---- sitemap / robots / llms.txt
-    urls = ["/", "/about/", "/privacy/"] + [f"/{g['slug']}/" for g in GENRES] + [
-        f"/{g['slug']}/{x['slug']}/" for g, x in guides_all]
+    # lastmod は実際に中身が変わる日に。毎日データが変わるページは今日、ガイドは書いた日、運営情報は固定
+    urls = ([("/", today), ("/about/", ABOUT_UPDATED), ("/privacy/", ABOUT_UPDATED)]
+            + [(f"/c/{c['slug']}/", today) for c in CATEGORIES]
+            + [(f"/{g['slug']}/", today) for g in GENRES]
+            + [(f"/{g['slug']}/{x['slug']}/", x["updated"]) for g, x in guides_all])
     sitemap = ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-               + "".join(f"<url><loc>{SITE_URL}{u}</loc><lastmod>{today}</lastmod></url>" for u in urls)
+               + "".join(f"<url><loc>{SITE_URL}{u}</loc><lastmod>{lm}</lastmod></url>" for u, lm in urls)
                + "</urlset>\n")
     (OUT_DIR / "sitemap.xml").write_text(sitemap, encoding="utf-8")
     (OUT_DIR / "robots.txt").write_text(f"User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}/sitemap.xml\n", encoding="utf-8")
@@ -1601,7 +1714,9 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
             "値下がり中の商品と評判の良い商品を数字の根拠つきでまとめた日本語の比較サイト。", "",
             f"- 最終更新: {today}", f"- 記録中の商品数: {total_items}",
             "- 値下がりの定義: 直近30日に記録した最高値と比べて5%以上安い", f"- 評判ランキングの対象: 楽天のレビュー★{MIN_AVG}以上かつ{MIN_REVIEWS}件以上",
-            "", "## ジャンル別ページ"]
+            "", "## カテゴリ別ページ"] + [
+        f"- [{c['name']}の買い時]({SITE_URL}/c/{c['slug']}/): {'・'.join(GENRE_BY_SLUG[s]['name'] for s in c['genres'])}"
+        for c in CATEGORIES] + ["", "## ジャンル別ページ"]
     for g in GENRES:
         items, popular, drops = genre_data[g["slug"]]
         top = f"評判1位: {_short_name(popular[0]['itemName'], 40)}（★{popular[0]['reviewAverage']:.2f}）" if popular else ""
