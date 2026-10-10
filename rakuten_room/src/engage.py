@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import random
 import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -17,6 +18,8 @@ from .human import Pacer, jitter, maybe_pause_long
 from .poster import _launch, _safe_goto
 
 LOG = DATA_DIR / "engage_log.json"
+ROOM_LISTS = DATA_DIR / "room_lists.json"  # その日のフォロワー/フォロー一覧（1日1回取得）
+ROOM_STATS_DETAIL = DATA_DIR / "room_stats_detail.json"  # 直近のフォロワー/フォロー/相互の数（API集計）
 ROOM_STATS = DATA_DIR / "room_stats.json"  # {date: {"followers": n, "following": n}} 施策の効果を見るため
 FOLLOW_LOG = DATA_DIR / "follow_log.json"   # {slug: {"at": iso, "back": bool|null}}
 
@@ -25,11 +28,12 @@ HOME_FEED = "https://room.rakuten.co.jp/"
 NOTIF = "https://room.rakuten.co.jp/{slug}/notifications"
 
 LIKE_SEL = 'a.icon-like.right'          # ng-click="like(item)"
-# デフォルト上限（慎重）: 公称 いいね800/日・フォロー1000/日,100/時 に対しかなり低く
+# デフォルト上限: 公称 いいね800/日・フォロー1000/日,100/時 の少し手前（2026-10-11 ユーザー判断で
+# 以前使っていた ROOM REPEAT 極 と同じく制限近くまで動かす方針に変更。config の engage.caps で上書き可）
 DEFAULT_CAPS = {
-    "like_per_day": 200, "like_per_hour": 35,
-    "follow_per_day": 80, "follow_per_hour": 15,
-    "unfollow_per_day": 60,
+    "like_per_day": 700, "like_per_hour": 90,
+    "follow_per_day": 800, "follow_per_hour": 90,
+    "unfollow_per_day": 800,
 }
 
 
@@ -335,55 +339,143 @@ def _unfollowed_rows(page) -> list[tuple[str, int]]:
 
 
 # ---------------- フォロー整理 ----------------
-def unfollow_round(cfg: dict, slug: str) -> None:
+def _api_session(page, slug: str) -> tuple[str, str]:
+    """ROOMの画面が使っている内部API用の (ユーザーID, csrfトークン) を、フォロー一覧ページの読み込みから拾う。"""
+    _safe_goto(page, f"https://room.rakuten.co.jp/{slug}/followings")
+    page.wait_for_timeout(4500)
+    urls = page.evaluate("()=>performance.getEntriesByType('resource').map(e=>e.name)")
+    for u in urls:
+        m = re.search(r"/api/(\d+)/[a-z_]+\?.*csrf_tkn=([0-9a-f]+)", u)
+        if m:
+            return m.group(1), m.group(2)
+    raise RuntimeError("ROOMのAPI情報が取れませんでした（ログイン切れの可能性）")
+
+
+def _api_get(page, url: str) -> dict:
+    return page.evaluate("u=>fetch(u,{credentials:'include'}).then(r=>r.json())", url)
+
+
+def _api_follow(page, tok: str, object_id: str, unfollow: bool) -> bool:
+    body = f"object_id={object_id}" + ("&_method=delete" if unfollow else "")
+    res = page.evaluate(
+        """([u,b])=>fetch(u,{method:'POST',credentials:'include',
+            headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},
+            body:b}).then(r=>r.text().then(t=>({s:r.status,t})))""",
+        [f"https://room.rakuten.co.jp/api/follow?csrf_tkn={tok}", body])
+    return res.get("s") == 200 and '"success"' in (res.get("t") or "")
+
+
+def _all_users(page, uid: str, tok: str, kind: str, max_pages: int = 200) -> list[dict]:
+    """followers / following_users を全件取る（ページ送りは offset で効く）。"""
+    out, off = [], 0
+    for _ in range(max_pages):
+        j = _api_get(page, f"https://room.rakuten.co.jp/api/{uid}/{kind}?api_version=2&limit=100&offset={off}&csrf_tkn={tok}")
+        data = j.get("data") or []
+        if not data:
+            break
+        seen = {x["id"] for x in out[-300:]}
+        new = [u for u in data if u["id"] not in seen]
+        if not new:  # 同じページが返り続ける場合の保険
+            break
+        out += new
+        off += len(data)
+        page.wait_for_timeout(250)
+    return out
+
+
+def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
+    """フォロー返し＋フォローを返していない人の解除（2026-10-11 API方式で作り直し）。
+
+    以前使っていた ROOM REPEAT 極 と同じく「フォロー返し」も行う。解除は、最近（unfollow_after_days日以内）
+    フォローした相手は返ってくる可能性があるので外さない。ROOM側の制限で失敗が続いたらその回は止める。
+    """
     ec = cfg.get("engage", {})
-    keep_days = int(ec.get("unfollow_after_days", 10))
+    keep_days = int(ec.get("unfollow_after_days", 7))
     caps = _caps(cfg)
-    can = max(0, int(caps.get("unfollow_per_day", 60)) - _today_log().get("unfollow", 0))
-    if can <= 0:
-        print("フォロー整理の上限に達しています。")
-        return
+    can_un = max(0, int(caps.get("unfollow_per_day", 800)) - _today_log().get("unfollow", 0))
+    if target is not None:
+        can_un = min(can_un, target)
+    fb_day, fb_hour = _remaining(cfg, "follow")
+    can_fb = min(int(ec.get("followback_per_run", 50)), fb_day, fb_hour)
 
     flog = _load(FOLLOW_LOG, {})
     cutoff = datetime.now() - timedelta(days=keep_days)
-    stale = [name for name, v in flog.items()
-             if v.get("back") is not True
-             and _before(v.get("at"), cutoff)]
-    if not stale:
-        print(f"整理対象がありません（{keep_days}日以上前にフォローしてフォロバ無しの相手）。")
-        return
+    recent = set()
+    for k, v in flog.items():
+        if not _before(v.get("at"), cutoff):
+            recent.add(k.replace("url:/", "").replace("/items", ""))  # url:/room_xxx/items → room_xxx、名前はそのまま
 
-    pacer = Pacer(base=(6.0, 16.0))
     pw, ctx, _b = _launch()
     try:
         page = ctx.new_page()
-        _safe_goto(page, f"https://room.rakuten.co.jp/{slug}/follow")
-        page.wait_for_timeout(5000)
-        done = 0
-        for name in stale:
-            if done >= can:
+        uid, tok = _api_session(page, slug)
+        # 一覧の取得は約5分かかるので1日1回だけ取り、その日の残りの回は保存したものを使う
+        cache = _load(ROOM_LISTS, {})
+        if cache.get("date") == date.today().isoformat():
+            followers, following = cache["followers"], cache["following"]
+            print(f"  一覧は今日取得済みのものを使います（フォロワー {len(followers)} / フォロー {len(following)}）")
+        else:
+            followers = _all_users(page, uid, tok, "followers")
+            following = _all_users(page, uid, tok, "following_users")
+
+            def slim(us):
+                return [{"id": u["id"], "username": u.get("username"), "fullname": u.get("fullname")} for u in us]
+
+            followers, following = slim(followers), slim(following)
+            _save(ROOM_LISTS, {"date": date.today().isoformat(), "followers": followers, "following": following})
+        fset = {u["id"] for u in followers}
+        gset = {u["id"] for u in following}
+        print(f"  フォロワー {len(fset)} / フォロー {len(gset)}（相互 {len(fset & gset)}）")
+        _save(ROOM_STATS_DETAIL, {"at": datetime.now().isoformat(timespec="seconds"),
+                                  "followers": len(fset), "following": len(gset), "mutual": len(fset & gset)})
+
+        # 1) フォロー返し
+        done_fb = 0
+        for u in followers:
+            if done_fb >= can_fb:
                 break
-            # 名前で行を探して「フォロー中」を解除
-            try:
-                row = page.locator(f'li:has-text("{name}")').first
-                if not row.count():
-                    continue
-                btn = row.locator('span.follow, button:has-text("フォロー")').first
-                if not btn.count():
-                    continue
-                btn.scroll_into_view_if_needed(timeout=3000)
-                jitter(1.0)
-                btn.click(timeout=4000)
-                page.wait_for_timeout(1200)
-                done += 1
-                _bump("unfollow")
-                flog.pop(name, None)
-                _save(FOLLOW_LOG, flog)
-                print(f"  - 解除 {done}  {name}")
-                pacer.wait()
-            except Exception:  # noqa: BLE001
+            if u["id"] in gset:
                 continue
-        print(f"\nフォロー整理完了: {done} 件")
+            if _api_follow(page, tok, u["id"], unfollow=False):
+                done_fb += 1
+                _bump("follow")
+                flog[u.get("username") or u["id"]] = {"at": datetime.now().isoformat(timespec="seconds"),
+                                                      "back": True, "src": "followback"}
+                print(f"  ↩ フォロー返し {done_fb}  {u.get('fullname', '')[:20]}")
+                page.wait_for_timeout(random.randint(1500, 4000))
+            else:
+                print("  フォロー返しが受け付けられなくなりました（ROOM側の制限の可能性）。この回は止めます。")
+                break
+        _save(FOLLOW_LOG, flog)
+
+        # 2) フォローを返していない人の解除（古い順＝一覧の後ろから）
+        stale = [u for u in reversed(following)
+                 if u["id"] not in fset and u.get("username") not in recent and u.get("fullname") not in recent]
+        print(f"  解除の対象: {len(stale)} 人（{keep_days}日以内にフォローした人を除く）。今回は最大 {can_un} 人")
+        done, fails = 0, 0
+        for u in stale:
+            if done >= can_un:
+                break
+            if _api_follow(page, tok, u["id"], unfollow=True):
+                done += 1
+                fails = 0
+                _bump("unfollow")
+                if done % 20 == 0:
+                    print(f"  - 解除 {done} 人")
+                page.wait_for_timeout(random.randint(1200, 3500))
+            else:
+                fails += 1
+                if fails >= 3:
+                    print("  解除が続けて失敗しました（ROOM側の制限の可能性）。この回は止めます。")
+                    break
+        # 解除した人を保存済みの一覧からも消す（同じ日の次の回で二重に処理しない）
+        removed = {u["id"] for u in stale[:done]} if done else set()
+        if removed:
+            cache = _load(ROOM_LISTS, {})
+            if cache.get("date") == date.today().isoformat():
+                cache["following"] = [u for u in cache["following"] if u["id"] not in removed]
+                _save(ROOM_LISTS, cache)
+        print(f"\nフォロー返し {done_fb} 件・フォロー解除 {done} 件（今日の解除累計 {_today_log()['unfollow']} 件）")
     finally:
         pw.stop()
 

@@ -3,9 +3,9 @@
 # scoring / per_genre / favorites などの詳細はここで調整します
 
 my_room_url: https://room.rakuten.co.jp/room_e36e002876/items
-post_count: 60
-candidate_pool: 100
-post_batch_size: 10
+post_count: 100
+candidate_pool: 150
+post_batch_size: 15
 sale_boost:
   enabled: true
   five_ten_day_multiplier: 1.3
@@ -77,21 +77,24 @@ scoring:
 exclude:
   reposted_within_days: 60
 engage:
+  # 2026-10-11 以前使っていた ROOM REPEAT 極 と同じく ROOM の制限近くまで動かす（ユーザー判断）
   caps:
-    like_per_day: 200
-    like_per_hour: 35
-    follow_per_day: 80
-    follow_per_hour: 15
-    unfollow_per_day: 60
+    like_per_day: 700
+    like_per_hour: 90
+    follow_per_day: 800
+    follow_per_hour: 90
+    unfollow_per_day: 800
   like_interval:
-  - 5
-  - 13
-  follow_interval:
+  - 3
   - 8
-  - 20
-  unfollow_after_days: 10
-  daily_likes: 150
-  daily_follows: 50
+  follow_interval:
+  - 4
+  - 10
+  unfollow_after_days: 7
+  daily_unfollows: 600
+  followback_per_run: 80
+  daily_likes: 500
+  daily_follows: 200
   daily_prune: 300
   daily_gap_minutes:
   - 2
@@ -200,7 +203,7 @@ server:
     - '19:00'
   - - '19:30'
     - '22:45'
-  room_post_runs_per_day: 6
+  room_post_runs_per_day: 8
   room_like_window:
   - - 09:00
     - '11:30'
@@ -210,7 +213,7 @@ server:
     - '18:00'
   - - '20:00'
     - '22:30'
-  room_like_runs_per_day: 5
+  room_like_runs_per_day: 8
   room_follow_window:
   - - '10:00'
     - '11:30'
@@ -220,7 +223,17 @@ server:
     - '18:30'
   - - '20:30'
     - '22:30'
-  room_follow_runs_per_day: 4
+  room_follow_runs_per_day: 6
+  room_unfollow_window:
+  - - 09:30
+    - '12:00'
+  - - '13:00'
+    - '16:30'
+  - - '18:00'
+    - '20:00'
+  - - '21:30'
+    - '23:30'
+  room_unfollow_runs_per_day: 4
   room_prune_window:
   - - 09:30
     - '11:30'
