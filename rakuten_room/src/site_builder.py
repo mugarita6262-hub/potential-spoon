@@ -1326,7 +1326,30 @@ def _compare_table(items: list[dict]) -> str:
             f'<th>評価</th><th>レビュー数</th><th>記録上の最安</th></tr></thead><tbody>{rows}</tbody></table></div>')
 
 
-def _genre_summary(g: dict, popular: list[dict], drops: list[dict], all_items: list[dict], updated: str) -> tuple[str, str]:
+def _week_trend(rich: list[dict]) -> str:
+    """毎日の価格記録から、7日前と比べて安く/高くなった商品の数（このサイトにしかない数字）。"""
+    week_ago = (date.today() - timedelta(days=7)).isoformat()
+    down = up = same = 0
+    for it in rich:
+        past = [r["price"] for r in it.get("history", []) if r["date"] <= week_ago]
+        if not past:
+            continue
+        before = past[-1]
+        if it["price"] < before:
+            down += 1
+        elif it["price"] > before:
+            up += 1
+        else:
+            same += 1
+    n = down + up + same
+    if n < 5:
+        return ""
+    return (f"7日前から価格を記録している{n}件のうち、7日前より安くなったのは{down}件、"
+            f"高くなったのは{up}件、変わらないのは{same}件です。")
+
+
+def _genre_summary(g: dict, popular: list[dict], drops: list[dict], all_items: list[dict], updated: str,
+                   rich: list[dict] | None = None) -> tuple[str, str]:
     """ページ冒頭の結論（AIに引用されやすい要約）と、metaに使う短文。"""
     top = popular[0] if popular else None
     lines = []
@@ -1339,6 +1362,9 @@ def _genre_summary(g: dict, popular: list[dict], drops: list[dict], all_items: l
                      f'（直近30日の参考価格{_yen(d["reference_price"])}→{_yen(d["price"])}、{d["drop_pct"]:.0f}%下落）。')
     else:
         lines.append("現在、直近30日の最高値から5%以上値下がりしている商品はありません。")
+    wk = _week_trend(rich or [])
+    if wk:
+        lines.append(wk)
     lis = "".join(f"<li>{E(l)}</li>" for l in lines)
     html_ = (f'<section class="summary" aria-labelledby="h-summary"><h2 id="h-summary">結論：{E(updated)}時点の'
              f'{E(g["name"])}の買い時</h2><ul>{lis}</ul>'
@@ -1413,8 +1439,8 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
         cat = CAT_OF[g["slug"]]
         crumbs, crumbs_ld = _breadcrumb([("ホーム", "/"), (cat["name"], f"/c/{cat['slug']}/"),
                                          (f"{g['name']}の買い時", path)])
-        summary, summary_text = _genre_summary(g, popular, drops, items, updated)
         rich = [_enrich(it, hist) for it in items]
+        summary, summary_text = _genre_summary(g, popular, drops, items, updated, rich)
         board = _drop_board(f"今の{g['name']}の値下がり状況", _drop_stats(rich, drops), drops,
                             _near_drops(rich), updated)
         faq_html, faq_ld = _faq(_genre_faq(g, popular, drops, updated))
