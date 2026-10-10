@@ -17,6 +17,7 @@ from .human import Pacer, jitter, maybe_pause_long
 from .poster import _launch, _safe_goto
 
 LOG = DATA_DIR / "engage_log.json"
+ROOM_STATS = DATA_DIR / "room_stats.json"  # {date: {"followers": n, "following": n}} 施策の効果を見るため
 FOLLOW_LOG = DATA_DIR / "follow_log.json"   # {slug: {"at": iso, "back": bool|null}}
 
 NEW_FEED = "https://room.rakuten.co.jp/search/item?sort=new"
@@ -182,6 +183,7 @@ def follow_round(cfg: dict, target: int, slug: str) -> None:
     pw, ctx, _b = _launch()
     try:
         page = ctx.new_page()
+        _record_room_stats(page, slug)
         done = 0
         idx = 0          # 何番目のアクティビティ行まで見たか
         misses = 0
@@ -236,9 +238,77 @@ def follow_round(cfg: dict, target: int, slug: str) -> None:
                     _save(FOLLOW_LOG, flog)
             except Exception as exc:  # noqa: BLE001
                 print(f"  （スキップ {name}: {str(exc)[:40]}）")
+        if done < can:
+            # 通知欄（自分に反応してくれた人）の候補が尽きたら、新着の投稿をした人もフォローする。
+            # 今まさに動いている人なのでフォローが返りやすい（2026-10-11 追加。通知欄だけだと1日10件前後で尽きていた）
+            done += _follow_from_feed(page, can - done, flog, pacer, slug, done)
         print(f"\nフォロー回り完了: {done} 件（今日の累計 {_today_log()['follow']} 件）")
     finally:
         pw.stop()
+
+
+def _follow_from_feed(page, need: int, flog: dict, pacer, slug: str, start: int) -> int:
+    _safe_goto(page, NEW_FEED)
+    page.wait_for_timeout(5000)
+    for _ in range(4):
+        page.mouse.wheel(0, 2600)
+        page.wait_for_timeout(1200)
+    hrefs = page.evaluate(r"""()=>[...new Set([...document.querySelectorAll("a[href]")].map(a=>a.getAttribute('href'))
+        .filter(h=>/^\/room_[0-9a-f]+\/items$/.test(h)))]""")
+    done = 0
+    for h in hrefs:
+        if done >= need:
+            break
+        key = f"url:{h}"
+        if key in flog or slug in h:
+            continue
+        try:
+            _safe_goto(page, "https://room.rakuten.co.jp" + h)
+            page.wait_for_timeout(3500)
+            fb = page.locator(FOLLOW_BTN_SEL).first
+            now = datetime.now().isoformat(timespec="seconds")
+            if fb.count() and fb.is_visible():
+                jitter(1.2)
+                fb.click(timeout=4000)
+                page.wait_for_timeout(1500)
+                done += 1
+                _bump("follow")
+                flog[key] = {"at": now, "back": None, "src": "feed"}
+                _save(FOLLOW_LOG, flog)
+                print(f"  + フォロー {start + done}（新着の投稿者） {h}")
+                if done < need:
+                    pacer.wait(on_rest=lambda s: print(f"    （ひと休み {int(s)}秒）"))
+            else:
+                flog[key] = {"at": now, "back": True, "src": "feed"}
+                _save(FOLLOW_LOG, flog)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  （スキップ {h}: {str(exc)[:40]}）")
+    return done
+
+
+def _record_room_stats(page, slug: str) -> None:
+    """自分のROOMのフォロワー数・フォロー数を1日1回記録する（失敗しても回りは続ける）。"""
+    stats = _load(ROOM_STATS, {})
+    today = date.today().isoformat()
+    if today in stats:
+        return
+    try:
+        _safe_goto(page, f"https://room.rakuten.co.jp/{slug}/items")
+        page.wait_for_timeout(4000)
+        text = page.inner_text("body")
+
+        def num(label: str):
+            m = re.search(label + r"\s*\n?\s*([\d,.]+)(K?)", text)
+            if not m:
+                return None
+            v = float(m.group(1).replace(",", ""))
+            return int(v * 1000) if m.group(2) else int(v)
+
+        stats[today] = {"followers": num("フォロワー"), "following": num("フォロー(?!ワー)")}
+        _save(ROOM_STATS, stats)
+        print(f"  ROOMの状況: フォロワー {stats[today]['followers']} / フォロー {stats[today]['following']}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  （フォロワー数の記録に失敗: {str(exc)[:40]}）")
 
 
 def _unfollowed_rows(page) -> list[tuple[str, int]]:

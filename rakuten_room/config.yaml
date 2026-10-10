@@ -71,7 +71,7 @@ engage:
   - 8
   - 20
   unfollow_after_days: 10
-  daily_likes: 55
+  daily_likes: 100
   daily_follows: 25
   daily_prune: 300
   daily_gap_minutes:
@@ -185,7 +185,9 @@ server:
     - '11:30'
   - - '15:00'
     - '18:00'
-  room_like_runs_per_day: 2
+  - - '20:00'
+    - '22:00'
+  room_like_runs_per_day: 3
   room_follow_window:
   - - '10:00'
     - '11:30'
