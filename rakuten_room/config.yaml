@@ -3,8 +3,8 @@
 # scoring / per_genre / favorites などの詳細はここで調整します
 
 my_room_url: https://room.rakuten.co.jp/room_e36e002876/items
-post_count: 15
-candidate_pool: 40
+post_count: 60
+candidate_pool: 100
 post_batch_size: 10
 sale_boost:
   enabled: true
@@ -42,7 +42,26 @@ sources:
     - 100804
     - 100227
     - 558885
-    per_genre: 25
+    - 101070
+    - 100371
+    - 551177
+    - 216131
+    - 100533
+    - 100132
+    - 101213
+    - 100026
+    - 211742
+    - 101164
+    per_genre: 30
+  # 以前使っていた ROOM REPEAT 極 は「SALE」で検索した商品をコレ！していた（2〜3か月で2〜3万円の実績）
+  keywords:
+    enabled: true
+    words:
+    - SALE
+    - 訳あり
+    - クーポン
+    - まとめ買い
+    per_keyword: 30
 scoring:
   weights:
     review_count: 0.35
@@ -51,8 +70,8 @@ scoring:
     price_fit: 0.1
     point_rate: 0.1
   price_band:
-  - 1000
-  - 8000
+  - 500
+  - 20000
   min_review_count: 5
   min_review_average: 3.8
 exclude:
@@ -71,8 +90,8 @@ engage:
   - 8
   - 20
   unfollow_after_days: 10
-  daily_likes: 100
-  daily_follows: 25
+  daily_likes: 150
+  daily_follows: 50
   daily_prune: 300
   daily_gap_minutes:
   - 2
@@ -173,27 +192,35 @@ server:
   - 05:45
   site_runs_per_day: 1
   room_post_window:
-  - - 07:30
+  - - 07:00
     - 09:30
-  - - '12:00'
+  - - '11:30'
     - '13:30'
+  - - '16:30'
+    - '19:00'
   - - '19:30'
-    - '22:30'
-  room_post_runs_per_day: 3
+    - '22:45'
+  room_post_runs_per_day: 6
   room_like_window:
-  - - '10:00'
+  - - 09:00
     - '11:30'
+  - - '12:30'
+    - '15:00'
   - - '15:00'
     - '18:00'
   - - '20:00'
-    - '22:00'
-  room_like_runs_per_day: 3
+    - '22:30'
+  room_like_runs_per_day: 5
   room_follow_window:
   - - '10:00'
     - '11:30'
-  - - '15:00'
-    - '18:00'
-  room_follow_runs_per_day: 2
+  - - '13:30'
+    - '15:30'
+  - - '16:00'
+    - '18:30'
+  - - '20:30'
+    - '22:30'
+  room_follow_runs_per_day: 4
   room_prune_window:
   - - 09:30
     - '11:30'

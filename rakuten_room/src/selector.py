@@ -1,6 +1,8 @@
 """候補を集めて、スコア上位 N 件を選ぶ。"""
 from __future__ import annotations
 
+import random
+
 from .favorites import collect_favorite_urls
 from .posted_log import recently_posted_keys
 from .rakuten_api import RakutenAPI, dedupe
@@ -19,6 +21,18 @@ def gather_candidates(cfg: dict, api: RakutenAPI) -> list[dict]:
                 print(f"  ランキング genre={genre_id}: {len(items)} 件")
             except Exception as exc:  # noqa: BLE001
                 print(f"  ランキング genre={genre_id} 失敗: {exc}")
+
+    kw = sources.get("keywords") or {}
+    if kw.get("enabled"):
+        for word in kw.get("words", []):
+            try:
+                # 毎日同じ商品にならないよう、検索結果のページをランダムに選ぶ
+                items = api.search(word, int(kw.get("per_keyword", 30)), sort="standard",
+                                   page=random.randint(1, 10))
+                candidates.extend(items)
+                print(f"  キーワード「{word}」: {len(items)} 件")
+            except Exception as exc:  # noqa: BLE001
+                print(f"  キーワード「{word}」失敗: {exc}")
 
     if sources["favorites"]["enabled"]:
         fav_urls = collect_favorite_urls(sources["favorites"])

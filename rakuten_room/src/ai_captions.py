@@ -59,8 +59,16 @@ def _extract_json_array(text: str) -> list[dict]:
     return json.loads(text[start : end + 1], strict=False)
 
 
-def generate_captions(items: list[dict]) -> dict[str, str]:
-    """商品リストからキャプションを生成。{itemUrl: caption} を返す。"""
+def generate_captions(items: list[dict], chunk: int = 25) -> dict[str, str]:
+    """商品リストからキャプションを生成。{itemUrl: caption} を返す。
+    1回の出力上限に収まるよう chunk 件ずつに分けて生成する（2026-10-11、1日60件投稿に増やした際に追加）。"""
+    result: dict[str, str] = {}
+    for i in range(0, len(items), chunk):
+        result.update(_generate_chunk(items[i:i + chunk]))
+    return result
+
+
+def _generate_chunk(items: list[dict]) -> dict[str, str]:
     import anthropic
 
     from .content_captions import today_note
