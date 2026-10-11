@@ -142,6 +142,10 @@ def like_round(cfg: dict, target: int, feed: str = "new") -> None:
                 continue
         print(f"\nいいね回り完了: {done} 件（今日の累計 {_today_log()['like']} 件）")
     finally:
+        try:
+            page.close()  # 自分のタブは閉じる（溜まると Chrome が重くなる）
+        except Exception:  # noqa: BLE001
+            pass
         pw.stop()
 
 
@@ -248,6 +252,10 @@ def follow_round(cfg: dict, target: int, slug: str) -> None:
             done += _follow_from_feed(page, can - done, flog, pacer, slug, done)
         print(f"\nフォロー回り完了: {done} 件（今日の累計 {_today_log()['follow']} 件）")
     finally:
+        try:
+            page.close()  # 自分のタブは閉じる（溜まると Chrome が重くなる）
+        except Exception:  # noqa: BLE001
+            pass
         pw.stop()
 
 
@@ -477,6 +485,10 @@ def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
                 _save(ROOM_LISTS, cache)
         print(f"\nフォロー返し {done_fb} 件・フォロー解除 {done} 件（今日の解除累計 {_today_log()['unfollow']} 件）")
     finally:
+        try:
+            page.close()  # 自分のタブは閉じる（溜まると Chrome が重くなる）
+        except Exception:  # noqa: BLE001
+            pass
         pw.stop()
 
 

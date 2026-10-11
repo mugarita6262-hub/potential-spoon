@@ -121,6 +121,49 @@ def _alert_api_credit(output: str) -> None:
 _POSTING_JOBS = {"sns", "a8", "digest", "sitepost", "sitedrop", "trend", "calendar", "trivia", "instagram"}
 
 
+def _dispatch(cli, cfg: dict, name: str) -> None:
+    from .job_lock import posting_lock
+
+    if name in _POSTING_JOBS:
+        with posting_lock() as acquired:
+            if not acquired:
+                print("  他の投稿ジョブが実行中のためスキップします"
+                      "（手動実行と重なった可能性）。")
+            elif name == "sns":
+                cli.cmd_sns(cfg)
+            elif name == "a8":
+                cli.cmd_a8(cfg)
+            elif name == "digest":
+                cli.cmd_digest(cfg)
+            elif name == "sitepost":
+                cli.cmd_sitepost(cfg)
+            elif name == "sitedrop":
+                cli.cmd_sitedrop(cfg)
+            elif name == "trend":
+                cli.cmd_trend(cfg)
+            elif name == "calendar":
+                cli.cmd_calendar(cfg)
+            elif name == "trivia":
+                cli.cmd_trivia(cfg)
+            elif name == "instagram":
+                cli.cmd_instagram(cfg)
+    elif name in _ROOM_JOBS:
+        # Chromeは終了させない。楽天のログインの一部はブラウザ終了で消える
+        # セッションCookieで保たれており、毎回落とすと数十分後にログアウト
+        # 扱いになる（2026-09-30に実際に発生）。デスクトップ同様に開きっぱなし
+        _run_room_job(cli, cfg, name)
+    elif name == "collect":
+        cli.cmd_collect(cfg)
+    elif name == "site":
+        cli.cmd_site(cfg)
+    elif name == "prepare":
+        cli.cmd_prepare(cfg)
+    elif name == "insights":
+        cli.cmd_insights(cfg)
+    else:
+        raise ValueError(f"unknown job: {name}")
+
+
 def run_job(name: str) -> str:
     """ジョブを実行し、標準出力をキャプチャして記録・返却する。
 
@@ -130,53 +173,27 @@ def run_job(name: str) -> str:
     同じ商品が2回投稿される事故が起きたため。
     """
     from . import main as cli
-    from .job_lock import posting_lock
 
     with _lock:
         cfg = load_config()
         buf = io.StringIO()
-        try:
-            with redirect_stdout(buf):
-                if name in _POSTING_JOBS:
-                    with posting_lock() as acquired:
-                        if not acquired:
-                            print("  他の投稿ジョブが実行中のためスキップします"
-                                  "（手動実行と重なった可能性）。")
-                        elif name == "sns":
-                            cli.cmd_sns(cfg)
-                        elif name == "a8":
-                            cli.cmd_a8(cfg)
-                        elif name == "digest":
-                            cli.cmd_digest(cfg)
-                        elif name == "sitepost":
-                            cli.cmd_sitepost(cfg)
-                        elif name == "sitedrop":
-                            cli.cmd_sitedrop(cfg)
-                        elif name == "trend":
-                            cli.cmd_trend(cfg)
-                        elif name == "calendar":
-                            cli.cmd_calendar(cfg)
-                        elif name == "trivia":
-                            cli.cmd_trivia(cfg)
-                        elif name == "instagram":
-                            cli.cmd_instagram(cfg)
-                elif name in _ROOM_JOBS:
-                    # Chromeは終了させない。楽天のログインの一部はブラウザ終了で消える
-                    # セッションCookieで保たれており、毎回落とすと数十分後にログアウト
-                    # 扱いになる（2026-09-30に実際に発生）。デスクトップ同様に開きっぱなし
-                    _run_room_job(cli, cfg, name)
-                elif name == "collect":
-                    cli.cmd_collect(cfg)
-                elif name == "site":
-                    cli.cmd_site(cfg)
-                elif name == "prepare":
-                    cli.cmd_prepare(cfg)
-                elif name == "insights":
-                    cli.cmd_insights(cfg)
-                else:
-                    raise ValueError(f"unknown job: {name}")
-        except Exception:
-            buf.write("\n" + traceback.format_exc())
+        # Playwright の同期APIはスレッドごとにイベントループを持つ。1つのジョブが後始末に失敗しても
+        # 以後のジョブが巻き添えにならないよう、ジョブ本体は毎回新しいスレッドで動かす
+        # （2026-10-11、Chromeが固まった1回の失敗から半日 ROOM のジョブが全部止まった）
+        holder: dict = {}
+
+        def _body():
+            try:
+                _dispatch(cli, cfg, name)
+            except Exception:  # noqa: BLE001
+                holder["tb"] = traceback.format_exc()
+
+        with redirect_stdout(buf):
+            th = threading.Thread(target=_body, name=f"job-{name}", daemon=True)
+            th.start()
+            th.join()
+        if holder.get("tb"):
+            buf.write("\n" + holder["tb"])
         output = buf.getvalue()
         _alert_api_credit(output)
         _last_run[name] = {"at": datetime.now().isoformat(timespec="seconds"),

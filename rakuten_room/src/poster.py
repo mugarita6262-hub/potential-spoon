@@ -183,8 +183,34 @@ def _launch(headless: bool = False):
             )
         time.sleep(2.0)
 
-    browser = pw.chromium.connect_over_cdp(f"http://127.0.0.1:{CDP_PORT}")
+    # 接続で失敗したまま pw を止めないと、同じスレッドでの以後の Playwright がすべて
+    # 「Sync API inside the asyncio loop」で失敗する（2026-10-11、Chromeが固まってから半日止まった）
+    try:
+        browser = pw.chromium.connect_over_cdp(f"http://127.0.0.1:{CDP_PORT}", timeout=30000)
+    except Exception:  # noqa: BLE001
+        print("ツール用 Chrome に接続できませんでした。起動し直して、もう一度だけ試します...")
+        _kill_tool_chrome()
+        _start_chrome_with_debugging()
+        for _ in range(90):
+            if _cdp_healthy():
+                break
+            time.sleep(0.5)
+        time.sleep(2.0)
+        try:
+            browser = pw.chromium.connect_over_cdp(f"http://127.0.0.1:{CDP_PORT}", timeout=30000)
+        except Exception:
+            pw.stop()
+            raise
     ctx = browser.contexts[0] if browser.contexts else browser.new_context()
+    # 閉じ忘れのタブが極端に溜まったときだけ古いものを閉じる（同時に動く別の処理のタブを閉じないよう、
+    # 数枚程度は残す。各処理は終わりに自分のタブを閉じる）
+    try:
+        pages = ctx.pages
+        if len(pages) > 8:
+            for pg in pages[1:-4]:
+                pg.close()
+    except Exception:  # noqa: BLE001
+        pass
     ctx.set_default_navigation_timeout(45000)
     return pw, ctx, browser
 

@@ -402,4 +402,8 @@ def prune(cfg: dict, commit: bool = False, max_delete: int | None = None) -> Non
         else:
             _prune_oldest(page, cfg, pcfg, commit)
     finally:
+        try:
+            page.close()  # 自分のタブは閉じる（溜まると Chrome が重くなる）
+        except Exception:  # noqa: BLE001
+            pass
         pw.stop()
