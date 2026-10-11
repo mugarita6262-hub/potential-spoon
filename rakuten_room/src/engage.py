@@ -370,7 +370,10 @@ def _api_follow(page, tok: str, object_id: str, unfollow: bool) -> bool:
             headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},
             body:b}).then(r=>r.text().then(t=>({s:r.status,t})))""",
         [f"https://room.rakuten.co.jp/api/follow?csrf_tkn={tok}", body])
-    return res.get("s") == 200 and '"success"' in (res.get("t") or "")
+    ok = res.get("s") == 200 and '"success"' in (res.get("t") or "")
+    if not ok:  # 拒否された理由を残す（頻度や原因を見て間隔を調整するため）
+        print(f"    （ROOMの応答: {res.get('s')} {str(res.get('t') or '')[:160]}）")
+    return ok
 
 
 def _all_users(page, uid: str, tok: str, kind: str, max_pages: int = 200) -> list[dict]:
