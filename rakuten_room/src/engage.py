@@ -363,17 +363,21 @@ def _api_get(page, url: str) -> dict:
     return page.evaluate("u=>fetch(u,{credentials:'include'}).then(r=>r.json())", url)
 
 
-def _api_follow(page, tok: str, object_id: str, unfollow: bool) -> bool:
+def _api_follow(page, tok: str, object_id: str, unfollow: bool) -> str:
+    """"ok"（成功）/ "dup"（すでにその状態＝「重複操作です」）/ "ng"（拒否）を返す。"""
     body = f"object_id={object_id}" + ("&_method=delete" if unfollow else "")
     res = page.evaluate(
         """([u,b])=>fetch(u,{method:'POST',credentials:'include',
             headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},
             body:b}).then(r=>r.text().then(t=>({s:r.status,t})))""",
         [f"https://room.rakuten.co.jp/api/follow?csrf_tkn={tok}", body])
-    ok = res.get("s") == 200 and '"success"' in (res.get("t") or "")
-    if not ok:  # 拒否された理由を残す（頻度や原因を見て間隔を調整するため）
-        print(f"    （ROOMの応答: {res.get('s')} {str(res.get('t') or '')[:160]}）")
-    return ok
+    text = res.get("t") or ""
+    if res.get("s") == 200 and '"success"' in text:
+        return "ok"
+    if "R200" in text or "重複操作" in text:
+        return "dup"
+    print(f"    （ROOMの応答: {res.get('s')} {text[:160]}）")  # 拒否の理由を残す
+    return "ng"
 
 
 def _all_users(page, uid: str, tok: str, kind: str, max_pages: int = 200) -> list[dict]:
@@ -447,7 +451,14 @@ def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
                 break
             if u["id"] in gset:
                 continue
-            if _api_follow(page, tok, u["id"], unfollow=False):
+            r = _api_follow(page, tok, u["id"], unfollow=False)
+            if r == "dup":  # すでにフォロー済み（一覧取得後にフォローした相手）
+                gset.add(u["id"])
+                following.append(u)
+                continue
+            if r == "ok":
+                gset.add(u["id"])
+                following.append(u)
                 done_fb += 1
                 _bump("follow")
                 flog[u.get("username") or u["id"]] = {"at": datetime.now().isoformat(timespec="seconds"),
@@ -464,10 +475,16 @@ def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
                  if u["id"] not in fset and u.get("username") not in recent and u.get("fullname") not in recent]
         print(f"  解除の対象: {len(stale)} 人（{keep_days}日以内にフォローした人を除く）。今回は最大 {can_un} 人")
         done, fails = 0, 0
+        removed_extra: set = set()
         for u in stale:
             if done >= can_un:
                 break
-            if _api_follow(page, tok, u["id"], unfollow=True):
+            r = _api_follow(page, tok, u["id"], unfollow=True)
+            if r == "dup":
+                removed_extra.add(u["id"])
+                continue
+            if r == "ok":
+                removed_extra.add(u["id"])
                 done += 1
                 fails = 0
                 _bump("unfollow")
@@ -480,12 +497,11 @@ def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
                     print("  解除が続けて失敗しました（ROOM側の制限の可能性）。この回は止めます。")
                     break
         # 解除した人を保存済みの一覧からも消す（同じ日の次の回で二重に処理しない）
-        removed = {u["id"] for u in stale[:done]} if done else set()
-        if removed:
-            cache = _load(ROOM_LISTS, {})
-            if cache.get("date") == date.today().isoformat():
-                cache["following"] = [u for u in cache["following"] if u["id"] not in removed]
-                _save(ROOM_LISTS, cache)
+        removed = removed_extra  # 解除できた人＋すでに解除済みだった人
+        cache = _load(ROOM_LISTS, {})
+        if cache.get("date") == date.today().isoformat():
+            cache["following"] = [u for u in following if u["id"] not in removed]
+            _save(ROOM_LISTS, cache)
         print(f"\nフォロー返し {done_fb} 件・フォロー解除 {done} 件（今日の解除累計 {_today_log()['unfollow']} 件）")
     finally:
         try:
