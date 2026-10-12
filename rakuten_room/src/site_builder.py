@@ -334,6 +334,12 @@ GENRE_EXCLUDE = {"kitchensupply": ["ホルダー", "タオル", "ガウン", "�
                  "fruit": ["干し芋", "干しいも", "栗"]}
 
 
+def _name_head(name: str, n: int = 30) -> str:
+    """キャンペーン表記（【】など）を除いた商品名の先頭 n 文字。"""
+    head = re.sub(r"[【\[［＼][^】\]］／/]*[】\]］／/]", " ", name or "")
+    return re.sub(r"\s+", " ", head).strip()[:n]
+
+
 def _genre_ok(g: dict, it: dict) -> bool:
     name = it.get("itemName", "")
     # 商品名の後ろには検索用の関連語が詰め込まれていることが多いので、
@@ -943,6 +949,12 @@ box-shadow:0 14px 30px rgba(40,35,29,.14);padding:14px 0 18px;z-index:40}
 .catpanel ul{grid-template-columns:1fr 1fr}.catpanel a{padding:9px 10px;font-size:13px}}
 
 
+
+/* ---- こんな人には、これ ---- */
+.persona .chip-label{white-space:normal;line-height:1.4;font-size:13px}
+.why{margin:6px 0 2px;font-size:13px;line-height:1.6;color:var(--ink);background:#fff8ec;border-radius:10px;padding:8px 10px}
+.persona{grid-template-columns:repeat(3,1fr)}
+
 /* ---- 発見（記録データからの事実） ---- */
 .discovery ul{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px}
 .discovery li{position:relative;background:var(--surface);border:1px solid var(--line);border-left:5px solid #e0a43a;
@@ -1193,7 +1205,7 @@ def _has_drop(it: dict) -> bool:
     return it.get("drop_pct", 0) >= DROP_MIN_PCT and it.get("days", 0) >= 2
 
 
-def _big_card(rank: int, it: dict, mode: str, label: str = "") -> str:
+def _big_card(rank: int, it: dict, mode: str, label: str = "", reason: str = "") -> str:
     """1〜3位・今日の注目用の大きいカード。"""
     medal = {1: "gold", 2: "silver", 3: "bronze"}.get(rank, "")
     url = E(_buy_url(it))
@@ -1216,6 +1228,7 @@ def _big_card(rank: int, it: dict, mode: str, label: str = "") -> str:
   <h3 class="item-name"><a href="{url}" {_REL}>{E(_short_name(it["itemName"], 60))}</a></h3>
   <div class="price-row"><span class="price">{it["price"]:,}<small>円</small></span>{was}</div>
   <div class="rating">{_stars(it)}</div>
+  {f'<p class="why">{E(reason)}</p>' if reason else ''}
   <div class="trend">{spark}</div>
   <div class="btns">{_buy_btn(it)}{sub}</div>
 </li>"""
@@ -1285,6 +1298,111 @@ def _today_picks(popular: list[dict], drops: list[dict]) -> str:
         return ""
     cards = "".join(_big_card(i + 1, it, "pick", label) for i, (it, label) in enumerate(picks))
     return f'<ol class="podium picks">{cards}</ol>'
+
+
+
+# 「こんな人には、これ」のジャンル別タイプ: (どんな人に, 商品名に含む語, その商品の特徴の呼び方)
+# 理由は商品名に書かれた仕様と、評価・レビュー件数・価格・値下がりの数字だけで説明する（効能などは書かない）
+GENRE_PERSONAS = {
+    "coffee": [("1杯ずつ手軽に淹れたい人に", ["ドリップバッグ", "ドリップパック"], "ドリップバッグ"),
+               ("豆から挽いて楽しみたい人に", ["豆"], "コーヒー豆")],
+    "sleep": [("マットレスを見直したい人に", ["マットレス"], "マットレス"), ("枕を買い替えたい人に", ["枕"], "枕")],
+    "kitchen": [("毎日の料理に使う人に", ["フライパン"], "フライパン"), ("お茶やコーヒーをよく飲む人に", ["ケトル"], "電気ケトル")],
+    "pet": [("犬と暮らしている人に", ["ドッグ", "犬"], "犬用の商品"), ("猫と暮らしている人に", ["キャット", "猫"], "猫用の商品")],
+    "water": [("家で飲む量が多い人に", ["2L", "2l", "2リットル"], "2Lボトル"), ("炭酸が好きな人に", ["炭酸"], "炭酸水")],
+    "rice": [("研ぐ手間を省きたい人に", ["無洗米"], "無洗米"), ("家族で食べる量が多い人に", ["10kg", "10キロ", "20kg"], "10kg以上の大袋")],
+    "contact": [("毎日のケアを省きたい人に", ["ワンデー", "1day", "1DAY", "1Day"], "ワンデー（1日使い捨て）"),
+                ("2週間交換のレンズを使っている人に", ["2week", "2WEEK", "2ウィーク", "2Week"], "2ウィーク")],
+    "baby": [("パンツタイプのおむつを使う人に", ["パンツ"], "パンツタイプのおむつ"), ("おしりふきをまとめ買いしたい人に", ["おしりふき"], "おしりふき")],
+    "daily": [("トイレットペーパーの交換を減らしたい人に", ["長持ち", "2倍", "3倍", "長巻"], "長尺タイプ"),
+              ("ティッシュをまとめ買いしたい人に", ["ティッシュ"], "ティッシュ")],
+    "detergent": [("計量の手間を省きたい人に", ["ジェルボール"], "ジェルボール"), ("容量あたりの安さを重視する人に", ["詰め替え", "詰替", "つめかえ"], "詰め替え用")],
+    "alcohol": [("ビールをケースで買いたい人に", ["ビール"], "ビール"), ("チューハイ・ハイボール派の人に", ["チューハイ", "ハイボール", "サワー"], "チューハイ・ハイボール")],
+    "bousai": [("長期保存の備えをしたい人に", ["5年", "7年", "10年"], "長期保存できる商品"),
+               ("停電に備えたい人に", ["モバイルバッテリー", "ポータブル電源"], "充電の備え")],
+    "instant": [("カップ麺をまとめ買いしたい人に", ["カップ"], "カップ麺"), ("袋麺派の人に", ["袋麺", "5食"], "袋麺")],
+    "interior": [("床まわりを整えたい人に", ["ラグ", "カーペット"], "ラグ"), ("部屋を暗くしたい人に", ["遮光"], "遮光カーテン")],
+    "outdoor": [("キャンプを始める人に", ["チェア"], "キャンプチェア"), ("泊まりのキャンプに行く人に", ["寝袋", "シュラフ"], "寝袋")],
+    "heater": [("寝るときに暖まりたい人に", ["電気毛布"], "電気毛布"), ("部屋の乾燥が気になる人に", ["加湿器"], "加湿器")],
+    "cleaner": [("掃除を任せたい人に", ["ロボット"], "ロボット掃除機"), ("気づいたらすぐ掃除したい人に", ["コードレス"], "コードレス掃除機")],
+    "towel": [("乾きやすさを重視する人に", ["速乾", "薄手"], "速乾・薄手タイプ"), ("ホテルのような厚みが欲しい人に", ["ホテル"], "ホテルタイプ")],
+    "toy": [("長く遊べるものを探している人に", ["ブロック"], "ブロック"), ("小さな子へのプレゼントを探す人に", ["木製", "木の"], "木のおもちゃ")],
+    "osechi": [("少人数で楽しみたい人に", ["1人前", "2人前", "1〜2人前", "2〜3人前", "1～2人前", "2～3人前"], "少人数向けのおせち"),
+               ("家族で囲みたい人に", ["4人前", "5人前", "3〜4人前", "4〜5人前", "3～4人前", "4～5人前"], "家族向けのおせち")],
+    "meat": [("年末のごちそうを探す人に", ["カニ", "蟹", "ガニ"], "カニ"), ("普段のおかずをまとめ買いしたい人に", ["訳あり", "切り落とし"], "訳あり・切り落とし")],
+    "fruit": [("冬の定番を箱買いしたい人に", ["みかん"], "みかん"), ("りんご好きの人に", ["りんご", "林檎"], "りんご")],
+    "phone": [("充電を速くしたい人に", ["PD", "急速"], "急速充電対応の商品"), ("置くだけで充電したい人に", ["ワイヤレス"], "ワイヤレス充電")],
+    "pcgear": [("机をすっきりさせたい人に", ["ワイヤレス", "Bluetooth", "bluetooth"], "ワイヤレスの商品"), ("画面を広くしたい人に", ["モニター"], "モニター")],
+    "gift": [("相手の好みが分からない人に", ["カタログ"], "カタログギフト"), ("グルメを贈りたい人に", ["グルメ", "スイーツ"], "グルメ・スイーツ")],
+    "kaden": [("毎日ごはんを炊く人に", ["炊飯"], "炊飯器"), ("温めをもっと手軽にしたい人に", ["レンジ"], "電子レンジ")],
+    "car": [("後ろからの追突にも備えたい人に", ["前後"], "前後2カメラのドライブレコーダー"),
+            ("小さな子を車に乗せる人に", ["チャイルドシート", "ジュニアシート"], "チャイルドシート")],
+    "randoseru": [("女の子のランドセルを探している人に", ["女の子"], "女の子向けのランドセル"), ("男の子のランドセルを探している人に", ["男の子"], "男の子向けのランドセル")],
+    "roomwear": [("寒い部屋で過ごす時間が長い人に", ["着る毛布"], "着る毛布"), ("足元が寒い人に", ["スリッパ", "ルームシューズ"], "スリッパ")],
+    "techo": [("予定を細かく書きたい人に", ["ウィークリー", "週間"], "ウィークリー手帳"), ("家族の予定を共有したい人に", ["カレンダー"], "カレンダー")],
+    "bicycle": [("坂道が多い人に", ["電動", "アシスト"], "電動アシスト自転車"), ("安全に乗りたい人に", ["ヘルメット"], "ヘルメット")],
+    "battery": [("電池代を減らしたい人に", ["充電池", "充電式"], "充電池"), ("照明を替えたい人に", ["LED"], "LED電球")],
+    "clothcare": [("朝の身支度を早くしたい人に", ["スチーマー", "スチーム"], "衣類スチーマー"), ("セーターの毛玉が気になる人に", ["毛玉"], "毛玉取り器")],
+    "kitchensupply": [("冷凍保存をよくする人に", ["保存袋", "ジッパー", "ジップ"], "保存袋"), ("ラップをまとめ買いしたい人に", ["ラップ"], "ラップ")],
+    "kairo": [("外で過ごす時間が長い人に", ["カイロ"], "カイロ"), ("手元を温めたい人に", ["手袋", "グローブ"], "手袋")],
+    "laundry": [("服がずり落ちて困る人に", ["すべらない", "滑らない"], "すべらないハンガー"), ("部屋干しが多い人に", ["室内", "物干し"], "室内物干し")],
+    "stationery": [("書き心地にこだわりたい人に", ["ボールペン", "ペン"], "ペン"), ("メモをよく取る人に", ["ふせん", "付箋", "ノート"], "ふせん・ノート")],
+}
+PERSONA_NOTE = {"contact": "※レンズの種類・度数は、眼科の指示に従って選んでください。"}
+
+
+def _persona_picks(g: dict, rich: list[dict], popular: list[dict], drops: list[dict]) -> str:
+    """「こんな人には、これ」。どんな人向けかと、なぜそう言えるか（数字）を添えて見せる。"""
+    pool = [x for x in rich if _qualified(x)]
+    cards, used = [], set()
+
+    def add(it, label, reason):
+        if it and it["itemCode"] not in used and len(cards) < 6:
+            used.add(it["itemCode"])
+            cards.append((it, label, reason))
+
+    good = [x for x in pool if x["reviewAverage"] >= 4.3]
+    if good:
+        x = max(good, key=lambda x: x["reviewCount"])
+        add(x, "失敗したくない人に", f"★4.3以上の中でレビューがいちばん多く、{x['reviewCount']:,}件の評価で★{x['reviewAverage']:.2f}です。")
+    deal = None
+    for x in popular:
+        if _has_drop(x):
+            deal = (x, f"直近30日の最高値{_yen(x['reference_price'])}から{x['drop_pct']:.0f}%安い{_yen(x['price'])}になっています。")
+            break
+    if not deal:
+        for x in popular:
+            if x.get("is_all_time_low") and x.get("days", 0) >= 7:
+                deal = (x, f"評判ランキング上位で、いま記録上の最安値（{_yen(x['price'])}）です。")
+                break
+    if deal:
+        add(deal[0], "今がお得なタイミングを狙う人に", deal[1])
+    for label, words, feat in GENRE_PERSONAS.get(g["slug"], []):
+        # 商品名の後ろには関連語が詰め込まれているので、先頭部分で「何の商品か」を判定する
+        m = [x for x in pool if any(w in _name_head(x["itemName"], 40) for w in words) and x["itemCode"] not in used]
+        if "kg以上" in feat:  # 重さで分けるタイプは、商品名で最初に出てくる重さで判定（「5kg 10kg 20kg」のような列挙対策）
+            min_kg = float(re.search(r"(\d+)kg以上", feat).group(1))
+            def first_kg(name):
+                mm = re.search(r"(\d+(?:\.\d+)?)\s*(?:kg|キロ)", _name_head(name, 60))
+                return float(mm.group(1)) if mm else 0.0
+            m = [x for x in m if first_kg(x["itemName"]) >= min_kg]
+        if m:
+            x = max(m, key=_popularity)
+            add(x, label, f"{feat}の中で、評価とレビュー件数のバランスがいちばん良い商品です（★{x['reviewAverage']:.2f}・{x['reviewCount']:,}件）。")
+    if good:
+        rest = [x for x in good if x["itemCode"] not in used]
+        if rest:
+            x = min(rest, key=lambda x: x["price"])
+            add(x, "まずは手頃に試したい人に", f"★4.3以上の中でいちばん手頃な{_yen(x['price'])}です（容量や個数は商品ページで確認を）。")
+    top = [x for x in pool if x["reviewCount"] >= 100 and x["itemCode"] not in used]
+    if top:
+        x = max(top, key=lambda x: x["reviewAverage"])
+        add(x, "評価の高さで選びたい人に", f"レビュー100件以上の中で評価がいちばん高い★{x['reviewAverage']:.2f}（{x['reviewCount']:,}件）です。")
+    if not cards:
+        return ""
+    html_ = "".join(_big_card(i + 1, it, "pick", label, reason) for i, (it, label, reason) in enumerate(cards))
+    note = f'<p class="basis">{E(PERSONA_NOTE[g["slug"]])}</p>' if g["slug"] in PERSONA_NOTE else ""
+    return f'<ol class="podium picks persona">{html_}</ol>{note}'
 
 
 def _qualified(it: dict) -> bool:
@@ -1569,7 +1687,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
   <div id="tab-yahoo" class="tabpane" hidden>{_rank_list(ypop, "yahoo", "データを準備中です。")}</div>"""
         else:
             ranking_body = _rank_list(popular, "pop", "データを準備中です。")
-        pills = ['<a href="#drops">値下がり状況</a>', '<a href="#picks">今日の注目</a>',
+        pills = ['<a href="#drops">値下がり状況</a>', '<a href="#picks">こんな人に</a>',
                  '<a href="#ranking">評判ランキング</a>', '<a href="#compare">比較表</a>']
         if guides:
             pills.append('<a href="#guides">選び方ガイド</a>')
@@ -1590,9 +1708,10 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 {summary}
 {_discovery_box(disc)}
 <section class="section feature" id="picks" aria-labelledby="h-picks">
-  <p class="eyebrow">TODAY'S PICK</p>
-  <h2 id="h-picks">今日の注目の{E(g["name"])}</h2>
-  {_today_picks(popular, drops)}
+  <p class="eyebrow">FOR YOU</p>
+  <h2 id="h-picks">こんな人には、この{E(g["name"])}</h2>
+  <p class="basis">評価・レビュー件数・価格・値下がりの記録と、商品名に書かれた仕様から選んでいます（{updated}更新）。</p>
+  {_persona_picks(g, rich, popular, drops) or _today_picks(popular, drops)}
 </section>
 <section class="section" id="ranking" aria-labelledby="h-ranking">
   <p class="eyebrow">RANKING</p>
