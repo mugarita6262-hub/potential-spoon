@@ -954,6 +954,8 @@ box-shadow:0 14px 30px rgba(40,35,29,.14);padding:14px 0 18px;z-index:40}
 .persona .chip-label{white-space:normal;line-height:1.4;font-size:13px}
 .why{margin:6px 0 2px;font-size:13px;line-height:1.6;color:var(--ink);background:#fff8ec;border-radius:10px;padding:8px 10px}
 .persona{grid-template-columns:repeat(3,1fr)}
+@media (max-width:760px){.persona{grid-template-columns:1fr}
+.persona .why,.persona .trend{grid-column:1/-1}}
 
 /* ---- 発見（記録データからの事実） ---- */
 .discovery ul{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px}
@@ -1000,6 +1002,99 @@ border-radius:999px;padding:4px 12px}
 .rank{width:28px;height:28px;font-size:13px}
 .thumb img,.noimg{width:84px;height:84px}
 .item-foot{flex-wrap:wrap}.btns{width:100%}.btn-buy,.btn-sub{flex:1;text-align:center}
+}
+
+/* ===== 2026 デザイン調整（色・質感・動き）。見やすさ優先：文字のコントラストは4.5以上を確保 ===== */
+:root{--bg:#fbfaf7;--surface:#fff;--ink:#1f1b16;--sub:#5d554c;--muted:#857c72;--line:#ece5da;
+--brand:#c4501f;--brand-dark:#9b3a14;--brand-soft:#fdf0e8;--green:#1f7a5f;--green-soft:#e3f3ec;--amber:#f2a541;
+--radius:20px;--shadow:0 1px 2px rgba(31,27,22,.04),0 8px 28px -8px rgba(31,27,22,.10);
+--shadow-lg:0 2px 4px rgba(31,27,22,.05),0 18px 44px -12px rgba(31,27,22,.20);
+--ease:cubic-bezier(.2,.8,.2,1)}
+body{background:var(--bg);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+::selection{background:#ffd9c4}
+h1,h2,h3{letter-spacing:.01em}
+.section>h2{font-weight:800}
+.eyebrow{display:inline-flex;align-items:center;gap:6px}
+.eyebrow::before{content:"";width:18px;height:2px;border-radius:2px;background:currentColor}
+
+/* ヘッダー：すりガラス */
+.site-header{background:rgba(255,255,255,.72);backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);
+border-bottom:1px solid rgba(236,229,218,.8)}
+.sbox{transition:box-shadow .2s var(--ease),border-color .2s}
+.sbox:focus-within{box-shadow:0 0 0 4px rgba(196,80,31,.14)}
+.catbtn{transition:background .2s,border-color .2s,color .2s,transform .15s}
+.catbtn:hover{transform:translateY(-1px)}
+.catpanel{animation:panelIn .18s var(--ease)}
+@keyframes panelIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.catpanel a{transition:background .15s,border-color .15s,transform .15s}
+.catpanel a:hover{transform:translateX(3px)}
+
+/* カード：浮く・画像が少しだけ拡大 */
+.item.big,.gcard,.guide-cards a,.svc,.cat-tops a,.item.mini,.rows{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .25s}
+.item.big:hover,.gcard:hover,.guide-cards a:hover,.svc:hover,.cat-tops a:hover,.item.mini:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
+.big-img,.mini-img,.gcard,.guide-cards a,.svc-banner{overflow:hidden}
+.big-img img,.mini-img img,.gcard img,.guide-cards img,.svc-banner img,.row-img img{transition:transform .5s var(--ease)}
+.item.big:hover .big-img img,.item.mini:hover .mini-img img,.gcard:hover img,.guide-cards a:hover img,.svc:hover .svc-banner img,
+.item.row:hover .row-img img{transform:scale(1.05)}
+.item.row{transition:background .2s}
+.item.row:hover{background:#fffaf6}
+
+/* ボタン：乗せると明るく、押すと沈む */
+.btn-buy,.btn-svc{background:linear-gradient(180deg,#d0592a,#b8461a);box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 6px 16px -6px rgba(184,70,26,.55);
+transition:transform .15s var(--ease),box-shadow .2s,filter .2s}
+.btn-svc{background:linear-gradient(180deg,#24896b,#1b6f56);box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 6px 16px -6px rgba(27,111,86,.5)}
+.btn-yahoo{background:linear-gradient(180deg,#e0362f,#c4231d)}
+.btn-buy:hover,.btn-svc:hover{filter:brightness(1.07);transform:translateY(-1px);box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 10px 22px -8px rgba(184,70,26,.6)}
+.btn-buy:active,.btn-svc:active,.catbtn:active,.tab:active{transform:translateY(1px) scale(.98)}
+.btn-sub{transition:background .2s,transform .15s}
+.btn-sub:hover{transform:translateY(-1px)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #f2a541;outline-offset:2px;border-radius:10px}
+
+/* ページ内メニュー・タブ */
+.toc-pills a{transition:background .2s,color .2s,border-color .2s,transform .15s}
+.toc-pills a:hover{transform:translateY(-1px)}
+.toc-pills{background:linear-gradient(var(--bg) 70%,rgba(251,250,247,0))}
+.tabs{position:relative}
+.tab{position:relative;transition:color .2s}
+.tab::after{content:"";position:absolute;left:16px;right:16px;bottom:-2px;height:3px;border-radius:3px;background:var(--brand);
+transform:scaleX(0);transition:transform .25s var(--ease)}
+.tab.on{border-bottom-color:transparent}
+.tab.on::after{transform:scaleX(1)}
+
+/* 値下がりボード：奥行きのあるグラデーション */
+.dropboard{background:radial-gradient(120% 140% at 0% 0%,#e0662e 0%,#c4501f 40%,#8f3412 100%)}
+.dropboard::after{content:"";position:absolute;inset:0;pointer-events:none;
+background:radial-gradient(60% 80% at 100% 0%,rgba(255,255,255,.14),transparent 60%)}
+.dropboard>*{position:relative;z-index:1}
+.stat{transition:transform .2s var(--ease),background .2s}
+.stat:hover{transform:translateY(-2px)}
+.stat b{font-variant-numeric:tabular-nums}
+
+/* 発見・こんな人に */
+.discovery li{transition:transform .2s var(--ease),box-shadow .2s}
+.discovery li:hover{transform:translateX(3px);box-shadow:var(--shadow)}
+.section.feature{background:linear-gradient(180deg,#fff 0%,#fff7f1 100%)}
+
+/* スクロールで表示（JSが動く環境だけ。動きを減らす設定の人には出さない） */
+.js .rv{opacity:0;transform:translateY(18px);transition:opacity .6s var(--ease),transform .6s var(--ease)}
+.js .rv.in{opacity:1;transform:none}
+/* 情報の強弱：主役（値下がり・おすすめ・ランキング）を先に、脇役（発見・FAQ・関連）は控えめ */
+.hero .wrap{padding-top:44px;padding-bottom:52px}
+.banner .wrap{padding-top:38px;padding-bottom:52px}
+.section{margin:44px 0}
+.section>h2{margin-bottom:6px}
+.basis{color:var(--muted)}
+.section.feature,#ranking{scroll-margin-top:calc(var(--hdr-h,64px) + 56px)}
+.discovery,#faq,.section.related,#compare{padding-top:28px;border-top:1px solid var(--line)}
+.discovery>h2,#faq>h2,.section.related>h2{font-size:clamp(18px,2.6vw,21px)}
+.discovery .eyebrow{color:#b7791f}
+@media (max-width:760px){.section{margin:34px 0}.hero .wrap{padding-top:32px;padding-bottom:44px}.banner .wrap{padding-top:28px;padding-bottom:44px}}
+/* スマホでは結論を読みやすい大きさに詰める */
+@media (max-width:760px){.summary{padding:14px 14px 12px;font-size:14px;line-height:1.75}.summary ul{padding-left:18px}.summary li+li{margin-top:4px}}
+@media (prefers-reduced-motion:reduce){
+*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+.js .rv{opacity:1!important;transform:none!important}
+.item.big:hover,.gcard:hover,.guide-cards a:hover,.svc:hover,.cat-tops a:hover,.item.mini:hover{transform:none}
 }
 """
 # CSSの中身が変わるたびに変わる番号。ブラウザに古いstyle.cssを使い回させないため
@@ -1063,6 +1158,15 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 </header>
 <main>{body}</main>
 <button class="totop" type="button" aria-label="ページ上部へ" onclick="scrollTo({{top:0,behavior:'smooth'}})">↑</button>
+<script>(function(){{var R=document.documentElement,rm=matchMedia('(prefers-reduced-motion: reduce)').matches;
+if(!rm&&'IntersectionObserver' in window){{R.classList.add('js');
+var els=document.querySelectorAll('main .section, main .summary, main .services, main .chipgroups');
+var io=new IntersectionObserver(function(es){{es.forEach(function(e){{if(e.isIntersecting){{e.target.classList.add('in');io.unobserve(e.target)}}}})}},{{rootMargin:'0px 0px -8% 0px'}});
+els.forEach(function(el){{el.classList.add('rv');io.observe(el)}});
+setTimeout(function(){{els.forEach(function(el){{el.classList.add('in')}})}},2500);
+document.querySelectorAll('.stat b').forEach(function(b){{var n=b.firstChild;if(!n||n.nodeType!==3)return;var v=parseInt(n.nodeValue,10);if(!(v>0))return;
+var s=null;n.nodeValue='0';function step(ts){{if(!s)s=ts;var p=Math.min((ts-s)/700,1);n.nodeValue=String(Math.round(v*(1-Math.pow(1-p,3))));if(p<1)requestAnimationFrame(step)}}
+requestAnimationFrame(step)}})}}}})();</script>
 <script>(function(){{var h=document.getElementById('hdr'),r=document.documentElement;
 function s(){{r.style.setProperty('--hdr-h',h.offsetHeight+'px')}}s();addEventListener('resize',s);
 var cbs=[].slice.call(document.querySelectorAll('.catbtn'));function closeCats(){{cbs.forEach(function(x){{
@@ -1549,7 +1653,7 @@ def _discoveries(rich: list[dict], popular: list[dict]) -> list[str]:
 def _discovery_box(items: list[str], title: str = "毎日の記録から見つけた発見") -> str:
     if not items:
         return ""
-    lis = "".join(f"<li>{E(s)}</li>" for s in items)
+    lis = "".join(f"<li>{E(s)}</li>" for s in items[:3])
     return (f'<section class="section discovery" aria-labelledby="h-disc"><p class="eyebrow">DISCOVERY</p>'
             f'<h2 id="h-disc">{E(title)}</h2><ul>{lis}</ul>'
             f'<p class="basis">当サイトが毎日記録している価格データから自動で集計しています。</p></section>')
@@ -1706,7 +1810,6 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 {notice}
 <nav class="toc-pills" aria-label="ページ内リンク">{"".join(pills)}</nav>
 {summary}
-{_discovery_box(disc)}
 <section class="section feature" id="picks" aria-labelledby="h-picks">
   <p class="eyebrow">FOR YOU</p>
   <h2 id="h-picks">こんな人には、この{E(g["name"])}</h2>
@@ -1720,6 +1823,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
   {ranking_body}
 </section>
 {_a8_box(g)}
+{_discovery_box(disc)}
 <section class="section" id="compare" aria-labelledby="h-compare">
   <details class="compare-box"><summary><span id="h-compare" class="h2like">ランキング上位の比較表を見る</span></summary>
   {_compare_table(popular)}
@@ -1860,10 +1964,9 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 </div></section>
 <div class="wrap">
 {home_board}
-{_discovery_box(_discoveries(all_rich, []), "全ジャンルの価格記録から見つけた発見")}
-<section class="summary" aria-labelledby="h-sum"><h2 id="h-sum">今日のまとめ（{updated}）</h2><p>{E(home_summary)}</p></section>
 <section class="section related" aria-labelledby="h-genres"><p class="eyebrow">CATEGORY</p>
 <h2 id="h-genres">カテゴリから探す</h2>{cards}</section>
+{_discovery_box(_discoveries(all_rich, []), "全ジャンルの価格記録から見つけた発見")}
 {guides_home}
 </div>"""
     ld = _jsonld({"@context": "https://schema.org", "@type": "WebSite", "name": SITE_NAME, "url": SITE_URL,
