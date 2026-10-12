@@ -238,13 +238,17 @@ def _random_times(window: list, n: int, today: date) -> list[datetime]:
         for start, span in random.sample(spans, n):
             times.append(start + timedelta(seconds=random.uniform(0, span)))
         return sorted(times)
-    for _ in range(n):
-        r = random.uniform(0, total)
-        for start, span in spans:
-            if r <= span:
-                times.append(start + timedelta(seconds=r))
-                break
-            r -= span
+    # 回数が多いときは、各時間帯の長さに比例して回数を割り振り（端数は大きい順）、時間帯の中も
+    # 等間隔の区切りごとに1回ずつ置く。完全ランダムだと夜に5回固まり、1時間の上限に当たって
+    # いいねが予定の6割しかできなかった（2026-10-12）
+    raw = [n * span / total for _, span in spans]
+    counts = [int(x) for x in raw]
+    for i in sorted(range(len(spans)), key=lambda i: raw[i] - counts[i], reverse=True)[: n - sum(counts)]:
+        counts[i] += 1
+    for (start, span), k in zip(spans, counts):
+        for j in range(k):
+            slot = span / k
+            times.append(start + timedelta(seconds=slot * j + random.uniform(slot * 0.4, slot * 0.6)))
     return sorted(times)
 
 

@@ -91,7 +91,7 @@ engage:
   - 4
   - 10
   unfollow_after_days: 7
-  daily_unfollows: 600
+  daily_unfollows: 800
   followback_per_run: 80
   daily_likes: 500
   daily_follows: 200
