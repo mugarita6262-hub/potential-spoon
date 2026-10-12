@@ -161,6 +161,22 @@ GENRES = [
      "lead": "アイロンやスチーマーで、毎朝の身支度をもっとラクに。",
      "keywords": ["衣類スチーマー", "アイロン コードレス", "毛玉取り器", "アイロン台"],
      "a8_genres": ["家電"]},
+    {"slug": "kitchensupply", "name": "キッチン消耗品", "emoji": "🥡",
+     "lead": "ラップや保存袋は毎月なくなるもの。まとめ買いの単価で差がつきます。",
+     "keywords": ["ラップ 業務用", "アルミホイル", "食品保存袋 ジッパー", "キッチン ポリ袋"],
+     "a8_genres": ["日用品"]},
+    {"slug": "kairo", "name": "カイロ・防寒小物", "emoji": "🧤",
+     "lead": "使い捨てカイロや手袋は、寒くなる前のまとめ買いが安くて確実。",
+     "keywords": ["カイロ 貼る", "カイロ 貼らない まとめ買い", "手袋 スマホ対応", "ネックウォーマー"],
+     "a8_genres": ["ファッション"]},
+    {"slug": "laundry", "name": "洗濯グッズ", "emoji": "👕",
+     "lead": "ハンガーや物干しは、そろえ直すと毎日の洗濯がぐっとラクに。",
+     "keywords": ["洗濯ネット", "ハンガー すべらない", "室内物干し", "ピンチハンガー"],
+     "a8_genres": ["日用品"]},
+    {"slug": "stationery", "name": "文房具", "emoji": "✏️",
+     "lead": "ノートやペンは、使い慣れたものをまとめ買いしておくと安心。",
+     "keywords": ["ノート まとめ買い", "ボールペン 替芯", "ふせん", "シャープペンシル"],
+     "a8_genres": ["文房具"]},
 ]
 
 MIN_REVIEWS = 20
@@ -295,6 +311,10 @@ GENRE_MUST = {
     "kaden": ["炊飯", "レンジ", "トースター", "圧力鍋", "ホットプレート", "ホットクック", "調理"],
     "car": ["ドライブレコーダー", "ドラレコ", "カーナビ", "ナビ", "チャイルドシート", "ジュニアシート", "車載", "車"],
     "randoseru": ["ランドセル"],
+    "kitchensupply": ["ラップ", "ホイル", "保存袋", "ジッパー", "ポリ袋", "クッキングシート"],
+    "kairo": ["カイロ", "手袋", "ネックウォーマー", "マフラー", "イヤーマフ", "グローブ"],
+    "laundry": ["洗濯ネット", "ハンガー", "物干し", "ピンチ", "ランドリー"],
+    "stationery": ["ノート", "ボールペン", "替芯", "ふせん", "付箋", "シャープ", "ペン", "消しゴム"],
     "techo": ["手帳", "カレンダー", "ダイアリー", "スケジュール"],
     "bicycle": ["自転車", "サイクル", "ヘルメット", "アシスト"],
     "battery": ["電池", "充電池", "電球", "LED"],
@@ -328,13 +348,13 @@ CATEGORIES = [
     {"slug": "food", "name": "食品・飲み物", "emoji": "🍙",
      "genres": ["coffee", "water", "rice", "instant", "meat", "fruit", "alcohol", "osechi"]},
     {"slug": "daily", "name": "日用品・消耗品", "emoji": "🧻",
-     "genres": ["daily", "detergent", "towel", "battery", "baby", "contact", "pet"]},
+     "genres": ["daily", "kitchensupply", "detergent", "laundry", "towel", "battery", "stationery", "baby", "contact", "pet"]},
     {"slug": "appliance", "name": "家電・ガジェット", "emoji": "🔌",
      "genres": ["heater", "cleaner", "kaden", "clothcare", "phone", "pcgear"]},
     {"slug": "home", "name": "住まい・インテリア", "emoji": "🛋️",
      "genres": ["sleep", "kitchen", "interior", "roomwear"]},
     {"slug": "season", "name": "レジャー・季節・ギフト", "emoji": "🎁",
-     "genres": ["outdoor", "bicycle", "bousai", "toy", "randoseru", "car", "techo", "gift"]},
+     "genres": ["outdoor", "bicycle", "bousai", "kairo", "toy", "randoseru", "car", "techo", "gift"]},
 ]
 _assigned = [s for c in CATEGORIES for s in c["genres"]]
 assert sorted(_assigned) == sorted(g["slug"] for g in GENRES), "カテゴリに入っていないジャンルがある"
@@ -353,7 +373,8 @@ NAV_SHORT = {"coffee": "コーヒー・お茶", "sleep": "寝具", "kitchen": "�
              "toy": "おもちゃ", "osechi": "おせち", "meat": "肉・海鮮", "fruit": "果物", "phone": "スマホ周辺",
              "pcgear": "PC周辺", "gift": "ギフト", "kaden": "調理家電", "car": "カー用品",
              "randoseru": "ランドセル", "roomwear": "ルームウェア", "techo": "手帳", "bicycle": "自転車",
-             "battery": "電池・電球", "clothcare": "衣類ケア"}
+             "battery": "電池・電球", "clothcare": "衣類ケア", "kitchensupply": "キッチン消耗品",
+             "kairo": "カイロ・防寒", "laundry": "洗濯グッズ", "stationery": "文房具"}
 GA4_ID = "G-MJGWNG8KND"
 GA4_TAG = f"""<script async src="https://www.googletagmanager.com/gtag/js?id={GA4_ID}"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}
@@ -918,6 +939,13 @@ box-shadow:0 14px 30px rgba(40,35,29,.14);padding:14px 0 18px;z-index:40}
 @media (max-width:760px){.chipgroup b{min-width:100%}
 .catpanel ul{grid-template-columns:1fr 1fr}.catpanel a{padding:9px 10px;font-size:13px}}
 
+
+/* ---- 発見（記録データからの事実） ---- */
+.discovery ul{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px}
+.discovery li{position:relative;background:var(--surface);border:1px solid var(--line);border-left:5px solid #e0a43a;
+border-radius:14px;padding:12px 16px 12px 44px;line-height:1.7}
+.discovery li::before{content:"💡";position:absolute;left:14px;top:12px}
+
 /* ---- 値下がりボード（ページ上部の主役） ---- */
 .dropboard{position:relative;margin:-36px 0 8px;padding:22px 20px 18px;border-radius:24px;color:#fff;
 background:linear-gradient(135deg,#c2582c 0%,#93421f 100%);box-shadow:0 14px 40px rgba(147,66,31,.28);overflow:hidden}
@@ -1326,6 +1354,86 @@ def _compare_table(items: list[dict]) -> str:
             f'<th>評価</th><th>レビュー数</th><th>記録上の最安</th></tr></thead><tbody>{rows}</tbody></table></div>')
 
 
+_WD = "月火水木金土日"
+
+
+def _discoveries(rich: list[dict], popular: list[dict]) -> list[str]:
+    """毎日の価格記録から、検索では出てこない「お？」となる事実を作る。
+    データが少なく言い切れないものは出さない（記録数・差の大きさに下限を設ける）。"""
+    out = []
+    tracked = [x for x in rich if x.get("days", 0) >= 7 and _qualified(x)]
+    # 1) 値動きの大きい商品
+    swing = []
+    for x in tracked:
+        hi, lo = x.get("high", 0), x.get("low", 0)
+        prices = [r["price"] for r in x.get("history", [])]
+        # 1日だけのセールやセット数の違うページへの切替（ちょうど半額・2倍など）を拾わないよう、
+        # 最高値・最安値がそれぞれ2日以上記録され、差が10〜45%のものに限る
+        if hi and lo and hi > lo and prices.count(hi) >= 2 and prices.count(lo) >= 2:
+            pct = (hi - lo) / hi * 100
+            if 10 <= pct <= 45:
+                swing.append((pct, x))
+    if swing:
+        pct, x = max(swing, key=lambda s: s[0])
+        if pct >= 10:
+            out.append(f"「{_short_name(x['itemName'], 34)}」は、記録した{x['days']}日間で最高{_yen(x['high'])}・"
+                       f"最安{_yen(x['low'])}と、{pct:.0f}%も値段が動いています。同じ商品でも、買う日で差が出ます。")
+    # 2) 曜日の傾向（商品ごとの平均価格に対する比率を曜日別に集計）
+    by_wd = {i: [] for i in range(7)}
+    five_zero, others = [], []
+    for x in tracked:
+        hist = x.get("history", [])
+        mean = sum(r["price"] for r in hist) / len(hist)
+        if not mean:
+            continue
+        for r in hist:
+            d = date.fromisoformat(r["date"])
+            ratio = r["price"] / mean
+            by_wd[d.weekday()].append(ratio)
+            (five_zero if d.day % 5 == 0 else others).append(ratio)
+    if all(len(v) >= 60 for v in by_wd.values()):
+        avg = {k: sum(v) / len(v) for k, v in by_wd.items()}
+        overall = sum(avg.values()) / 7
+        cheap = min(avg, key=avg.get)
+        diff = (overall - avg[cheap]) / overall * 100
+        if diff >= 0.8:
+            n = sum(len(v) for v in by_wd.values())
+            out.append(f"記録した{n:,}件の価格では、{_WD[cheap]}曜日が平均より{diff:.1f}%安い傾向がありました。"
+                       f"まとめ買いをするなら、{_WD[cheap]}曜日にのぞいてみる価値があります。")
+    # 3) 5と0のつく日
+    if len(five_zero) >= 80 and len(others) >= 200:
+        a = sum(five_zero) / len(five_zero)
+        b = sum(others) / len(others)
+        d = (b - a) / b * 100
+        if d >= 0.8:
+            out.append(f"楽天の「5と0のつく日」は、ポイントだけでなく商品の値段そのものも平均{d:.1f}%安くなっていました"
+                       f"（記録{len(five_zero):,}件の比較）。")
+        elif d <= -0.8:
+            out.append(f"意外なことに、楽天の「5と0のつく日」は商品の値段そのものが平均{-d:.1f}%高めでした。"
+                       f"ポイント分を差し引いて比べるのがおすすめです。")
+    # 4) 評判の良い商品が、いま記録上の最安値
+    for i, x in enumerate(popular[:10], 1):
+        if x.get("is_all_time_low") and x.get("days", 0) >= 10:
+            out.append(f"評判ランキング{i}位の「{_short_name(x['itemName'], 34)}」は、いま記録上の最安値"
+                       f"（{_yen(x['price'])}）です。")
+            break
+    # 5) 値上がりへの注意
+    up = [x for x in tracked if x.get("low") and x["price"] >= x["low"] * 1.10]
+    if len(up) >= 3:
+        out.append(f"一方で、{len(up)}件は記録上の最安値より10%以上高くなっています。"
+                   f"値下がり中の商品と見比べてから選ぶと安心です。")
+    return out
+
+
+def _discovery_box(items: list[str], title: str = "毎日の記録から見つけた発見") -> str:
+    if not items:
+        return ""
+    lis = "".join(f"<li>{E(s)}</li>" for s in items)
+    return (f'<section class="section discovery" aria-labelledby="h-disc"><p class="eyebrow">DISCOVERY</p>'
+            f'<h2 id="h-disc">{E(title)}</h2><ul>{lis}</ul>'
+            f'<p class="basis">当サイトが毎日記録している価格データから自動で集計しています。</p></section>')
+
+
 def _week_trend(rich: list[dict]) -> str:
     """毎日の価格記録から、7日前と比べて安く/高くなった商品の数（このサイトにしかない数字）。"""
     week_ago = (date.today() - timedelta(days=7)).isoformat()
@@ -1441,6 +1549,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                                          (f"{g['name']}の買い時", path)])
         rich = [_enrich(it, hist) for it in items]
         summary, summary_text = _genre_summary(g, popular, drops, items, updated, rich)
+        disc = _discoveries(rich, popular)
         board = _drop_board(f"今の{g['name']}の値下がり状況", _drop_stats(rich, drops), drops,
                             _near_drops(rich), updated)
         faq_html, faq_ld = _faq(_genre_faq(g, popular, drops, updated))
@@ -1476,6 +1585,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 {notice}
 <nav class="toc-pills" aria-label="ページ内リンク">{"".join(pills)}</nav>
 {summary}
+{_discovery_box(disc)}
 <section class="section feature" id="picks" aria-labelledby="h-picks">
   <p class="eyebrow">TODAY'S PICK</p>
   <h2 id="h-picks">今日の注目の{E(g["name"])}</h2>
@@ -1529,6 +1639,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 <section class="section" aria-labelledby="h-rel"><h2 id="h-rel">いま評判の良い{E(g["name"])} TOP5</h2>
 <p class="basis">{updated}更新。詳しくは<a href="{path}#ranking">{E(g["name"])}の評判ランキング</a>へ。</p>
 {_rank_list(popular[:5], "pop", "データを準備中です。")}</section>
+{_discovery_box(disc, f"{g['name']}の価格記録から見つけた発見")}
 {_related_genres(g["slug"], genre_data)}
 </div>"""
             ld = _jsonld(crumbs_a_ld, {"@context": "https://schema.org", "@type": "Article", "headline": x["title"],
@@ -1627,6 +1738,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 </div></section>
 <div class="wrap">
 {home_board}
+{_discovery_box(_discoveries(all_rich, []), "全ジャンルの価格記録から見つけた発見")}
 <section class="summary" aria-labelledby="h-sum"><h2 id="h-sum">今日のまとめ（{updated}）</h2><p>{E(home_summary)}</p></section>
 <section class="section related" aria-labelledby="h-genres"><p class="eyebrow">CATEGORY</p>
 <h2 id="h-genres">カテゴリから探す</h2>{cards}</section>
