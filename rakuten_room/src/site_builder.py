@@ -888,7 +888,19 @@ border-bottom:3px solid transparent;margin-bottom:-2px}
 .guide-cards a{display:flex;flex-direction:column;height:100%;text-decoration:none;background:var(--surface);border:1px solid var(--line);
 border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:transform .15s}
 .guide-cards a:hover{transform:translateY(-3px)}
-.guide-cards img{width:100%;height:auto;aspect-ratio:16/7;object-fit:cover}
+.g-cover{position:relative;display:block;aspect-ratio:16/8;overflow:hidden;color:var(--ci);
+background:radial-gradient(circle at 85% 30%,rgba(255,255,255,.55) 0 18%,transparent 19%),
+radial-gradient(circle at 100% 100%,var(--c2) 0 38%,transparent 39%),
+radial-gradient(rgba(255,255,255,.5) 1.2px,transparent 1.6px) 0 0/14px 14px,
+linear-gradient(135deg,var(--c1),var(--c2))}
+.gc-kind{position:absolute;left:16px;top:14px;font-size:11px;font-weight:800;letter-spacing:.12em;padding:3px 10px;border-radius:999px;
+background:rgba(255,255,255,.75);color:var(--ci)}
+.gc-word{position:absolute;left:16px;bottom:14px;right:32%;font-size:24px;font-weight:900;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere;
+letter-spacing:.02em;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.gc-word.m{font-size:20px}.gc-word.s{font-size:17px}
+.gc-emoji{position:absolute;right:7%;top:50%;font-size:clamp(46px,6vw,60px);line-height:1;transform:translateY(-50%) rotate(-6deg);
+filter:drop-shadow(0 8px 12px rgba(0,0,0,.18));transition:transform .4s var(--ease)}
+.guide-cards a:hover .gc-emoji{transform:translateY(-58%) rotate(4deg) scale(1.08)}
 .guide-cards .g-tag{margin:12px 16px 0;font-size:12px;font-weight:700;color:var(--brand-dark)}
 .guide-cards b{margin:4px 16px 0;font-size:16px;line-height:1.5}
 .guide-cards .g-desc{margin:6px 16px 16px;font-size:13px;color:var(--sub);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -1553,10 +1565,60 @@ def _drop_board(title: str, stats: dict, drops: list[dict], near: list[dict], up
 </section>"""
 
 
+# ガイドの表紙（写真ではなく、色・絵文字・テーマ語で描く。権利の心配がなく、ガイドごとに見た目が変わる）
+GUIDE_EMOJI = {
+    "ミネラルウォーター": "💧", "炭酸水": "🫧", "お茶": "🍵", "ビール": "🍺", "ハイボール": "🥃", "日本酒": "🍶",
+    "おむつ": "👶", "おしりふき": "🧴", "電池とLED": "🔋", "充電池": "♻️", "電動アシスト": "⚡", "自転車": "🚲",
+    "モバイルバッテリー": "📱", "防災": "🧯", "チャイルドシート": "🚸", "ドライブレコーダー": "📹",
+    "ロボット掃除機": "🤖", "掃除機": "🧹", "アイロン": "👔", "毛玉": "🧶", "保存方法": "🫙", "コーヒー豆の選び方": "☕",
+    "ドリップバッグ": "🫖", "コンタクトレンズの費用": "💴", "コンタクトレンズの種類": "👁️", "ゴミ袋": "🗑️",
+    "ティッシュ": "🤧", "トイレットペーパー": "🧻", "食洗機": "🍽️", "洗濯洗剤": "🧺", "柔軟剤": "🌸",
+    "果物": "🍇", "みかん": "🍊", "カタログギフト": "📖", "お歳暮の選び方": "🎁", "人気のジャンル": "🎀",
+    "電気毛布": "🛌", "暖房器具": "♨️", "こたつ": "🍊", "カップ麺": "🍜", "お菓子": "🍪", "カーテン": "🪟",
+    "ラグ": "🛋️", "収納ボックス": "📦", "電子レンジ": "🍱", "炊飯器": "🍚", "カイロ": "🔥", "保存容器": "🥡",
+    "フライパン": "🍳", "電気ケトル": "🫖", "ラップ": "🥪", "ハンガー": "👕", "カニ": "🦀", "肉・海鮮": "🥩",
+    "おせち料理の意味": "🎍", "おせちの選び方": "🍱", "キャンプチェア": "🪑", "クーラーボックス": "🧊",
+    "寝袋": "🏕️", "PCモニター": "🖥️", "マウス": "🖱️", "猫砂": "🐾", "キャットフード": "🐟", "ドッグフード": "🦴",
+    "スマホ充電器": "🔌", "ワイヤレス充電器": "📶", "ランドセルカバー": "🌈", "ランドセルの選び方": "🎒",
+    "パックご飯": "🍚", "レトルト": "🍛", "お米": "🌾", "着る毛布": "🧥", "ルームウェア": "🩴", "掛け布団": "☁️",
+    "マットレス": "🛏️", "枕": "💤", "ボールペン": "🖊️", "カレンダー": "📅", "手帳": "📓", "タオルの洗い方": "🧼",
+    "タオルの選び方": "🛁", "年齢別": "🎈", "おもちゃの選び方": "🧸",
+}
+# 文字が読みやすい淡い色の組（背景2色・文字色）
+GUIDE_PALETTE = [("#ffe4d3", "#ffc5a6", "#7a2e0e"), ("#dcf3e8", "#b4e2cd", "#145a43"), ("#dfeaff", "#bcd3ff", "#1d4e89"),
+                 ("#eee5ff", "#d6c6ff", "#4b2e83"), ("#fff3c9", "#ffe08c", "#6b4a00"), ("#ffe2e8", "#ffc3d0", "#8a1f3d"),
+                 ("#f3ebe0", "#e4d2bb", "#5a4126"), ("#d8f3f3", "#ade2e2", "#0f5757")]
+_GUIDE_TAIL = re.compile(r"(の選び方|のまとめ買いガイド|のケース買いガイド|のお取り寄せガイド|の始め方|の意味|の保存方法|"
+                         r"の種類と選び方|と買い替え時期|のプレゼントの選び方)$")
+_GUIDE_WORD_FIX = [(r"の費用の比べ方$", "の費用"), (r"で人気のジャンルと$", "の人気ジャンル"), (r"^年齢別・", "年齢別 "),
+                   (r"^お取り寄せの", "")]
+
+
+def _guide_cover(g: dict, x: dict) -> str:
+    title = x["title"].split("｜")[0]  # 副題の語に引っぱられないよう、見出しの前半だけで判断する
+    word = re.split(r"、", title)[0]
+    for a, b in _GUIDE_WORD_FIX:
+        word = re.sub(a, b, word)
+    word = _GUIDE_TAIL.sub("", word)
+    kind = ("保存のコツ" if "保存方法" in title else "お金の話" if re.search("費用|いくら", title)
+            else "まとめ買い" if re.search("まとめ買い|ケース買い", title) else "お取り寄せ" if "お取り寄せ" in title
+            else "豆知識" if "意味" in title else "お手入れ" if "洗い方" in title
+            else "はじめかた" if "始め方" in title else "選び方")
+    emoji = next((v for k, v in sorted(GUIDE_EMOJI.items(), key=lambda kv: -len(kv[0])) if k in title), g["emoji"])
+    siblings = [s["slug"] for s in _guides(g["slug"])]
+    gi = next((i for i, gg in enumerate(GENRES) if gg["slug"] == g["slug"]), 0)
+    c1, c2, ink = GUIDE_PALETTE[(gi * 3 + (siblings.index(x["slug"]) if x["slug"] in siblings else 0)) % len(GUIDE_PALETTE)]
+    # 単語の途中で折り返さないよう、長い語は小さく、区切り（・と）の後ろで改行できるようにする
+    longest = max(len(s) for s in re.split(r"[・と ]", word))
+    size = "" if len(word) <= 7 else " m" if longest <= 9 else " s"
+    word_html = re.sub(r"([・と ])", r"\1<wbr>", E(word))
+    return (f'<span class="g-cover" style="--c1:{c1};--c2:{c2};--ci:{ink}" aria-hidden="true">'
+            f'<span class="gc-kind">{E(kind)}</span><span class="gc-word{size}">{word_html}</span>'
+            f'<span class="gc-emoji">{emoji}</span></span>')
+
+
 def _guide_card(g: dict, x: dict) -> str:
-    img = GENRE_IMG.get(g["slug"], "hero")
-    return (f'<li><a href="/{g["slug"]}/{E(x["slug"])}/"><img src="/img/{img}.jpg" alt="" loading="lazy" '
-            f'width="1200" height="675"><span class="g-tag">{g["emoji"]} {E(g["name"])}</span>'
+    return (f'<li><a href="/{g["slug"]}/{E(x["slug"])}/">{_guide_cover(g, x)}<span class="g-tag">{g["emoji"]} {E(g["name"])}</span>'
             f'<b>{E(x["title"])}</b><span class="g-desc">{E(x["desc"])}</span></a></li>')
 
 
