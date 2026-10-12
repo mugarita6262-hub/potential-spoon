@@ -517,8 +517,9 @@
       label: "第2弾",
       catalog: STICKER_CATALOG_S2,
       imgDir: "img/sesami",
-      tierWeight: { super: 20, rare: 100 / 3 }, // rare 3回に1回、super 5回に1回
-      maxCopies: { common: 2, rare: 2, super: 1 }
+      tierWeight: { super: 20, rare: 100 / 3 }, // レアは確率のまま3回に1回
+      maxCopies: { common: 2, rare: 2, super: 1 },
+      superPityWindow: 5 // 超レアは「保証」：5回引いて一度も出ていなければ、その回で必ず出す
     }
   };
   var SEASON2_START = "2026-10-01";
@@ -543,6 +544,19 @@
     var pool = available.length ? available : season.catalog;
     var roll = Math.random() * 100;
     var tier = roll < season.tierWeight.super ? "super" : (roll < season.tierWeight.super + season.tierWeight.rare ? "rare" : "common");
+
+    if (season.superPityWindow) {
+      var pityKey = seasonKey + "Super";
+      var pityCount = (state.pity[pityKey] || 0) + 1;
+      if (tier === "super") {
+        pityCount = 0;
+      } else if (pityCount >= season.superPityWindow && pool.some(function (s) { return s.tier === "super"; })) {
+        tier = "super";
+        pityCount = 0;
+      }
+      state.pity[pityKey] = pityCount;
+    }
+
     var tierPool = pool.filter(function (s) { return s.tier === tier; });
     if (!tierPool.length) tierPool = pool; // that tier is exhausted within what's still available
     return tierPool[Math.floor(Math.random() * tierPool.length)];
@@ -554,6 +568,7 @@
     var counts = ownedStickerCounts(seasonKey);
     var pool = season.catalog.filter(function (s) { return s.tier === tier && (counts[s.key] || 0) < season.maxCopies[s.tier]; });
     if (!pool.length) pool = season.catalog.filter(function (s) { return s.tier === tier; });
+    if (season.superPityWindow && tier === "super") state.pity[seasonKey + "Super"] = 0;
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
@@ -568,13 +583,14 @@
   }
 
   function seedState() {
-    return { tasks: [], stickers: [], comments: [], presentEventUsed: false };
+    return { tasks: [], stickers: [], comments: [], presentEventUsed: false, pity: {} };
   }
   function normalizeState(s) {
     if (!s.tasks) s.tasks = [];
     if (!s.stickers) s.stickers = [];
     if (!s.comments) s.comments = [];
     if (typeof s.presentEventUsed !== "boolean") s.presentEventUsed = false;
+    if (!s.pity) s.pity = {};
     return s;
   }
 
