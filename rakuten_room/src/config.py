@@ -41,7 +41,25 @@ def load_config() -> dict:
 
     for d in (DATA_DIR, DRAFTS_DIR, SESSION_DIR):
         d.mkdir(parents=True, exist_ok=True)
+    _apply_post_boost(cfg)
     return cfg
+
+
+def _apply_post_boost(cfg: dict) -> None:
+    """期間限定でROOMの1日の投稿数を上乗せする（post_boost: {extra, until}）。
+    2026-10-13: 削除ジョブの不具合で消えた投稿（約600件）を取り戻すため。until を過ぎると自動で元に戻る。"""
+    import math
+    from datetime import date
+    b = cfg.get("post_boost") or {}
+    extra = int(b.get("extra", 0) or 0)
+    until = str(b.get("until") or "")
+    if not extra or not until or date.today().isoformat() > until:
+        return
+    base = int(cfg.get("post_count", 10))
+    cfg["post_count"] = base + extra
+    cfg["candidate_pool"] = max(int(cfg.get("candidate_pool", 0) or 0), round(cfg["post_count"] * 1.6))
+    runs = int((cfg.get("server", {}) or {}).get("room_post_runs_per_day", 8) or 8)
+    cfg["post_batch_size"] = max(int(cfg.get("post_batch_size", 0) or 0), math.ceil(cfg["post_count"] / runs) + 2)
 
 
 def update_env_value(key: str, value: str) -> None:

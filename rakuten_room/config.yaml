@@ -6,6 +6,10 @@ my_room_url: https://room.rakuten.co.jp/room_e36e002876/items
 post_count: 100
 candidate_pool: 150
 post_batch_size: 15
+# 期間限定の上乗せ（削除ジョブの不具合で消えた投稿の取り戻し）。until を過ぎると自動で元の post_count に戻る
+post_boost:
+  extra: 50
+  until: '2026-10-27'
 sale_boost:
   enabled: true
   five_ten_day_multiplier: 1.3
