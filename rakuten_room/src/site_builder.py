@@ -1103,6 +1103,27 @@ background:radial-gradient(60% 80% at 100% 0%,rgba(255,255,255,.14),transparent 
 @media (max-width:760px){.section{margin:34px 0}.hero .wrap{padding-top:32px;padding-bottom:44px}.banner .wrap{padding-top:28px;padding-bottom:44px}}
 /* スマホでは結論を読みやすい大きさに詰める */
 @media (max-width:760px){.summary{padding:14px 14px 12px;font-size:14px;line-height:1.75}.summary ul{padding-left:18px}.summary li+li{margin-top:4px}}
+/* 横並びの商品をスライダーに（JSが動く環境だけ。動かない環境では従来どおり横スクロール） */
+.slider{position:relative}
+.slider .hscroll{scroll-padding-inline:20px;scrollbar-width:none;scroll-behavior:smooth;overscroll-behavior-x:contain}
+.slider .hscroll::-webkit-scrollbar{display:none}
+.slider.more-r .hscroll{-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
+.slider.more-l .hscroll{-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%);mask-image:linear-gradient(90deg,transparent,#000 12%)}
+.slider.more-l.more-r .hscroll{-webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);
+mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
+.sl-btn{position:absolute;top:calc(50% - 26px);z-index:2;width:44px;height:44px;border-radius:50%;border:0;cursor:pointer;
+display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.96);color:var(--ink);
+box-shadow:0 6px 18px -4px rgba(31,27,22,.35);transition:opacity .2s,transform .2s var(--ease),box-shadow .2s}
+.sl-btn svg{width:20px;height:20px}
+.sl-prev{left:-6px}.sl-next{right:-6px}
+.sl-btn:hover{transform:scale(1.08);box-shadow:0 10px 24px -6px rgba(31,27,22,.45)}
+.sl-btn[disabled]{opacity:0;pointer-events:none}
+@media (hover:hover) and (pointer:fine){.sl-btn{display:flex}}
+.sl-bar{height:4px;margin:10px auto 2px;width:min(220px,50%);border-radius:4px;background:rgba(40,35,29,.12);overflow:hidden}
+.sl-bar i{display:block;height:100%;border-radius:4px;background:var(--brand);transition:transform .25s var(--ease),width .25s}
+.dropboard .sl-bar{background:rgba(255,255,255,.25)}
+.dropboard .sl-bar i{background:#fff}
+.slider.nofit .sl-bar{display:none}
 @media (prefers-reduced-motion:reduce){
 *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 .js .rv{opacity:1!important;transform:none!important}
@@ -1170,6 +1191,17 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 </header>
 <main>{body}</main>
 <button class="totop" type="button" aria-label="ページ上部へ" onclick="scrollTo({{top:0,behavior:'smooth'}})">↑</button>
+<script>(function(){{var chev=function(d){{return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="'+(d<0?'M15 5l-7 7 7 7':'M9 5l7 7-7 7')+'"/></svg>'}};
+document.querySelectorAll('.hscroll').forEach(function(ol){{var w=document.createElement('div');w.className='slider';ol.parentNode.insertBefore(w,ol);w.appendChild(ol);
+var pv=document.createElement('button'),nx=document.createElement('button'),bar=document.createElement('div');
+pv.type=nx.type='button';pv.className='sl-btn sl-prev';nx.className='sl-btn sl-next';pv.setAttribute('aria-label','前へ');nx.setAttribute('aria-label','次へ');
+pv.innerHTML=chev(-1);nx.innerHTML=chev(1);bar.className='sl-bar';bar.innerHTML='<i></i>';w.appendChild(pv);w.appendChild(nx);w.appendChild(bar);
+var th=bar.firstChild;function up(){{var m=ol.scrollWidth-ol.clientWidth,x=ol.scrollLeft;w.classList.toggle('nofit',m<4);
+pv.disabled=x<24;nx.disabled=x>m-24;w.classList.toggle('more-l',x>24);w.classList.toggle('more-r',x<m-24);
+var r=ol.clientWidth/Math.max(ol.scrollWidth,1);th.style.width=(r*100)+'%';th.style.transform='translateX('+(m>0?x/m*(1/r-1)*100:0)+'%)'}}
+function go(d){{ol.scrollBy({{left:d*ol.clientWidth*.85,behavior:'smooth'}})}}
+pv.addEventListener('click',function(){{go(-1)}});nx.addEventListener('click',function(){{go(1)}});
+ol.addEventListener('scroll',up,{{passive:true}});addEventListener('resize',up);if(window.ResizeObserver)new ResizeObserver(up).observe(ol);up()}})}})();</script>
 <script>(function(){{var R=document.documentElement,rm=matchMedia('(prefers-reduced-motion: reduce)').matches;
 if(!rm&&'IntersectionObserver' in window){{R.classList.add('js');
 var els=document.querySelectorAll('main .section, main .summary, main .services, main .chipgroups');
