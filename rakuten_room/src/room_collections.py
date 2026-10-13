@@ -103,9 +103,9 @@ def collections_round(cfg: dict, slug: str, max_add: int = 150, max_pages: int =
         page = ctx.new_page()
         uid, tok = _api_session(page, slug)
         # 新しい順に読み、前回の続き（処理済みの投稿）か、古すぎる投稿に当たったら止める
-        todo, after = [], None
-        for _ in range(max_pages):
-            u = f"{API}/{uid}/collects?api_version=1&limit=20&csrf_tkn={tok}" + (f"&after_id={after}" if after else "")
+        todo = []
+        for pg in range(max_pages):  # after_id でのページ送りは途中で飛ぶので offset を使う
+            u = f"{API}/{uid}/collects?api_version=1&limit=20&offset={pg * 20}&csrf_tkn={tok}"
             data = _api_get(page, u).get("data") or []
             if not data:
                 break
@@ -117,7 +117,6 @@ def collections_round(cfg: dict, slug: str, max_add: int = 150, max_pages: int =
                 todo.append(c)
             if stop:
                 break
-            after = data[-1]["id"]
             time.sleep(random.uniform(0.8, 1.6))
         todo.reverse()  # 古い順に入れる（コレクション内は新しいものが上に来る）
         print(f"  未処理の投稿 {len(todo)} 件")
