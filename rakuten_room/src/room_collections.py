@@ -92,6 +92,40 @@ def _post(page, url: str, body: str) -> dict:
     return j
 
 
+def _check_survival(page, uid: str, tok: str, days: int = 3) -> None:
+    """直近の投稿が実際にROOMに残っているかを、投稿記録（posted.json）と日付ごとに比べる。
+    残りが投稿数の8割を切った日があれば通知する（2026-10-13に、投稿の大半が削除ジョブで
+    消えていたのに1か月以上気づかなかったことの再発防止）。"""
+    from collections import Counter
+    from datetime import date, timedelta
+    from .notify import notify
+    since = (date.today() - timedelta(days=days - 1)).isoformat()
+    try:
+        posted = json.loads((DATA_DIR / "posted.json").read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return
+    want = Counter((x.get("posted_at") or "")[:10] for x in posted
+                   if x.get("kind") == "posted" and (x.get("posted_at") or "")[:10] >= since)
+    have: Counter = Counter()
+    for pg in range(60):
+        data = _api_get(page, f"{API}/{uid}/collects?api_version=1&limit=20&offset={pg * 20}&csrf_tkn={tok}").get("data") or []
+        if not data:
+            break
+        days_ = [(c.get("created_at") or "")[:10] for c in data]
+        have.update(d for d in days_ if d >= since)
+        if min(days_) < since:
+            break
+        time.sleep(random.uniform(0.6, 1.2))
+    lines, bad = [], False
+    for d in sorted(want):
+        ok = have.get(d, 0) >= want[d] * 0.8
+        bad |= not ok
+        lines.append(f"{d}: 投稿 {want[d]} / 残り {have.get(d, 0)}{'' if ok else ' ←少ない'}")
+    print("  投稿の残り確認: " + " ／ ".join(lines))
+    if bad:
+        notify("ROOMの投稿が想定より消えています。\n" + "\n".join(lines), title="ROOM posts missing")
+
+
 def collections_round(cfg: dict, slug: str, max_add: int = 150, max_pages: int = 30) -> None:
     """新しい投稿をテーマ別コレクションへ振り分ける。前回見た投稿より新しいものだけを見る。"""
     state = _load()
@@ -155,6 +189,7 @@ def collections_round(cfg: dict, slug: str, max_add: int = 150, max_pages: int =
         state["done"] = sorted(done)[-3000:]
         state["last_run"] = datetime.now().isoformat(timespec="seconds")
         _save(state)
+        _check_survival(page, uid, tok)
         summary = "・".join(f"{v['name']} {v.get('count', 0)}" for v in cols.values())
         print(f"コレクションに {added} 件追加（新規作成 {created}）。{summary}")
     finally:

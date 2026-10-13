@@ -445,6 +445,13 @@ def _prune_oldest_api(page, cfg, pcfg, commit: bool) -> None:
         if not commit:
             print(f"  [プレビュー] 削除対象: {rec['posted']} {rec['name'][:44]}")
             continue
+        # 最終確認：ガードより新しい・日付不明の投稿は絶対に消さない（2026-10-13の誤削除の再発防止）
+        if not rec["posted"] or rec["posted"] >= only_before:
+            from .notify import notify
+            msg = f"ROOM削除を停止: ガード({only_before})より新しい投稿を消そうとしました（{rec['posted']} {rec['name'][:30]}）"
+            print("  " + msg)
+            notify(msg, title="ROOM prune STOPPED")
+            break
         s, text = _api_post(page, f"{API}/{c['id']}?csrf_tkn={tok}", "_method=delete")
         if s == 200 and '"success"' in text:
             done += 1
