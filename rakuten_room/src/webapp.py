@@ -53,9 +53,10 @@ JOBS = {
     "room_follow": ("ROOM: フォロー回り", False),
     "room_prune": ("ROOM: 古い投稿の削除（登録上限対策）", False),
     "room_unfollow": ("ROOM: フォロー返し＋フォローを返していない人の解除", False),
+    "room_collect": ("ROOM: 新しい投稿をテーマ別コレクションへ振り分け", False),
 }
 
-_ROOM_JOBS = {"room_post", "room_like", "room_follow", "room_prune", "room_unfollow"}
+_ROOM_JOBS = {"room_post", "room_like", "room_follow", "room_prune", "room_unfollow", "room_collect"}
 
 
 def _per_run(cfg: dict, daily: int, job: str) -> int:
@@ -82,6 +83,9 @@ def _run_room_job(cli, cfg: dict, name: str) -> None:
     elif name == "room_prune":
         from .pruner import prune
         prune(cfg, commit=True, max_delete=_per_run(cfg, int(ec.get("daily_prune", 0)), name))
+    elif name == "room_collect":
+        from .room_collections import collections_round
+        collections_round(cfg, cli._room_slug(cfg))
 
 
 def _log(line: str) -> None:

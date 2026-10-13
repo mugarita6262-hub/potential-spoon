@@ -255,6 +255,11 @@ def _prune_oldest(page, cfg, pcfg, commit: bool) -> None:
         if only_before and posted and posted >= only_before:
             stopped = f"先頭の投稿が {only_before} 以降（{posted}）。これ以上古い投稿はありません"
             break
+        # 投稿日が読めない投稿は消さない。新しい投稿は「〇時間前」表示で日付が取れず、
+        # 以前はガードをすり抜けて削除されていた（2026-09-08〜10-13に新しい投稿664件を誤削除）
+        if only_before and not posted:
+            stopped = "投稿日が読めない投稿（新しい投稿の可能性）。安全のため止めます"
+            break
         print(f"  {'[プレビュー] ' if not commit else ''}削除対象: {posted} {rec['name'][:44]}")
         preview.append(rec)
         if not commit:
@@ -312,7 +317,7 @@ def _prune_soldout(page, cfg, pcfg, commit: bool) -> None:
 
         if cur.get("hasDelete") and cur.get("soldOut"):
             posted = cur.get("postedYmd")
-            if not (only_before and posted and posted >= only_before):
+            if posted and not (only_before and posted >= only_before):  # 日付が読めない（新しい）投稿は消さない
                 zero = (cur.get("likes") or 0) == 0 and (cur.get("comments") or 0) == 0
                 rec = {"url": cur["url"], "name": cur.get("name", "")[:100],
                        "posted": posted, "likes": cur.get("likes"),
@@ -370,6 +375,91 @@ def _prune_soldout(page, cfg, pcfg, commit: bool) -> None:
         print(f"詳細: {PREVIEW_FILE}")
 
 
+API = "https://room.rakuten.co.jp/api"
+
+
+def _api_post(page, url: str, body: str) -> tuple[int, str]:
+    res = page.evaluate(
+        """([u,b])=>fetch(u,{method:'POST',credentials:'include',
+            headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},
+            body:b}).then(r=>r.text().then(t=>({s:r.status,t})))""", [url, body])
+    return res.get("s") or 0, res.get("t") or ""
+
+
+def _last_offset(page, uid: str, tok: str, hint: int = 0) -> int:
+    """投稿一覧の最後（いちばん古い投稿）が何件目かを二分探索で探す。"""
+    from .engage import _api_get
+
+    def has(off):
+        return bool(_api_get(page, f"{API}/{uid}/collects?api_version=1&limit=1&offset={off}&csrf_tkn={tok}").get("data"))
+
+    lo, hi = 0, max(hint * 2, 32768)
+    while not has(lo):
+        return -1
+    while hi - lo > 1:
+        mid = (lo + hi) // 2
+        if has(mid):
+            lo = mid
+        else:
+            hi = mid
+        time.sleep(0.4)
+    return lo
+
+
+def _prune_oldest_api(page, cfg, pcfg, commit: bool) -> None:
+    """ROOMの内部APIで、いちばん古い投稿から順に削除する（2026-10-13 作り直し）。
+
+    以前の方式は「掲載終了を含む」一覧の先頭（＝新しい投稿）を開いており、新しい投稿は日付が
+    「〇時間前」表示で読めずにガードをすり抜け、新しい投稿を大量に消していた。
+    API方式では一覧の末尾（オフセット最大）から、作成日時が only_before より前の投稿だけを消す。
+    """
+    from .engage import _api_get, _api_session
+    from .human import Pacer
+    slug = cfg["my_room_url"].rstrip("/").split("/")[-2]
+    only_before = (pcfg.get("only_before") or "").strip()
+    if not only_before:
+        print("only_before が未設定のため、安全のため削除しません。")
+        return
+    max_delete = int(pcfg.get("max_delete_per_run", 12))
+    lo, hi = pcfg.get("delete_interval_seconds", [4, 9])
+    pacer = Pacer(base=(float(lo), float(hi)))
+    uid, tok = _api_session(page, slug)
+    state = _load(DATA_DIR / "prune_state.json", {})
+    last = _last_offset(page, uid, tok, int(state.get("last_offset", 0)))
+    if last < 0:
+        print("投稿一覧が取れませんでした。")
+        return
+    state["last_offset"] = last
+    _save(DATA_DIR / "prune_state.json", state)
+    start = max(0, last - 99)
+    data = _api_get(page, f"{API}/{uid}/collects?api_version=1&limit=100&offset={start}&csrf_tkn={tok}").get("data") or []
+    olds = [c for c in data if (c.get("created_at") or "9999") < only_before]
+    # 反応のない投稿を先に、その中で古い順
+    olds.sort(key=lambda c: ((c.get("likes") or 0) + (c.get("comments") or 0) > 0, c.get("created_at") or ""))
+    print(f"  一覧の末尾 {len(data)} 件のうち、{only_before} より前の投稿 {len(olds)} 件（全体 約{last + 1}件）")
+    pruned_log = _load(PRUNE_LOG, [])
+    done = 0
+    for c in olds[:max_delete]:
+        rec = {"url": f"https://room.rakuten.co.jp/{slug}/{c['id']}", "name": (c.get("content") or c.get("name") or "")[:100],
+               "posted": (c.get("created_at") or "")[:10], "likes": c.get("likes"), "comments": c.get("comments")}
+        if not commit:
+            print(f"  [プレビュー] 削除対象: {rec['posted']} {rec['name'][:44]}")
+            continue
+        s, text = _api_post(page, f"{API}/{c['id']}?csrf_tkn={tok}", "_method=delete")
+        if s == 200 and '"success"' in text:
+            done += 1
+            rec["deleted_at"] = datetime.now().isoformat(timespec="seconds")
+            pruned_log.append(rec)
+            print(f"  削除: {rec['posted']} {rec['name'][:44]}")
+        else:
+            print(f"  削除できませんでした（{s} {text[:120]}）。この回は止めます")
+            break
+        pacer.wait()
+    if commit:
+        _save(PRUNE_LOG, pruned_log)
+    print(f"削除完了: {done} 件")
+
+
 def prune(cfg: dict, commit: bool = False, max_delete: int | None = None) -> None:
     pcfg = dict(cfg.get("prune", {}))
     if not pcfg.get("enabled", False):
@@ -400,7 +490,7 @@ def prune(cfg: dict, commit: bool = False, max_delete: int | None = None) -> Non
         if mode == "soldout":
             _prune_soldout(page, cfg, pcfg, commit)
         else:
-            _prune_oldest(page, cfg, pcfg, commit)
+            _prune_oldest_api(page, cfg, pcfg, commit)
     finally:
         try:
             page.close()  # 自分のタブは閉じる（溜まると Chrome が重くなる）

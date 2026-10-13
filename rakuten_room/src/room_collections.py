@@ -1,0 +1,167 @@
+"""楽天ROOMの投稿を、テーマ別のコレクションに自動で振り分ける（2026-10-13 追加）。
+
+プロフィールに来た人がテーマから商品を探せるようにするためのもの。投稿のたびに増える新しい投稿を、
+商品名の先頭に出てくる語でテーマを判定して、該当するコレクションに追加する。
+コレクションはテーマごとに、最初に該当する投稿が見つかったときに作る。
+
+ROOMの画面が使っている内部API（app.min.js から確認）:
+  作成  POST /api/collection/            name, img_icon, about, collects=投稿ID,投稿ID…
+  追加  POST /api/{コレクションID}/collect  collect_id=投稿ID
+  （1アカウントのコレクション数の上限は200）
+"""
+from __future__ import annotations
+
+import json
+import random
+import time
+from datetime import datetime
+from urllib.parse import urlencode
+
+from .config import DATA_DIR
+from .engage import _api_get, _api_session
+from .poster import _launch
+
+STATE = DATA_DIR / "room_collections.json"
+API = "https://room.rakuten.co.jp/api"
+# 自動削除（prune）の対象になる古い投稿は入れない
+MIN_CREATED = "2025-01-01"
+
+# 上から順に判定し、最初に当てはまったテーマに入れる（細かいテーマを先に）
+THEMES = [
+    {"slug": "pet", "name": "ペットと暮らす", "about": "犬・猫と暮らす人に気になる、フードや猫砂などのペット用品を集めました。",
+     "words": ["ペット", "猫砂", "キャットフード", "ドッグフード", "犬用", "猫用", "ねこ", "いぬ"]},
+    {"slug": "baby", "name": "子育て・キッズ", "about": "おむつやおしりふき、子どもの毎日に欲しいものを集めました。",
+     "words": ["おむつ", "オムツ", "おしりふき", "ベビー", "赤ちゃん", "キッズ", "子供用", "子ども用", "ランドセル", "知育"]},
+    {"slug": "sweets", "name": "スイーツ・お菓子", "about": "見つけるとつい欲しくなる、スイーツとお菓子のコレクションです。",
+     "words": ["チョコ", "スイーツ", "ケーキ", "和菓子", "クッキー", "プリン", "バウム", "どら焼き", "お菓子", "アイス"]},
+    {"slug": "gift", "name": "ギフト・お歳暮", "about": "お歳暮や内祝い、ちょっとしたお礼に選びたいギフトを集めました。",
+     "words": ["お歳暮", "御歳暮", "ギフト", "内祝い", "カタログギフト", "贈り物", "プレゼント"]},
+    {"slug": "winter", "name": "冬のあったかグッズ", "about": "寒い季節に欲しい、カイロ・毛布・暖房グッズを集めました。",
+     "words": ["カイロ", "毛布", "ブランケット", "ヒーター", "こたつ", "湯たんぽ", "ネックウォーマー", "暖房",
+               "加湿器", "着る毛布", "あったか", "防寒"],
+     "exclude": ["サンダル", "冷感", "夏用"]},
+    {"slug": "food", "name": "お米・食品のストック", "about": "お米や飲み物、レトルトなど、まとめ買いしたい食品を集めました。",
+     "words": ["米", "パックご飯", "レトルト", "カップ麺", "ラーメン", "ミネラルウォーター", "天然水", "炭酸水",
+               "お茶", "コーヒー", "肉", "カニ", "みかん", "冷凍", "調味料", "醤油", "オイル"]},
+    {"slug": "daily", "name": "日用品のまとめ買い", "about": "トイレットペーパーや洗剤など、なくなる前に買っておきたい日用品です。",
+     "words": ["トイレットペーパー", "ティッシュ", "洗剤", "柔軟剤", "ゴミ袋", "ごみ袋", "キッチンペーパー", "ラップ",
+               "歯ブラシ", "電池", "マスク", "シャンプー", "ボディソープ", "ハンドソープ", "掃除"]},
+    {"slug": "kitchen", "name": "キッチン用品", "about": "毎日の料理がちょっとラクになりそうな、キッチン用品を集めました。",
+     "words": ["フライパン", "鍋", "保存容器", "包丁", "まな板", "ケトル", "水筒", "タンブラー", "食器", "キッチン"]},
+    {"slug": "kaden", "name": "家電・ガジェット", "about": "暮らしを便利にしてくれそうな家電やガジェットを集めました。",
+     "words": ["掃除機", "炊飯器", "電子レンジ", "ドライヤー", "イヤホン", "充電器", "モバイルバッテリー", "ケーブル",
+               "スマホ", "タブレット", "モニター", "マウス", "キーボード", "家電", "空気清浄機", "サーキュレーター"]},
+    {"slug": "home", "name": "インテリア・寝具", "about": "部屋を心地よくしてくれそうな、インテリアや寝具を集めました。",
+     "words": ["収納", "ラグ", "カーテン", "クッション", "布団", "枕", "マットレス", "シーツ", "ソファ", "ライト", "照明",
+               "タオル", "ハンガー"]},
+]
+
+
+def _theme_of(name: str) -> dict | None:
+    head = (name or "")[:40]
+    for t in THEMES:
+        if any(w in head for w in t.get("exclude", [])):
+            continue
+        if any(w in head for w in t["words"]):
+            return t
+    return None
+
+
+def _load() -> dict:
+    try:
+        return json.loads(STATE.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def _save(state: dict) -> None:
+    STATE.write_text(json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def _post(page, url: str, body: str) -> dict:
+    res = page.evaluate(
+        """([u,b])=>fetch(u,{method:'POST',credentials:'include',
+            headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},
+            body:b}).then(r=>r.text().then(t=>({s:r.status,t})))""", [url, body])
+    try:
+        j = json.loads(res.get("t") or "{}")
+    except ValueError:
+        j = {}
+    j["_status"] = res.get("s")
+    j["_text"] = (res.get("t") or "")[:200]
+    return j
+
+
+def collections_round(cfg: dict, slug: str, max_add: int = 150, max_pages: int = 30) -> None:
+    """新しい投稿をテーマ別コレクションへ振り分ける。前回見た投稿より新しいものだけを見る。"""
+    state = _load()
+    cols = state.setdefault("collections", {})
+    done = set(state.get("done", []))
+    pw, ctx, _b = _launch()
+    page = None
+    try:
+        page = ctx.new_page()
+        uid, tok = _api_session(page, slug)
+        # 新しい順に読み、前回の続き（処理済みの投稿）か、古すぎる投稿に当たったら止める
+        todo, after = [], None
+        for _ in range(max_pages):
+            u = f"{API}/{uid}/collects?api_version=1&limit=20&csrf_tkn={tok}" + (f"&after_id={after}" if after else "")
+            data = _api_get(page, u).get("data") or []
+            if not data:
+                break
+            stop = False
+            for c in data:
+                if c["id"] in done or (c.get("created_at") or "") < MIN_CREATED:
+                    stop = True
+                    break
+                todo.append(c)
+            if stop:
+                break
+            after = data[-1]["id"]
+            time.sleep(random.uniform(0.8, 1.6))
+        todo.reverse()  # 古い順に入れる（コレクション内は新しいものが上に来る）
+        print(f"  未処理の投稿 {len(todo)} 件")
+        added, created, ng = 0, 0, 0
+        for c in todo:
+            if added >= max_add or ng >= 3:
+                break
+            t = _theme_of(c.get("name", ""))
+            if t:
+                info = cols.get(t["slug"])
+                if not info:
+                    j = _post(page, f"{API}/collection/?csrf_tkn={tok}", urlencode(
+                        {"name": t["name"], "img_icon": "", "about": t["about"], "collects": c["id"]}))
+                    if j.get("status") == "success":
+                        cols[t["slug"]] = {"id": j["data"]["id"], "name": t["name"], "count": 1}
+                        created += 1
+                        added += 1
+                        print(f"  コレクション作成: {t['name']}")
+                    else:
+                        ng += 1
+                        print(f"  作成できませんでした: {t['name']}（{j['_status']} {j['_text']}）")
+                        continue
+                else:
+                    j = _post(page, f"{API}/{info['id']}/collect?csrf_tkn={tok}", urlencode({"collect_id": c["id"]}))
+                    if j.get("status") == "success" or "R200" in j["_text"]:
+                        info["count"] = info.get("count", 0) + 1
+                        added += 1
+                        ng = 0
+                    else:
+                        ng += 1
+                        print(f"  追加できませんでした: {t['name']}（{j['_status']} {j['_text']}）")
+                        continue
+                time.sleep(random.uniform(1.5, 3.5))
+            done.add(c["id"])
+        # 処理済みの記録は直近分だけ残せば十分（新しい順の読み取りを止める目印に使う）
+        state["done"] = sorted(done)[-3000:]
+        state["last_run"] = datetime.now().isoformat(timespec="seconds")
+        _save(state)
+        summary = "・".join(f"{v['name']} {v.get('count', 0)}" for v in cols.values())
+        print(f"コレクションに {added} 件追加（新規作成 {created}）。{summary}")
+    finally:
+        if page:
+            try:
+                page.close()
+            except Exception:  # noqa: BLE001
+                pass
+        pw.stop()

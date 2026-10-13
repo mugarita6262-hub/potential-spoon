@@ -242,6 +242,10 @@ server:
   - - '22:45'
     - '23:50'
   room_prune_runs_per_day: 3
+  room_collect_window:
+  - - '23:15'
+    - '23:55'
+  room_collect_runs_per_day: 1
   sns_window:
   - - '18:30'
     - '20:45'
