@@ -722,12 +722,11 @@ def _itemlist_ld(name: str, items: list[dict], path: str) -> dict:
     return {"@context": "https://schema.org", "@type": "ItemList", "name": name,
             "url": f"{SITE_URL}{path}", "numberOfItems": len(items),
             "itemListElement": [
-                {"@type": "ListItem", "position": i + 1,
-                 "item": {"@type": "Product", "name": _short_name(it["itemName"], 120),
-                          "image": it.get("imageUrl") or None,
-                          "offers": {"@type": "Offer", "price": it["price"], "priceCurrency": "JPY",
-                                     "url": it["itemUrl"], "availability": "https://schema.org/InStock",
-                                     "seller": {"@type": "Organization", "name": it.get("shopName", "")}}}}
+                # 比較サイトの一覧なので Product（販売ページ向け）ではなく、順位・名前・リンク先だけを示す。
+                # Product にすると「aggregateRating / review がない」と指摘されるが、楽天のレビューを
+                # 構造化データに入れるのはGoogleのガイドライン違反（他サイトの評価の転載）になるため
+                {"@type": "ListItem", "position": i + 1, "name": _short_name(it["itemName"], 120),
+                 "url": it["itemUrl"], **({"image": it["imageUrl"]} if it.get("imageUrl") else {})}
                 for i, it in enumerate(items)]}
 
 
