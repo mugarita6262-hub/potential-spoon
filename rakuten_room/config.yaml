@@ -84,7 +84,7 @@ engage:
   # 2026-10-11 以前使っていた ROOM REPEAT 極 と同じく ROOM の制限近くまで動かす（ユーザー判断）
   caps:
     like_per_day: 700
-    like_per_hour: 90
+    like_per_hour: 130
     follow_per_day: 800
     follow_per_hour: 90
     unfollow_per_day: 800
