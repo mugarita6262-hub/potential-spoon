@@ -204,7 +204,7 @@ GENRES = [
     {"slug": "frozen", "name": "冷凍食品", "emoji": "🥟",
      "lead": "忙しい日の味方。まとめ買いは、冷凍庫の空きと1食あたりの価格で比べましょう。",
      "keywords": ["冷凍食品 まとめ買い", "冷凍餃子", "冷凍 惣菜 セット", "冷凍うどん"],
-     "a8_genres": ["食品"]},
+     "a8_genres": ["冷凍・宅食"]},
     {"slug": "tableware", "name": "食器・マグカップ", "emoji": "🍽️",
      "lead": "毎日使う食器は、電子レンジ・食洗機に対応しているかで使い勝手が変わります。",
      "keywords": ["食器セット", "マグカップ おしゃれ", "お皿 電子レンジ対応", "茶碗"],
@@ -626,6 +626,31 @@ def _guides(slug: str) -> list[dict]:
     return out
 
 
+GUIDE_DATES = DATA_DIR / "guide_dates.json"
+_guide_dates_cache: dict | None = None
+
+
+def _guide_published(genre: str, slug: str, updated: str) -> str:
+    """ガイドの公開日（初めてサイトに出した日）を記録して固定する。ファイルの更新日は毎回変わりうるため。"""
+    global _guide_dates_cache
+    if _guide_dates_cache is None:
+        try:
+            _guide_dates_cache = json.loads(GUIDE_DATES.read_text(encoding="utf-8"))
+        except (FileNotFoundError, ValueError):
+            _guide_dates_cache = {}
+    key = f"{genre}/{slug}"
+    if key not in _guide_dates_cache:
+        _guide_dates_cache[key] = min(updated, date.today().isoformat())
+        GUIDE_DATES.write_text(json.dumps(_guide_dates_cache, ensure_ascii=False, indent=1), encoding="utf-8")
+    return _guide_dates_cache[key]
+
+
+def _guide_answer(md: str) -> str:
+    """ガイド冒頭の「> 」で始まる要約（結論）を取り出す。AIや検索の要約に使われやすい形。"""
+    lines = [l[1:].strip() for l in md.splitlines() if l.startswith(">")]
+    return re.sub(r"\*\*|\[([^\]]+)\]\([^)]+\)", lambda m: m.group(1) or "", " ".join(lines)).strip()
+
+
 def _md_to_html(md: str) -> tuple[str, list[tuple[str, str]]]:
     """見出し・段落・箇条書き・表・太字・リンクの最小限Markdown変換。(html, 目次) を返す。"""
     out, toc, in_list, table = [], [], False, []
@@ -1031,7 +1056,9 @@ box-shadow:0 14px 30px rgba(40,35,29,.14);padding:14px 0 18px;z-index:40}
 .why{margin:6px 0 2px;font-size:13px;line-height:1.6;color:var(--ink);background:#fff8ec;border-radius:10px;padding:8px 10px}
 .persona{grid-template-columns:repeat(3,1fr)}
 @media (max-width:760px){.persona{grid-template-columns:1fr}
-.persona .why,.persona .trend{grid-column:1/-1}}
+.persona .why,.persona .trend{grid-column:1/-1}
+.persona.swipe{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:14px -18px 0;padding:4px 18px 14px}
+.persona.swipe>li{flex:0 0 86%;scroll-snap-align:start}}
 
 /* ---- 発見（記録データからの事実） ---- */
 .discovery ul{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px}
@@ -1188,6 +1215,18 @@ box-shadow:0 6px 18px -4px rgba(31,27,22,.35);transition:opacity .2s,transform .
 .dropboard .sl-bar{background:rgba(255,255,255,.25)}
 .dropboard .sl-bar i{background:#fff}
 .slider.nofit .sl-bar{display:none}
+/* 並べ替え */
+.sortbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 4px}
+.sortbar span{font-size:13px;color:var(--muted);margin-right:2px}
+.sortbar button{font:inherit;font-size:13px;font-weight:700;padding:7px 14px;border-radius:999px;border:1px solid var(--line);
+background:var(--surface);color:var(--ink);cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.sortbar button:hover{border-color:var(--brand)}
+.sortbar button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+/* 値下がり0件のときは小さく */
+.dropboard.empty{padding-bottom:16px}
+.dropboard.empty .db-stats{display:none}
+.slider .swipe{scrollbar-width:none;scroll-behavior:smooth}
+.slider .swipe::-webkit-scrollbar{display:none}
 @media (prefers-reduced-motion:reduce){
 *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 .js .rv{opacity:1!important;transform:none!important}
@@ -1206,9 +1245,20 @@ LOGO_SVG = ('<svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true">
             '<path d="M40 42 H50 V32" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>')
 
 
+def _meta_desc(desc: str, n: int = 120) -> str:
+    """検索結果で切れない長さ（約120字）に。できるだけ句点で区切る。"""
+    desc = re.sub(r"\s+", " ", desc).strip()
+    if len(desc) <= n:
+        return desc
+    cut = desc[:n]
+    k = cut.rfind("。")
+    return cut[:k + 1] if k >= 60 else cut[:n - 1] + "…"
+
+
 def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
           og_image: str = "/img/hero.jpg", ld: str = "", og_type: str = "website", noindex: bool = False) -> str:
     robots = "noindex,follow" if noindex else "index,follow,max-image-preview:large"
+    desc = _meta_desc(desc)
     cur_attr = ' aria-current="page"'
     cur_cat = CAT_OF.get(current, {}).get("slug", "")
     nav = "".join(
@@ -1242,6 +1292,7 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 <meta property="og:locale" content="ja_JP"><meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 <link rel="stylesheet" href="/style.css?v={CSS_VER}">
+<link rel="alternate" type="application/rss+xml" title="{SITE_NAME} 選び方ガイド" href="/feed.xml">
 {GA4_TAG}
 {_linkswitch_tag()}
 {ld}
@@ -1256,7 +1307,7 @@ def _page(title: str, body: str, desc: str, path: str, *, current: str = "",
 <main>{body}</main>
 <button class="totop" type="button" aria-label="ページ上部へ" onclick="scrollTo({{top:0,behavior:'smooth'}})">↑</button>
 <script>(function(){{var chev=function(d){{return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="'+(d<0?'M15 5l-7 7 7 7':'M9 5l7 7-7 7')+'"/></svg>'}};
-document.querySelectorAll('.hscroll').forEach(function(ol){{var w=document.createElement('div');w.className='slider';ol.parentNode.insertBefore(w,ol);w.appendChild(ol);
+document.querySelectorAll('.hscroll, .swipe').forEach(function(ol){{var w=document.createElement('div');w.className='slider';ol.parentNode.insertBefore(w,ol);w.appendChild(ol);
 var pv=document.createElement('button'),nx=document.createElement('button'),bar=document.createElement('div');
 pv.type=nx.type='button';pv.className='sl-btn sl-prev';nx.className='sl-btn sl-next';pv.setAttribute('aria-label','前へ');nx.setAttribute('aria-label','次へ');
 pv.innerHTML=chev(-1);nx.innerHTML=chev(1);bar.className='sl-bar';bar.innerHTML='<i></i>';w.appendChild(pv);w.appendChild(nx);w.appendChild(bar);
@@ -1266,6 +1317,12 @@ var r=ol.clientWidth/Math.max(ol.scrollWidth,1);th.style.width=(r*100)+'%';th.st
 function go(d){{ol.scrollBy({{left:d*ol.clientWidth*.85,behavior:'smooth'}})}}
 pv.addEventListener('click',function(){{go(-1)}});nx.addEventListener('click',function(){{go(1)}});
 ol.addEventListener('scroll',up,{{passive:true}});addEventListener('resize',up);if(window.ResizeObserver)new ResizeObserver(up).observe(ol);up()}})}})();</script>
+<script>(function(){{document.querySelectorAll('.ranklist').forEach(function(rl){{var d=rl.querySelector('.rank-default'),s=rl.querySelector('.rank-sorted');
+rl.querySelectorAll('.sortbar button').forEach(function(b){{b.addEventListener('click',function(){{var k=b.dataset.sort;
+rl.querySelectorAll('.sortbar button').forEach(function(x){{x.classList.toggle('on',x===b)}});
+if(k==='k'){{d.hidden=false;s.hidden=true;return}}
+var li=Array.prototype.slice.call(s.children);li.sort(function(a,c){{return k==='p'?(+a.dataset.p)-(+c.dataset.p):(+c.dataset.r)-(+a.dataset.r)}});
+li.forEach(function(x){{s.appendChild(x)}});d.hidden=true;s.hidden=false}})}})}})}})();</script>
 <script>(function(){{var R=document.documentElement,rm=matchMedia('(prefers-reduced-motion: reduce)').matches;
 if(!rm&&'IntersectionObserver' in window){{R.classList.add('js');
 var els=document.querySelectorAll('main .section, main .summary, main .services, main .chipgroups');
@@ -1479,7 +1536,18 @@ def _rank_list(items: list[dict], mode: str, empty: str) -> str:
         return f'<div class="panel"><p class="empty">{empty}</p></div>'
     top = "".join(_big_card(i + 1, it, mode) for i, it in enumerate(items[:3]))
     rest = "".join(_row_card(i + 4, it, mode) for i, it in enumerate(items[3:]))
-    return f'<ol class="podium">{top}</ol>' + (f'<ol class="rows" start="4">{rest}</ol>' if rest else "")
+    html_ = f'<ol class="podium">{top}</ol>' + (f'<ol class="rows" start="4">{rest}</ol>' if rest else "")
+    if len(items) < 6:
+        return html_
+    # 並べ替え用の一覧（JSで切り替え）。順位の数字は評判順のまま見せる
+    alt = "".join(_row_card(i + 1, it, f"{mode}s").replace(
+        '<li class="item row"', f'<li class="item row" data-p="{it["price"]}" data-r="{it.get("reviewCount", 0)}" data-k="{i + 1}"', 1)
+        for i, it in enumerate(items))
+    bar = ('<div class="sortbar" role="group" aria-label="並べ替え"><span>並べ替え</span>'
+           '<button type="button" class="on" data-sort="k">評判順</button>'
+           '<button type="button" data-sort="p">安い順</button>'
+           '<button type="button" data-sort="r">レビューが多い順</button></div>')
+    return f'<div class="ranklist">{bar}<div class="rank-default">{html_}</div><ol class="rows rank-sorted" hidden>{alt}</ol></div>'
 
 
 def _hscroll(items: list[dict], mode: str, empty: str) -> str:
@@ -1631,7 +1699,7 @@ def _persona_picks(g: dict, rich: list[dict], popular: list[dict], drops: list[d
         return ""
     html_ = "".join(_big_card(i + 1, it, "pick", label, reason) for i, (it, label, reason) in enumerate(cards))
     note = f'<p class="basis">{E(PERSONA_NOTE[g["slug"]])}</p>' if g["slug"] in PERSONA_NOTE else ""
-    return f'<ol class="podium picks persona">{html_}</ol>{note}'
+    return f'<ol class="podium picks persona swipe">{html_}</ol>{note}'
 
 
 def _qualified(it: dict) -> bool:
@@ -1662,9 +1730,10 @@ def _drop_board(title: str, stats: dict, drops: list[dict], near: list[dict], up
     else:
         lead = "今は値下がりしている商品はありません。価格は毎日記録しているので、下がったものがあればここに並びます。"
         lst = ""
+        extra = extra + "<!--empty-->"
     mx = f'{stats["max"]:.0f}<small>%</small>' if stats["max"] else "—"
     return f"""
-<section class="dropboard" id="drops" aria-labelledby="h-drops">
+<section class="dropboard{" empty" if "<!--empty-->" in extra else ""}" id="drops" aria-labelledby="h-drops">
   <div class="db-head"><p class="eyebrow">PRICE DROP</p><h2 id="h-drops">{E(title)}</h2>
     <span class="db-stamp">{E(updated)}更新・毎日記録</span></div>
   <div class="db-stats">
@@ -2026,6 +2095,12 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
         for x in guides:
             apath = f"{path}{x['slug']}/"
             art_html, toc = _md_to_html(x["md"])
+            head = x["title"].split("｜")[0]
+            answer = _guide_answer(x["md"])
+            published = _guide_published(g["slug"], x["slug"], x["updated"])
+            page_title = x["title"] if len(x["title"]) <= 38 else head
+            page_desc = x["desc"] if len(x["desc"]) >= 50 or not answer else f"{x['desc']} {answer}"
+            question = (head.replace("の選び方", "") + "はどう選べばいい？") if head.endswith("の選び方") else f"{head}のポイントは？"
             crumbs_a, crumbs_a_ld = _breadcrumb([("ホーム", "/"), (cat["name"], f"/c/{cat['slug']}/"),
                                                  (f"{g['name']}の買い時", path), (x["title"], apath)])
             toc_html = ('<nav class="toc" aria-label="目次"><b>目次</b><ol>' + "".join(
@@ -2036,7 +2111,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 <div class="wrap">
 {notice}
 <article class="article" style="margin-top:24px">
-<div class="byline"><span>更新日：<time datetime="{x["updated"]}">{x["updated"]}</time></span><span>書いた人：aki.h190（{SITE_NAME}運営）</span><span class="pr">PR含む</span></div>
+<div class="byline"><span>公開日：<time datetime="{published}">{published}</time></span><span>更新日：<time datetime="{x["updated"]}">{x["updated"]}</time></span><span>書いた人：aki.h190（{SITE_NAME}運営）</span><span class="pr">PR含む</span></div>
 {toc_html}
 {art_html}
 </article>
@@ -2047,12 +2122,15 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 {_discovery_box(disc, f"{g['name']}の価格記録から見つけた発見")}
 {_related_genres(g["slug"], genre_data)}
 </div>"""
-            ld = _jsonld(crumbs_a_ld, {"@context": "https://schema.org", "@type": "Article", "headline": x["title"],
-                                        "description": x["desc"], "datePublished": x["updated"], "dateModified": x["updated"],
+            faq_ld = ({"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+                {"@type": "Question", "name": question, "acceptedAnswer": {"@type": "Answer", "text": answer}}]}
+                if answer else None)
+            ld = _jsonld(crumbs_a_ld, *([faq_ld] if faq_ld else []), {"@context": "https://schema.org", "@type": "Article", "headline": x["title"],
+                                        "description": x["desc"], "datePublished": published, "dateModified": x["updated"],
                                         "image": f"{SITE_URL}/img/{img}.jpg", "mainEntityOfPage": f"{SITE_URL}{apath}",
                                         "author": AUTHOR,
                                         "publisher": PUBLISHER})
-            _write(apath, _page(x["title"], body, x["desc"], apath, current=g["slug"],
+            _write(apath, _page(page_title, body, page_desc, apath, current=g["slug"],
                                 og_image=f"/img/{img}.jpg", ld=ld, og_type="article"))
             pages += 1
 
@@ -2149,6 +2227,8 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 {guides_home}
 </div>"""
     ld = _jsonld({"@context": "https://schema.org", "@type": "WebSite", "name": SITE_NAME, "url": SITE_URL,
+                  "potentialAction": {"@type": "SearchAction", "target": f"{SITE_URL}/search/?q={{search_term_string}}",
+                                      "query-input": "required name=search_term_string"},
                   "description": home_summary, "inLanguage": "ja", "publisher": PUBLISHER})
     _write("/", _page(SITE_NAME, body, f"{home_summary} 楽天市場の暮らしの定番アイテムの価格を毎日記録して、値下がりと評判から買い時をお知らせします。",
                       "/", ld=ld))
@@ -2254,7 +2334,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
     llms = [f"# {SITE_NAME}", "",
             f"> 楽天市場の暮らしの定番アイテム（{'・'.join(g['name'] for g in GENRES)}）の価格を毎日記録し、"
             "値下がり中の商品と評判の良い商品を数字の根拠つきでまとめた日本語の比較サイト。", "",
-            f"- 最終更新: {today}", f"- 記録中の商品数: {total_items}",
+            f"- 最終更新: {today}", f"- 記録中の商品数: {total_items}", f"- 全ガイドの結論と見出し: {SITE_URL}/llms-full.txt",
             "- 値下がりの定義: 直近30日に記録した最高値と比べて5%以上安い", f"- 評判ランキングの対象: 楽天のレビュー★{MIN_AVG}以上かつ{MIN_REVIEWS}件以上",
             "", "## カテゴリ別ページ"] + [
         f"- [{c['name']}の買い時]({SITE_URL}/c/{c['slug']}/): {'・'.join(GENRE_BY_SLUG[s]['name'] for s in c['genres'])}"
@@ -2268,4 +2348,40 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                                        for g, x in guides_all]
     llms += ["", "## 運営情報", f"- [ランキングの根拠と運営者]({SITE_URL}/about/)"]
     (OUT_DIR / "llms.txt").write_text("\n".join(llms) + "\n", encoding="utf-8")
+
+    # 新しいガイドの RSS（クローラーやフィードリーダーが新着に気づけるように）
+    from email.utils import format_datetime
+    feed_items = sorted(((_guide_published(g["slug"], x["slug"], x["updated"]), g, x) for g, x in guides_all),
+                        key=lambda r: r[0], reverse=True)[:40]
+    def _rfc(d):
+        return format_datetime(datetime.fromisoformat(d + "T07:00:00+09:00"))
+    rss = ['<?xml version="1.0" encoding="UTF-8"?>', '<rss version="2.0"><channel>',
+           f"<title>{E(SITE_NAME)} 選び方ガイド</title>", f"<link>{SITE_URL}/</link>",
+           "<description>楽天市場の暮らしの定番アイテムの選び方ガイド（価格は毎日記録）</description>", "<language>ja</language>"]
+    for pub, g, x in feed_items:
+        u = f"{SITE_URL}/{g['slug']}/{x['slug']}/"
+        rss.append(f"<item><title>{E(x['title'])}</title><link>{u}</link><guid>{u}</guid>"
+                   f"<pubDate>{_rfc(pub)}</pubDate><description>{E(x['desc'])}</description></item>")
+    rss.append("</channel></rss>")
+    (OUT_DIR / "feed.xml").write_text("\n".join(rss) + "\n", encoding="utf-8")
+
+    # llms-full.txt: ガイドの結論と見出し、ジャンルの評判上位を1ファイルに（AIの要約・引用向け）
+    full = [f"# {SITE_NAME}（全文要約）", "", f"最終更新: {today}。価格は楽天市場の商品を毎日記録したもの。", ""]
+    for g in GENRES:
+        items, popular, drops = genre_data[g["slug"]]
+        full.append(f"## {g['name']}（{SITE_URL}/{g['slug']}/）")
+        full.append(g["lead"])
+        for i, it in enumerate(popular[:3], 1):
+            full.append(f"- 評判{i}位: {_short_name(it['itemName'], 50)}（{it['price']:,}円、★{it['reviewAverage']:.2f}・{it['reviewCount']:,}件）")
+        full.append(f"- 値下がり中: {len(drops)}件（直近30日の最高値から5%以上安い）")
+        for x in _guides(g["slug"]):
+            full.append(f"### {x['title']}（{SITE_URL}/{g['slug']}/{x['slug']}/）")
+            ans = _guide_answer(x["md"])
+            if ans:
+                full.append(f"結論: {ans}")
+            heads = [l[3:].strip() for l in x["md"].splitlines() if l.startswith("## ")]
+            if heads:
+                full.append("見出し: " + " / ".join(heads))
+        full.append("")
+    (OUT_DIR / "llms-full.txt").write_text("\n".join(full) + "\n", encoding="utf-8")
     return pages
