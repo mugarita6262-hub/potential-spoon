@@ -139,6 +139,43 @@ def _check_survival(page, uid: str, tok: str, days: int = 3) -> None:
         notify("ROOMの投稿が想定より消えています。\n" + "\n".join(lines), title="ROOM posts missing")
 
 
+METRICS = DATA_DIR / "room_metrics.json"
+
+
+def _record_metrics(page, uid: str, tok: str, days: int = 7) -> None:
+    """毎晩の成果記録（2026-10-15 追加）。ROOMの売上（今月分、日別）と、直近7日の投稿の閲覧数・いいね数の合計。
+    クリック数は楽天アフィリエイトのレポート側にしかないため、ここでは閲覧・いいね・売上で効果を追う。"""
+    from datetime import date, timedelta
+    today = date.today()
+    since = (today - timedelta(days=days - 1)).isoformat()
+    n = views = likes = 0
+    for pg in range(80):
+        data = _api_get(page, f"{API}/{uid}/collects?api_version=1&limit=20&offset={pg * 20}&csrf_tkn={tok}").get("data") or []
+        if not data:
+            break
+        for c in data:
+            if (c.get("created_at") or "") >= since:
+                n += 1
+                views += int(c.get("detail_views") or 0)
+                likes += int(c.get("likes") or 0)
+        if min((c.get("created_at") or "") for c in data) < since:
+            break
+        time.sleep(random.uniform(0.5, 1.0))
+    sales = _api_get(page, f"{API}/user/sales?api_version=2&calc_month={today:%Y%m}&csrf_tkn={tok}").get("data") or {}
+    rec = {"posts_7d": n, "views_7d": views, "likes_7d": likes,
+           "month_sales": sales.get("price", 0), "month_reward": sales.get("point", 0),
+           "month_orders": sum(int(d.get("count") or 0) for d in (sales.get("daily") or [])),
+           "daily_sales": sales.get("daily") or []}
+    try:
+        allm = json.loads(METRICS.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        allm = {}
+    allm[today.isoformat()] = rec
+    METRICS.write_text(json.dumps(allm, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"  成果の記録: 直近7日の投稿 {n}件・閲覧 {views}・いいね {likes}／今月の売上 {rec['month_sales']:,}円"
+          f"（報酬 {rec['month_reward']}pt・{rec['month_orders']}件）")
+
+
 def collections_round(cfg: dict, slug: str, max_add: int = 150, max_pages: int = 30) -> None:
     """新しい投稿をテーマ別コレクションへ振り分ける。前回見た投稿より新しいものだけを見る。"""
     state = _load()
@@ -203,6 +240,7 @@ def collections_round(cfg: dict, slug: str, max_add: int = 150, max_pages: int =
         state["last_run"] = datetime.now().isoformat(timespec="seconds")
         _save(state)
         _check_survival(page, uid, tok)
+        _record_metrics(page, uid, tok)
         summary = "・".join(f"{v['name']} {v.get('count', 0)}" for v in cols.values())
         print(f"コレクションに {added} 件追加（新規作成 {created}）。{summary}")
     finally:
