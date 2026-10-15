@@ -34,6 +34,10 @@ def gather_candidates(cfg: dict, api: RakutenAPI) -> list[dict]:
             except Exception as exc:  # noqa: BLE001
                 print(f"  キーワード「{word}」失敗: {exc}")
 
+    rs = sources.get("room_search") or {}
+    if rs.get("enabled"):
+        candidates.extend(_room_hot_items(rs, api))
+
     if sources["favorites"]["enabled"]:
         fav_urls = collect_favorite_urls(sources["favorites"])
         for url in fav_urls:
@@ -47,6 +51,55 @@ def gather_candidates(cfg: dict, api: RakutenAPI) -> list[dict]:
     from .claims_filter import drop_risky
 
     return drop_risky(dedupe(candidates))
+
+
+def _room_hot_items(rs: dict, api: RakutenAPI) -> list[dict]:
+    """楽天ROOMの中で反応が出ている商品（2026-10-15 追加）。
+
+    以前使っていたツール（ROOM REPEAT 極）は、ROOM内をキーワード検索して他の人が投稿している商品を
+    コレ！していた。ROOMの利用者が実際に反応している商品なので売れやすい。ここでは商品だけを借り、
+    紹介文は自分で書く（他人の文章は使わない）。ROOMの検索APIはログイン不要。
+    """
+    import time
+
+    import requests
+
+    words = list(rs.get("words") or [])
+    random.shuffle(words)
+    words = words[: int(rs.get("per_run_words", 6))]
+    min_likes = int(rs.get("min_likes", 300))
+    keys: dict[str, str] = {}
+    for w in words:
+        for pg in range(1, int(rs.get("pages", 2)) + 1):
+            try:
+                r = requests.get("https://room.rakuten.co.jp/api/collect/search", timeout=20,
+                                 headers={"User-Agent": "Mozilla/5.0"},
+                                 params={"api_version": 1, "currentTab": "collect", "item_page": pg,
+                                         "keyword": w, "page": pg, "query": w})
+                data = r.json().get("data") or []
+            except Exception as exc:  # noqa: BLE001
+                print(f"  ROOM検索「{w}」失敗: {exc}")
+                break
+            for c in data:
+                it = c.get("item") or {}
+                if it.get("flg_soldout") or it.get("flg_deleted") or not it.get("url"):
+                    continue
+                # 他の人もコレ！している（recollects）か、いいねが多いものだけ
+                if (int(c.get("recollects") or 0) >= 1 or int(c.get("likes") or 0) >= min_likes) and it.get("key"):
+                    keys.setdefault(it["key"], w)
+            time.sleep(1.0)
+    out = []
+    for code in list(keys)[: int(rs.get("max_items", 40))]:
+        try:
+            it = api.lookup_by_code(code)
+        except Exception:  # noqa: BLE001
+            it = None
+        if it:
+            it["rank"] = 1  # ROOMで反応がある＝人気の目印として、スコアでランキング上位と同じ扱いにする
+            it["source"] = "room"
+            out.append(it)
+    print(f"  ROOMで反応がある商品（{'・'.join(words)}）: {len(out)} 件")
+    return out
 
 
 def select_items(cfg: dict, api: RakutenAPI, pool: int | None = None) -> list[dict]:

@@ -66,6 +66,30 @@ sources:
     - クーポン
     - まとめ買い
     per_keyword: 30
+  # ROOM内で反応が出ている商品（以前のツールの方式。商品だけ借りて紹介文は自分で書く）
+  room_search:
+    enabled: true
+    words:
+    - コスメ
+    - スキンケア
+    - ヘアケア
+    - ニット
+    - アウター
+    - ワンピース
+    - スニーカー
+    - バッグ
+    - インテリア
+    - 収納
+    - キッズ
+    - ベビー
+    - プチプラ
+    - ギフト
+    - あったか
+    - 便利グッズ
+    per_run_words: 6
+    pages: 2
+    min_likes: 300
+    max_items: 40
 scoring:
   weights:
     review_count: 0.35

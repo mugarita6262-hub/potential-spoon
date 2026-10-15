@@ -70,6 +70,12 @@ class RakutenAPI:
         items = data.get("Items", [])
         return self._normalize(items[0]["Item"]) if items else None
 
+    def lookup_by_code(self, item_code: str) -> dict | None:
+        """楽天の itemCode（ショップ:商品番号）で1件引く。ROOMの検索結果の item.key がこの形。"""
+        data = self._get(SEARCH_URL, {"itemCode": item_code, "hits": 1})
+        items = data.get("Items", [])
+        return self._normalize(items[0]["Item"]) if items else None
+
     @staticmethod
     def _normalize(it: dict) -> dict:
         images = it.get("mediumImageUrls") or it.get("smallImageUrls") or []
