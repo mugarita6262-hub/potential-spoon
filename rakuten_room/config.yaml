@@ -104,6 +104,13 @@ scoring:
   min_review_average: 3.8
 exclude:
   reposted_within_days: 60
+# ほっといても売れる定番の売れ筋（ランキング入り＋レビュー5000件以上★4.3以上、または30日中7日以上ランクイン）
+evergreen:
+  min_reviews: 5000
+  min_average: 4.3
+  min_rank_days: 7
+  repost_after_days: 21
+  score_bonus: 0.15
 engage:
   # 2026-10-11 以前使っていた ROOM REPEAT 極 と同じく ROOM の制限近くまで動かす（ユーザー判断）
   caps:

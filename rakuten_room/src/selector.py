@@ -1,8 +1,10 @@
 """候補を集めて、スコア上位 N 件を選ぶ。"""
 from __future__ import annotations
 
+import json
 import random
 
+from .config import DATA_DIR
 from .favorites import collect_favorite_urls
 from .posted_log import recently_posted_keys
 from .rakuten_api import RakutenAPI, dedupe
@@ -17,6 +19,7 @@ def gather_candidates(cfg: dict, api: RakutenAPI) -> list[dict]:
         for genre_id in sources["ranking"]["genre_ids"]:
             try:
                 items = api.ranking(int(genre_id), sources["ranking"]["per_genre"])
+                _log_ranking(items)
                 candidates.extend(items)
                 print(f"  ランキング genre={genre_id}: {len(items)} 件")
             except Exception as exc:  # noqa: BLE001
@@ -102,18 +105,71 @@ def _room_hot_items(rs: dict, api: RakutenAPI) -> list[dict]:
     return out
 
 
+RANKING_LOG = DATA_DIR / "ranking_log.json"
+
+
+def _log_ranking(items: list[dict]) -> None:
+    """楽天ランキングに入った商品を日ごとに記録（何日ランクインし続けたかで「定番の売れ筋」を判定するため）。"""
+    from datetime import date
+    try:
+        log = json.loads(RANKING_LOG.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        log = {}
+    day = log.setdefault(date.today().isoformat(), {})
+    for it in items:
+        code = it.get("itemCode")
+        if code and it.get("rank", 0) > 0:
+            day[code] = min(day.get(code, 999), it["rank"])
+    for k in sorted(log)[:-60]:  # 60日分だけ残す
+        del log[k]
+    RANKING_LOG.write_text(json.dumps(log, ensure_ascii=False), encoding="utf-8")
+
+
+def ranking_days(within: int = 30) -> dict[str, int]:
+    """直近 within 日のうち、楽天ランキングに入っていた日数（商品コードごと）。"""
+    try:
+        log = json.loads(RANKING_LOG.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return {}
+    out: dict[str, int] = {}
+    for day in sorted(log)[-within:]:
+        for code in log[day]:
+            out[code] = out.get(code, 0) + 1
+    return out
+
+
+def is_evergreen(it: dict, days: dict[str, int], ev: dict) -> bool:
+    """ほっといても売れる定番：レビューが非常に多く評価も高い商品がランキングに入っている、
+    または直近30日で何日もランキングに入り続けている。"""
+    if days.get(it.get("itemCode", ""), 0) >= int(ev.get("min_rank_days", 7)):
+        return True
+    return (it.get("rank", 0) > 0 and it.get("reviewCount", 0) >= int(ev.get("min_reviews", 5000))
+            and it.get("reviewAverage", 0) >= float(ev.get("min_average", 4.3)))
+
+
 def select_items(cfg: dict, api: RakutenAPI, pool: int | None = None) -> list[dict]:
     candidates = gather_candidates(cfg, api)
     print(f"重複除去後の候補: {len(candidates)} 件")
 
+    ev = cfg.get("evergreen") or {}
+    days = ranking_days()
+    for it in candidates:
+        it["evergreen"] = is_evergreen(it, days, ev)
     skip = recently_posted_keys(cfg["exclude"]["reposted_within_days"])
+    # 定番の売れ筋は、前回から repost_after_days 日たてばもう一度投稿する（売れ続けている商品なので）
+    skip_ev = recently_posted_keys(int(ev.get("repost_after_days", 21)))
     candidates = [
         it for it in candidates
-        if (it.get("itemCode") or it.get("itemUrl")) not in skip
+        if (it.get("itemCode") or it.get("itemUrl")) not in (skip_ev if it["evergreen"] else skip)
     ]
-    print(f"投稿済みを除外後: {len(candidates)} 件")
+    print(f"投稿済みを除外後: {len(candidates)} 件（うち定番の売れ筋 {sum(it['evergreen'] for it in candidates)} 件）")
 
     ranked = score_items(candidates, cfg["scoring"])
+    bonus = float(ev.get("score_bonus", 0.15))
+    for it in ranked:
+        if it.get("evergreen"):
+            it["score"] = round(it["score"] + bonus, 4)
+    ranked.sort(key=lambda x: x["score"], reverse=True)
     print(f"スコア条件を満たした候補: {len(ranked)} 件")
 
     if pool is None:

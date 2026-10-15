@@ -217,6 +217,26 @@ GENRES = [
      "lead": "冬の重ね着は、インナーとタイツで差がつきます。素材と厚さの選び方をまとめました。",
      "keywords": ["あったかインナー レディース", "発熱インナー メンズ", "裏起毛 タイツ", "タイツ 110デニール"],
      "a8_genres": ["ファッション"]},
+    {"slug": "hairtool", "name": "ヘアアイロン・ドライヤー", "emoji": "💇",
+     "lead": "毎朝使うものだから、温度・幅・重さで選ぶと失敗しません。",
+     "keywords": ["ヘアアイロン ストレート", "カールアイロン", "ドライヤー 大風量", "ヘアアイロン 2way"],
+     "a8_genres": ["美容家電"]},
+    {"slug": "bag", "name": "バッグ", "emoji": "👜",
+     "lead": "毎日持つバッグは、入れたい物の大きさと開け閉めのしやすさで選ぶのがコツです。",
+     "keywords": ["トートバッグ レディース", "リュック 通勤", "ショルダーバッグ", "トートバッグ A4"],
+     "a8_genres": ["ファッション"]},
+    {"slug": "sneaker", "name": "スニーカー", "emoji": "👟",
+     "lead": "サイズとはき心地が大事なスニーカー。評判とサイズ感の口コミで選びましょう。",
+     "keywords": ["スニーカー レディース", "スニーカー メンズ", "厚底スニーカー", "スリッポン"],
+     "a8_genres": ["ファッション"]},
+    {"slug": "outer", "name": "冬アウター（ダウン・コート）", "emoji": "🧥",
+     "lead": "ダウンやコートは、暖かさの目安と丈・重さで選ぶと、冬じゅう活躍します。",
+     "keywords": ["ダウンジャケット レディース", "ダウンジャケット メンズ", "コート レディース 冬", "中綿ジャケット"],
+     "a8_genres": ["ファッション"]},
+    {"slug": "kidswear", "name": "子供服", "emoji": "🧒",
+     "lead": "すぐに大きくなる子供服は、サイズの選び方とまとめ買いの単価がポイントです。",
+     "keywords": ["子供服 トレーナー", "キッズ アウター", "子供服 長袖 セット", "ベビー服 秋冬"],
+     "a8_genres": ["ベビー・キッズ"]},
 ]
 
 MIN_REVIEWS = 20
@@ -370,8 +390,19 @@ GENRE_MUST = {
     "tableware": ["食器", "マグ", "皿", "茶碗", "ボウル", "カップ", "どんぶり", "丼"],
     "bottle": ["水筒", "タンブラー", "ボトル"],
     "inner": ["インナー", "タイツ", "レギンス", "肌着", "ヒートテック"],
+    "hairtool": ["アイロン", "ドライヤー"],
+    "bag": ["バッグ", "リュック", "トート", "ショルダー", "ポーチ"],
+    "sneaker": ["スニーカー", "スリッポン", "シューズ"],
+    "outer": ["ダウン", "コート", "ジャケット", "アウター", "ブルゾン", "中綿"],
+    "kidswear": ["子供服", "キッズ", "ベビー服", "子ども服", "こども服", "ベビー"],
 }
-GENRE_EXCLUDE = {"nabe": ["鍋敷き", "鍋つかみ", "ミトン", "スープ", "つゆ", "セット 肉", "具材", "もつ", "火鍋の素", "レシピ", "天ぷら", "揚げ物", "フライヤー"],
+GENRE_EXCLUDE = {"hairtool": ["衣類", "スチーマー", "アイロン台", "シャツ", "布団", "ケース", "スタンド", "カバー", "収納"],
+                 "bag": ["ゴミ", "ごみ", "ポリ", "収納", "エコバッグ 洗剤", "布団", "保存", "冷凍", "ランドセル", "持ち手", "カバー"],
+                 "sneaker": ["インソール", "靴紐", "シューレース", "洗剤", "防水スプレー", "ラック", "収納", "乾燥機", "ビジネス", "マリン", "革靴"],
+                 "outer": ["ダウンライト", "布団", "掛け", "寝袋", "シュラフ", "毛布", "クリーニング", "ハンガー", "カバー", "ペチコート"],
+                 "kidswear": ["おむつ", "オムツ", "おしりふき", "ミルク", "粉ミルク", "ベビーカー", "チャイルドシート", "ベビーベッド",
+                              "おもちゃ", "絵本", "ランドセル", "シャンプー", "ローション", "ワセリン", "ソープ", "布団", "スタイ 食事"],
+                 "nabe": ["鍋敷き", "鍋つかみ", "ミトン", "スープ", "つゆ", "セット 肉", "具材", "もつ", "火鍋の素", "レシピ", "天ぷら", "揚げ物", "フライヤー"],
                  "frozen": ["冷凍庫", "冷蔵庫", "保存容器", "保存袋", "製氷", "冷凍用"],
                  "tableware": ["カップ麺", "コーヒー豆", "ドリップ", "ブラ", "カップケーキ", "紙皿", "紙コップ", "使い捨て", "フリーズドライ", "茶碗蒸し", "計量"],
                  "bottle": ["ワイン", "焼酎", "日本酒", "ウイスキー", "シャンプー", "化粧", "ミネラルウォーター", "天然水",
@@ -422,7 +453,9 @@ CATEGORIES = [
     {"slug": "appliance", "name": "家電・ガジェット", "emoji": "🔌",
      "genres": ["heater", "cleaner", "kaden", "clothcare", "phone", "pcgear", "ink"]},
     {"slug": "home", "name": "住まい・インテリア", "emoji": "🛋️",
-     "genres": ["sleep", "kitchen", "nabe", "tableware", "bottle", "interior", "storage", "roomwear", "inner"]},
+     "genres": ["sleep", "kitchen", "nabe", "tableware", "bottle", "interior", "storage", "roomwear"]},
+    {"slug": "fashion", "name": "ファッション・美容", "emoji": "👗",
+     "genres": ["outer", "inner", "bag", "sneaker", "hairtool", "kidswear"]},
     {"slug": "season", "name": "レジャー・季節・ギフト", "emoji": "🎁",
      "genres": ["xmas", "outdoor", "bicycle", "bousai", "kairo", "toy", "randoseru", "car", "techo", "gift"]},
 ]
@@ -447,7 +480,8 @@ NAV_SHORT = {"coffee": "コーヒー・お茶", "sleep": "寝具", "kitchen": "�
              "kairo": "カイロ・防寒", "laundry": "洗濯グッズ", "stationery": "文房具",
              "cleaning": "掃除用品", "ink": "プリンターインク", "xmas": "クリスマス", "storage": "衣替え・圧縮袋",
              "seasoning": "調味料・油", "nabe": "鍋・土鍋", "frozen": "冷凍食品", "tableware": "食器",
-             "bottle": "水筒・タンブラー", "inner": "インナー・タイツ"}
+             "bottle": "水筒・タンブラー", "inner": "インナー・タイツ", "hairtool": "ヘアアイロン・ドライヤー",
+             "bag": "バッグ", "sneaker": "スニーカー", "outer": "冬アウター", "kidswear": "子供服"}
 GA4_ID = "G-MJGWNG8KND"
 GA4_TAG = f"""<script async src="https://www.googletagmanager.com/gtag/js?id={GA4_ID}"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}
@@ -1226,6 +1260,7 @@ background:var(--surface);color:var(--ink);cursor:pointer;transition:background 
 .dropboard.empty .db-stats{display:none}
 .slider .swipe{scrollbar-width:none;scroll-behavior:smooth}
 .slider .swipe::-webkit-scrollbar{display:none}
+.badge-ever{background:#1f7a5f;color:#fff}
 @media (prefers-reduced-motion:reduce){
 *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 .js .rv{opacity:1!important;transform:none!important}
@@ -1521,9 +1556,11 @@ def _mini_card(rank: int, it: dict, mode: str) -> str:
     url = E(_buy_url(it))
     was = (f'<s class="was">{_yen(it["reference_price"])}</s>'
            if it.get("reference_price", 0) > it["price"] else "")
+    badge = (f'<span class="badge badge-ever">★{it["reviewAverage"]:.2f}・{it["reviewCount"]:,}件</span>' if mode == "ever"
+             else f'<span class="badge badge-drop">{it["drop_pct"]:.0f}%{"値下がり" if it["drop_pct"] >= DROP_MIN_PCT else "安"}</span>')
     return f"""
 <li class="item mini" id="{mode}-{rank}">
-  <a class="mini-img" href="{url}" {_REL}>{_img(it, 160)}<span class="badge badge-drop">{it["drop_pct"]:.0f}%{"値下がり" if it["drop_pct"] >= DROP_MIN_PCT else "安"}</span></a>
+  <a class="mini-img" href="{url}" {_REL}>{_img(it, 160)}{badge}</a>
   <h3 class="item-name"><a href="{url}" {_REL}>{E(_short_name(it["itemName"], 40))}</a></h3>
   <div class="price-row"><span class="price">{it["price"]:,}<small>円</small></span>{was}</div>
 </li>"""
@@ -1639,6 +1676,15 @@ GENRE_PERSONAS = {
                   ("食器をまとめてそろえたい人に", ["セット"], "食器セット")],
     "bottle": [("子どもに持たせたい人に", ["子供", "キッズ", "子ども"], "子ども用"),
                ("デスクで温かい飲み物を楽しみたい人に", ["タンブラー"], "タンブラー")],
+    "hairtool": [("前髪や短めの髪を整えたい人に", ["ストレート", "ミニ"], "ストレートアイロン"),
+                 ("巻き髪をつくりたい人に", ["カール", "2way", "2WAY"], "カール・2wayアイロン")],
+    "bag": [("通勤・通学でA4を持ち歩く人に", ["A4", "通勤", "リュック"], "A4が入るバッグ"),
+            ("身軽に出かけたい人に", ["ショルダー", "ミニ", "サコッシュ"], "小さめのバッグ")],
+    "sneaker": [("歩く時間が長い人に", ["ウォーキング", "軽量", "幅広"], "軽量・幅広タイプ"),
+                ("着こなしに合わせやすい白スニーカーを探す人に", ["白", "ホワイト"], "白スニーカー")],
+    "outer": [("寒い地域や朝晩の外出が多い人に", ["ダウン"], "ダウン"), ("きれいめに着たい人に", ["コート"], "コート")],
+    "kidswear": [("毎日の着替えをまとめてそろえたい人に", ["セット", "枚組", "福袋"], "セット・まとめ買い"),
+                 ("外遊び用の上着を探している人に", ["アウター", "ジャンパー", "ジャケット"], "子供用アウター")],
     "inner": [("寒い日の外出が多い人に", ["タイツ", "レギンス"], "タイツ・レギンス"),
               ("重ね着をすっきりさせたい人に", ["インナー", "肌着"], "インナー")],
     "seasoning": [("料理に使う油を見直したい人に", ["オイル", "油"], "油"),
@@ -1768,6 +1814,8 @@ GUIDE_EMOJI = {
     "オーナメント": "✨", "圧縮袋": "🧳", "衣替え": "👚", "オリーブオイル": "🫒", "醤油": "🍶", "だし": "🐟",
     "土鍋": "🍲", "IH": "🔥", "冷凍食品の選び方": "🥟", "冷凍庫": "🧊", "食器の選び方": "🍽️", "マグカップ": "☕",
     "水筒": "🥤", "タンブラー": "🫖", "インナー": "👕", "タイツ": "🧦",
+    "ヘアアイロン": "💇", "ドライヤー": "🌬️", "トートバッグ": "👜", "リュック": "🎒", "スニーカーのサイズ": "📏",
+    "スニーカーのお手入れ": "🧼", "ダウンジャケット": "🧥", "コート": "🧣", "子供服のサイズ": "📐", "子供の冬アウター": "🧒",
 }
 # 文字が読みやすい淡い色の組（背景2色・文字色）
 GUIDE_PALETTE = [("#ffe4d3", "#ffc5a6", "#7a2e0e"), ("#dcf3e8", "#b4e2cd", "#145a43"), ("#dfeaff", "#bcd3ff", "#1d4e89"),
@@ -2201,6 +2249,20 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                    + "".join(_guide_card(g, x) for g, x in first_per_genre[:6]) + "</ul></section>") if guides_all else ""
     n_drops = sum(len(v[2]) for v in genre_data.values())
     all_rich = [_enrich(it, hist) for g in GENRES for it in genre_data[g["slug"]][0]]
+    # ほっといても売れている定番：レビュー1万件以上・★4.3以上で、毎日の記録が2週間以上ある商品
+    seen_ev, ever = set(), []
+    for x in sorted(all_rich, key=lambda x: x.get("reviewCount", 0), reverse=True):
+        key = x.get("itemCode") or x.get("itemUrl")
+        if key in seen_ev or x.get("reviewCount", 0) < 10000 or x.get("reviewAverage", 0) < 4.3 or x.get("days", 0) < 14:
+            continue
+        seen_ev.add(key)
+        ever.append(x)
+    ever = ever[:12]
+    evergreen_html = ((f'<section class="section" id="evergreen" aria-labelledby="h-ever"><p class="eyebrow">LONG SELLER</p>'
+                       f'<h2 id="h-ever">ほっといても売れている定番</h2>'
+                       f'<p class="basis">レビュー1万件以上・★4.3以上で、当サイトが2週間以上毎日記録している商品です。'
+                       f'セールを待たなくても選ばれ続けている、失敗の少ない定番です（{updated}更新）。</p>'
+                       + _hscroll(ever, "ever", "") + "</section>") if len(ever) >= 4 else "")
     all_drops = [d for _, d in top_drops]
     hot = sorted(GENRES, key=lambda g: len(genre_data[g["slug"]][2]), reverse=True)
     hot = [g for g in hot if genre_data[g["slug"]][2]][:4]
@@ -2220,6 +2282,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 </div></section>
 <div class="wrap">
 {home_board}
+{evergreen_html}
 <section class="section related" aria-labelledby="h-genres"><p class="eyebrow">CATEGORY</p>
 <h2 id="h-genres">カテゴリから探す</h2>{cards}</section>
 {_discovery_box(_discoveries(all_rich, []), "全ジャンルの価格記録から見つけた発見")}
