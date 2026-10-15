@@ -13,6 +13,7 @@ import html
 import json
 import math
 import os
+import random
 import re
 import time
 from datetime import date, datetime, timedelta
@@ -635,6 +636,12 @@ def _a8_box(genre: dict) -> str:
     links = _a8_links(genre)
     if not links:
         return ""
+    # 多すぎると選べないので4件まで。A8（ジャンルに合わせて登録した案件）を先に、残りは日替わりで入れ替える
+    if len(links) > 4:
+        a8 = [l for l in links if l.get("asp") != "valuecommerce"]
+        vc = [l for l in links if l.get("asp") == "valuecommerce"]
+        random.Random(date.today().isoformat() + genre["slug"]).shuffle(vc)
+        links = (a8 + vc)[:4]
     cards = "".join(_svc_card(l) for l in links)
     return f"""
 <section class="services" id="services" aria-labelledby="h-services">
