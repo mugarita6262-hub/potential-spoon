@@ -5,7 +5,7 @@
 my_room_url: https://room.rakuten.co.jp/room_e36e002876/items
 post_count: 100
 candidate_pool: 150
-post_batch_size: 15
+post_batch_size: 28  # セール期間は目標が1.3倍(最大195件)になるので、8回で届くように
 # 期間限定の上乗せ（削除ジョブの不具合で消えた投稿の取り戻し）。until を過ぎると自動で元の post_count に戻る
 post_boost:
   extra: 50
