@@ -67,6 +67,9 @@ h1{font-size:17px;margin:0 0 6px}
 .feature{background:var(--accent);color:#fff;border:0}
 .feature .text span{color:#fde9da}
 .feature .arrow{color:#fff;opacity:1}
+.sec{font-size:12px;font-weight:700;color:var(--accent-dark);margin:18px 4px 8px;letter-spacing:.06em}
+.thumb{flex:none;width:56px;height:56px;border-radius:10px;object-fit:cover;background:#f4ece2}
+.price{color:var(--accent-dark);font-weight:700}
 .pr{text-align:center;font-size:10.5px;color:var(--muted);margin:20px 18px 0;
     padding-top:16px;border-top:1px solid var(--line)}
 </style>
@@ -93,8 +96,63 @@ _SITE_CARD = (
 )
 
 
-def render(items: list[dict]) -> str:
+def _recent_cards(recent: list[dict]) -> list[str]:
+    """最近Instagramで紹介した楽天の商品（新しい順）。投稿の「プロフィールのリンクから」の行き先。"""
+    out = []
+    for it in recent:
+        url, name = (it.get("url") or "").strip(), (it.get("name") or "").strip()
+        if not url or not name:
+            continue
+        img = f'<img class="thumb" src="{it["img"]}" alt="" loading="lazy">' if it.get("img") else '<span class="emoji">🛍️</span>'
+        price = f'<span class="price">{int(it["price"]):,}円</span>' if it.get("price") else ""
+        day = (it.get("posted_at") or "")[5:10].replace("-", "/")
+        out.append(
+            f'<a class="card" href="{url}" target="_blank" rel="noopener nofollow sponsored">{img}'
+            f'<span class="text"><b>{name[:60]}</b><span>{price}{"　" + day + " の投稿" if day else ""}</span></span>'
+            f'<span class="arrow">›</span></a>')
+    return out
+
+
+def recent_instagram_items(api, n: int = 12) -> list[dict]:
+    """sns_posted.json のInstagram投稿から、まとめページに出す商品情報を作る（アフィリリンク・画像・価格）。
+    楽天APIで引いた結果は data/ig_bio_cache.json に残して、毎回引き直さない。"""
+    import json
+    from .config import DATA_DIR
+    from .sns_posted_log import load_posted
+    cache_file = DATA_DIR / "ig_bio_cache.json"
+    try:
+        cache = json.loads(cache_file.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        cache = {}
+    posts = [x for x in load_posted() if x.get("platform") == "instagram" and x.get("itemCode")][::-1]
+    out, seen = [], set()
+    for x in posts:
+        code = x["itemCode"]
+        if code in seen:
+            continue
+        seen.add(code)
+        if code not in cache:
+            try:
+                it = api.lookup_by_code(code)
+            except Exception:  # noqa: BLE001
+                it = None
+            cache[code] = ({"name": it["itemName"], "url": it.get("affiliateUrl") or it["itemUrl"],
+                            "img": it.get("imageUrl", ""), "price": it.get("price", 0)} if it else {})
+        if cache[code]:
+            out.append({**cache[code], "posted_at": x.get("posted_at", "")})
+        if len(out) >= n:
+            break
+    cache_file.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+    return out
+
+
+def render(items: list[dict], recent: list[dict] | None = None) -> str:
     cards = [_SITE_CARD]
+    rc = _recent_cards(recent or [])
+    if rc:
+        cards.append('<p class="sec">最近Instagramで紹介した商品</p>')
+        cards += rc
+        cards.append('<p class="sec">おすすめのサービス</p>')
     for it in items:
         name = (it.get("site_name") or it.get("program_name") or it.get("itemName") or "").strip()
         note = (it.get("site_note") or it.get("note") or "").strip()
@@ -113,10 +171,10 @@ def render(items: list[dict]) -> str:
     return _HEAD + body + _FOOT
 
 
-def update_bio_page(items: list[dict]) -> bool:
+def update_bio_page(items: list[dict], recent: list[dict] | None = None) -> bool:
     """更新に成功したらTrue、配信先ディレクトリが無い（＝ローカル実行）場合はFalseを返す。"""
     if not BIO_PAGE_DIR.parent.exists():
         return False
     BIO_PAGE_DIR.mkdir(parents=True, exist_ok=True)
-    (BIO_PAGE_DIR / "index.html").write_text(render(items), encoding="utf-8")
+    (BIO_PAGE_DIR / "index.html").write_text(render(items, recent), encoding="utf-8")
     return True

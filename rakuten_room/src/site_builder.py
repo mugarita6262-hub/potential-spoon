@@ -242,6 +242,26 @@ GENRES = [
      "lead": "ライト・ロック・ヘルメット・空気入れ。毎日の自転車を安全で快適にする用品をまとめました。",
      "keywords": ["自転車 ライト 充電式", "自転車 ロック", "自転車 ヘルメット 大人", "自転車 空気入れ"],
      "a8_genres": ["自転車"]},
+    {"slug": "wallet", "name": "財布・キーケース", "emoji": "👛",
+     "lead": "毎日持ち歩く財布は、入れる物の量と、バッグの大きさで選ぶのがコツです。",
+     "keywords": ["財布 レディース 二つ折り", "ミニ財布", "長財布 メンズ", "キーケース"],
+     "a8_genres": ["ファッション"]},
+    {"slug": "watch", "name": "腕時計", "emoji": "⌚",
+     "lead": "電池交換がいらないソーラーや、時刻が合う電波時計など、仕組みで選ぶと長く使えます。",
+     "keywords": ["腕時計 メンズ ソーラー", "腕時計 レディース", "電波時計 腕時計", "腕時計 防水"],
+     "a8_genres": ["ファッション"]},
+    {"slug": "lighting", "name": "照明・電球", "emoji": "💡",
+     "lead": "部屋の明るさは、畳数に合った照明と、光の色で決まります。",
+     "keywords": ["シーリングライト 6畳", "シーリングライト 調光調色", "LED電球 E26", "ペンダントライト"],
+     "a8_genres": ["インテリア・収納"]},
+    {"slug": "desk", "name": "デスク・チェア", "emoji": "🪑",
+     "lead": "在宅ワークや勉強の机と椅子は、置き場所の寸法と、座る時間の長さで選びましょう。",
+     "keywords": ["パソコンデスク", "昇降デスク", "オフィスチェア", "デスクチェア 在宅"],
+     "a8_genres": ["インテリア・収納"]},
+    {"slug": "kidsbike", "name": "子ども用自転車・キックバイク", "emoji": "🚲",
+     "lead": "子どもの自転車は、インチ（タイヤの大きさ）を身長に合わせて選ぶのが基本です。",
+     "keywords": ["子供用自転車 16インチ", "子供用自転車 20インチ", "キックバイク", "ストライダー"],
+     "a8_genres": ["自転車"]},
 ]
 
 MIN_REVIEWS = 20
@@ -400,10 +420,22 @@ GENRE_MUST = {
     "sneaker": ["スニーカー", "スリッポン", "シューズ"],
     "outer": ["ダウン", "コート", "ジャケット", "アウター", "ブルゾン", "中綿"],
     "kidswear": ["子供服", "キッズ", "ベビー服", "子ども服", "こども服", "ベビー"],
+    "wallet": ["財布", "キーケース", "コインケース", "カードケース", "札入れ"],
+    "watch": ["腕時計", "ウォッチ"],
+    "lighting": ["シーリング", "ライト", "照明", "電球", "ランプ"],
+    "desk": ["デスク", "チェア", "机", "椅子"],
+    "kidsbike": ["子供用自転車", "子ども用自転車", "キッズ", "幼児用", "キックバイク", "ストライダー", "バランスバイク", "インチ"],
     "cyclegear": ["ライト", "ロック", "鍵", "ヘルメット", "空気入れ", "ポンプ", "チューブ", "サドル", "グローブ", "スタンド",
                   "カゴ", "バスケット", "サイクルコンピューター", "ボトルケージ", "泥除け"],
 }
-GENRE_EXCLUDE = {"cyclegear": ["インチ 自転車 本体", "変速", "電動アシスト自転車", "ママチャリ", "シティサイクル", "クロスバイク",
+GENRE_EXCLUDE = {"wallet": ["スマホケース", "手帳型", "iPhone", "バッグ"],
+                 "watch": ["スマートウォッチ", "アップルウォッチ", "Apple Watch", "バンド", "ベルト 交換", "保護フィルム", "ケース", "目覚まし", "置き時計", "掛け時計"],
+                 "lighting": ["自転車", "懐中電灯", "ヘッドライト", "キャンプ", "ランタン", "車", "バイク", "イルミネーション",
+                              "クリスマス", "水槽", "植物", "ライトスタンド 撮影", "リングライト"],
+                 "desk": ["ランプ", "ライト", "マット", "ダイニング", "キャスター 交換", "座椅子", "カバー", "クッション", "ゲーム機"],
+                 "kidsbike": ["ヘルメット", "ライト", "ロック", "空気入れ", "電動アシスト", "大人用", "26インチ", "27インチ",
+                              "ロードバイク", "クロスバイク", "テレビ", "モニター", "スーツケース"],
+                 "cyclegear": ["インチ 自転車 本体", "変速", "電動アシスト自転車", "ママチャリ", "シティサイクル", "クロスバイク",
                                "ロードバイク 本体", "子供用自転車", "バイク用", "オートバイ", "原付", "スクーター", "車用",
                                "LEDライト 室内", "シーリング", "懐中電灯", "キャンプ", "ヘッドライト", "三輪車", "バイクロック",
                                "バイク ロック", "バイク用", "ヘッドランプ"],
@@ -464,11 +496,11 @@ CATEGORIES = [
     {"slug": "appliance", "name": "家電・ガジェット", "emoji": "🔌",
      "genres": ["heater", "cleaner", "kaden", "clothcare", "phone", "pcgear", "ink"]},
     {"slug": "home", "name": "住まい・インテリア", "emoji": "🛋️",
-     "genres": ["sleep", "kitchen", "nabe", "tableware", "bottle", "interior", "storage", "roomwear"]},
+     "genres": ["sleep", "kitchen", "nabe", "tableware", "bottle", "interior", "lighting", "desk", "storage", "roomwear"]},
     {"slug": "fashion", "name": "ファッション・美容", "emoji": "👗",
-     "genres": ["outer", "inner", "bag", "sneaker", "hairtool", "kidswear"]},
+     "genres": ["outer", "inner", "bag", "wallet", "watch", "sneaker", "hairtool", "kidswear"]},
     {"slug": "season", "name": "レジャー・季節・ギフト", "emoji": "🎁",
-     "genres": ["xmas", "outdoor", "bicycle", "cyclegear", "bousai", "kairo", "toy", "randoseru", "car", "techo", "gift"]},
+     "genres": ["xmas", "outdoor", "bicycle", "cyclegear", "kidsbike", "bousai", "kairo", "toy", "randoseru", "car", "techo", "gift"]},
 ]
 _assigned = [s for c in CATEGORIES for s in c["genres"]]
 assert sorted(_assigned) == sorted(g["slug"] for g in GENRES), "カテゴリに入っていないジャンルがある"
@@ -493,7 +525,8 @@ NAV_SHORT = {"coffee": "コーヒー・お茶", "sleep": "寝具", "kitchen": "�
              "seasoning": "調味料・油", "nabe": "鍋・土鍋", "frozen": "冷凍食品", "tableware": "食器",
              "bottle": "水筒・タンブラー", "inner": "インナー・タイツ", "hairtool": "ヘアアイロン・ドライヤー",
              "bag": "バッグ", "sneaker": "スニーカー", "outer": "冬アウター", "kidswear": "子供服",
-             "cyclegear": "自転車用品"}
+             "cyclegear": "自転車用品", "wallet": "財布", "watch": "腕時計", "lighting": "照明", "desk": "デスク・チェア",
+             "kidsbike": "子ども用自転車"}
 GA4_ID = "G-MJGWNG8KND"
 GA4_TAG = f"""<script async src="https://www.googletagmanager.com/gtag/js?id={GA4_ID}"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}
@@ -1604,6 +1637,37 @@ def _rank_list(items: list[dict], mode: str, empty: str) -> str:
     return f'<div class="ranklist">{bar}<div class="rank-default">{html_}</div><ol class="rows rank-sorted" hidden>{alt}</ol></div>'
 
 
+def _instagram_strip() -> str:
+    """トップの「Instagramで紹介中の商品」。Instagramのプロフィールのリンク（買い時ナビ）から来た人が、
+    投稿で見た商品にすぐたどり着けるように（2026-10-16）。商品情報はInstagramの投稿ジョブが ig_bio_cache.json に残す。"""
+    try:
+        cache = json.loads((DATA_DIR / "ig_bio_cache.json").read_text(encoding="utf-8"))
+        posts = json.loads((DATA_DIR / "sns_posted.json").read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return ""
+    seen, cards = set(), []
+    for x in reversed(posts):
+        code = x.get("itemCode")
+        if x.get("platform") != "instagram" or not code or code in seen or not cache.get(code):
+            continue
+        seen.add(code)
+        c = cache[code]
+        day = (x.get("posted_at") or "")[5:10].replace("-", "/")
+        img = f'<img src="{E(_thumb(c["img"], 160))}" alt="" loading="lazy" width="160" height="160">' if c.get("img") else ""
+        cards.append(f'<li class="item mini"><a class="mini-img" href="{E(c["url"])}" {_REL}>{img}'
+                     f'<span class="badge badge-ever">{day} の投稿</span></a>'
+                     f'<h3 class="item-name"><a href="{E(c["url"])}" {_REL}>{E(_short_name(c["name"], 40))}</a></h3>'
+                     f'<div class="price-row"><span class="price">{int(c.get("price") or 0):,}<small>円</small></span></div></li>')
+        if len(cards) >= 12:
+            break
+    if not cards:
+        return ""
+    return ('<section class="section insta" id="instagram" aria-labelledby="h-insta"><p class="eyebrow">INSTAGRAM</p>'
+            '<h2 id="h-insta">Instagramで紹介中の商品</h2>'
+            '<p class="basis">Instagram（@aki.h190）の投稿で紹介した商品です。新しい順に並べています。</p>'
+            '<ol class="hscroll">' + "".join(cards) + "</ol></section>")
+
+
 def _hscroll(items: list[dict], mode: str, empty: str) -> str:
     if not items:
         return f'<div class="panel"><p class="empty">{empty}</p></div>'
@@ -1694,6 +1758,13 @@ GENRE_PERSONAS = {
                   ("食器をまとめてそろえたい人に", ["セット"], "食器セット")],
     "bottle": [("子どもに持たせたい人に", ["子供", "キッズ", "子ども"], "子ども用"),
                ("デスクで温かい飲み物を楽しみたい人に", ["タンブラー"], "タンブラー")],
+    "wallet": [("キャッシュレス中心で身軽にしたい人に", ["ミニ", "コンパクト", "薄型"], "ミニ財布"),
+               ("お札を折らずに入れたい人に", ["長財布"], "長財布")],
+    "watch": [("電池交換の手間を減らしたい人に", ["ソーラー"], "ソーラー"), ("時刻を合わせる手間を省きたい人に", ["電波"], "電波時計")],
+    "lighting": [("部屋全体を明るくしたい人に", ["シーリング"], "シーリングライト"), ("電球だけ替えたい人に", ["電球"], "LED電球")],
+    "desk": [("立って作業もしたい人に", ["昇降"], "昇降デスク"), ("座る時間が長い人に", ["チェア", "椅子"], "チェア")],
+    "kidsbike": [("はじめての乗り物を探している人に", ["キックバイク", "ストライダー", "バランスバイク"], "キックバイク"),
+                 ("補助輪から始めたい人に", ["補助輪"], "補助輪付き")],
     "cyclegear": [("夜道を走ることが多い人に", ["ライト"], "ライト"),
                   ("駐輪中の盗難が心配な人に", ["ロック", "鍵"], "ロック")],
     "hairtool": [("前髪や短めの髪を整えたい人に", ["ストレート", "ミニ"], "ストレートアイロン"),
@@ -1834,7 +1905,8 @@ GUIDE_EMOJI = {
     "オーナメント": "✨", "圧縮袋": "🧳", "衣替え": "👚", "オリーブオイル": "🫒", "醤油": "🍶", "だし": "🐟",
     "土鍋": "🍲", "IH": "🔥", "冷凍食品の選び方": "🥟", "冷凍庫": "🧊", "食器の選び方": "🍽️", "マグカップ": "☕",
     "水筒": "🥤", "タンブラー": "🫖", "インナー": "👕", "タイツ": "🧦",
-    "自転車用ヘルメット": "⛑️", "自転車のライトとロック": "🔦", "ヘアアイロン": "💇", "ドライヤー": "🌬️", "トートバッグ": "👜", "リュック": "🎒", "スニーカーのサイズ": "📏",
+    "財布の選び方": "👛", "革財布": "🧴", "腕時計の選び方": "⌚", "ベルト": "🔗", "シーリングライト": "💡", "LED電球": "🔆",
+    "デスク": "🖥️", "チェア": "🪑", "子ども用自転車": "🚲", "キックバイク": "🛴", "自転車用ヘルメット": "⛑️", "自転車のライトとロック": "🔦", "ヘアアイロン": "💇", "ドライヤー": "🌬️", "トートバッグ": "👜", "リュック": "🎒", "スニーカーのサイズ": "📏",
     "スニーカーのお手入れ": "🧼", "ダウンジャケット": "🧥", "コート": "🧣", "子供服のサイズ": "📐", "子供の冬アウター": "🧒",
 }
 # 文字が読みやすい淡い色の組（背景2色・文字色）
@@ -2301,6 +2373,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 <div class="chips"><span class="chip"><b>{total_items}</b>商品を記録中</span><span class="chip"><b>{n_drops}</b>件が値下がり中</span><span class="chip">毎朝更新</span></div>
 </div></section>
 <div class="wrap">
+{_instagram_strip()}
 {home_board}
 {evergreen_html}
 <section class="section related" aria-labelledby="h-genres"><p class="eyebrow">CATEGORY</p>

@@ -880,7 +880,7 @@ def cmd_instagram(cfg: dict) -> None:
     import random
 
     from .a8_selector import load_links
-    from .bio_link_page import update_bio_page
+    from .bio_link_page import recent_instagram_items, update_bio_page
     from .instagram_captions import build_instagram_post_text, generate_instagram_caption
     from .instagram_poster import post_to_instagram
     from .rakuten_api import RakutenAPI
@@ -932,7 +932,7 @@ def cmd_instagram(cfg: dict) -> None:
 
     # プロフィールのリンクインバイオページを最新のA8リンクで更新
     try:
-        if update_bio_page(load_links()):
+        if update_bio_page(load_links(), recent_instagram_items(api)):
             print("  リンクインバイオページを更新しました。")
     except Exception as exc:  # noqa: BLE001
         print(f"  リンクインバイオページの更新に失敗（無視して続行）: {exc}")
