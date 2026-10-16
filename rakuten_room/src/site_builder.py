@@ -1312,6 +1312,19 @@ background:var(--surface);color:var(--ink);cursor:pointer;transition:background 
 .slider .swipe{scrollbar-width:none;scroll-behavior:smooth}
 .slider .swipe::-webkit-scrollbar{display:none}
 .badge-ever{background:#1f7a5f;color:#fff}
+/* 価格推移ページ */
+.pchart{width:100%;height:auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:8px}
+.pc-line{fill:none;stroke:var(--brand);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.pc-avg{stroke:var(--muted);stroke-dasharray:4 4;stroke-width:1}
+.pc-dot{fill:var(--brand)}
+.pc-lab{font-size:11px;fill:var(--muted)}
+.back-link{margin:24px 0;font-weight:700}
+.price-note{display:flex;flex-direction:column;gap:6px;margin:20px 0;padding:14px 16px;border-radius:14px;background:var(--brand-soft);
+border:1px solid #f3d3c0;font-size:14px;line-height:1.7}
+.price-note b{color:var(--brand-dark)}
+.price-note a{font-weight:700}
+.pc-bar{fill:var(--brand);opacity:.85}
+.ptbl table{min-width:0}.ptbl td,.ptbl th{padding:10px 10px}
 @media (prefers-reduced-motion:reduce){
 *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 .js .rv{opacity:1!important;transform:none!important}
@@ -2037,6 +2050,188 @@ def _discoveries(rich: list[dict], popular: list[dict]) -> list[str]:
     return out
 
 
+def _price_stats(rich: list[dict]) -> dict | None:
+    """ジャンルの価格の動きを、毎日の記録から集計する（2026-10-16 追加）。
+    商品ごとに「その商品の平均価格に対する比率」にそろえてから日ごとの中央値をとる（値段の違う商品を混ぜても動きが見える）。
+    記録が少なく言い切れないジャンルは None。"""
+    from collections import defaultdict
+    from statistics import mean, median
+    tracked = [x for x in rich if x.get("days", 0) >= 7 and x.get("history")]
+    if len(tracked) < 15:
+        return None
+    by_date, by_wd, fz, ot = defaultdict(list), defaultdict(list), [], []
+    for x in tracked:
+        m = mean(r["price"] for r in x["history"])
+        if not m:
+            continue
+        for r in x["history"]:
+            ratio = r["price"] / m
+            by_date[r["date"]].append(ratio)
+            d = date.fromisoformat(r["date"])
+            by_wd[d.weekday()].append(ratio)
+            (fz if d.day % 5 == 0 else ot).append(ratio)
+    series = [(d, median(v)) for d, v in sorted(by_date.items()) if len(v) >= 10]
+    if len(series) < 10:
+        return None
+    avg = mean(v for _, v in series)
+    cur = series[-1][1]
+    lo = min(series, key=lambda s: s[1])
+    wd = {k: (mean(v) - 1) * 100 for k, v in by_wd.items() if len(v) >= 30}
+    # 日ごとの「値下がり中の商品の割合」（その日の値段が、直近30日の最高値より5%以上安い商品）
+    dcount, dtotal = defaultdict(int), defaultdict(int)
+    for x in tracked:
+        hist_ = x["history"]
+        for i, r in enumerate(hist_):
+            d = date.fromisoformat(r["date"])
+            past = [q["price"] for q in hist_[: i + 1] if (d - date.fromisoformat(q["date"])).days <= 30]
+            dtotal[r["date"]] += 1
+            if past and r["price"] <= max(past) * 0.95:
+                dcount[r["date"]] += 1
+    drop_series = [(d, dcount[d] / n * 100) for d, n in sorted(dtotal.items()) if n >= 10]
+    swing = []
+    for x in tracked:
+        prices = [r["price"] for r in x["history"]]
+        hi, lw = max(prices), min(prices)
+        if hi > lw and prices.count(hi) >= 2 and prices.count(lw) >= 2 and 5 <= (hi - lw) / hi * 100 <= 45:
+            swing.append(((hi - lw) / hi * 100, x))
+    swing.sort(key=lambda s: -s[0])
+    return {
+        "series": series, "avg": avg, "drop_series": drop_series, "now_pct": (cur - avg) / avg * 100, "low_day": lo[0],
+        "low_pct": (lo[1] - avg) / avg * 100, "first": series[0][0], "days": len(series), "items": len(tracked),
+        # 曜日・5と0の日の傾向は、4週間分以上の記録がないと偶然の差と区別できないので出さない
+        "wd": wd if len(wd) == 7 and len(series) >= 28 and (max(wd.values()) - min(wd.values())) >= 0.6 else {},
+        "fz_pct": ((mean(fz) / mean(ot) - 1) * 100) if len(series) >= 28 and len(fz) >= 50 and len(ot) >= 150 else None,
+        # 値段がずっと同じ商品は「最安値」に数えない（値段が動いたうえで、いまがいちばん安いもの）
+        "at_low": [x for x in tracked if x["price"] <= x["low"] and x["high"] >= x["low"] * 1.03],
+        "swing": swing[:6],
+    }
+
+
+def _price_verdict(now_pct: float) -> str:
+    if now_pct <= -1:
+        return f"今は記録期間の平均より{-now_pct:.1f}%安く、買い時寄りの水準です。"
+    if now_pct >= 1:
+        return f"今は記録期間の平均より{now_pct:.1f}%高めです。急ぎでなければ、値下がり中の商品から選ぶか様子を見るのがおすすめです。"
+    return "今は記録期間の平均とほぼ同じ、ふだんどおりの水準です。"
+
+
+def _drop_chart(series: list) -> str:
+    """日ごとの値下がり中の商品の割合（棒グラフ、SVG）。"""
+    w, h, pl, pr, pt, pb = 640, 220, 40, 12, 14, 30
+    vals = [v for _, v in series]
+    top = max(5.0, max(vals) * 1.15)
+    bw = (w - pl - pr) / len(vals)
+    bars = "".join(
+        f'<rect x="{pl + i * bw + bw * 0.15:.1f}" y="{pt + (top - v) / top * (h - pt - pb):.1f}" width="{bw * 0.7:.1f}" '
+        f'height="{v / top * (h - pt - pb):.1f}" class="pc-bar"><title>{series[i][0][5:].replace("-", "/")}: {v:.0f}%</title></rect>'
+        for i, v in enumerate(vals))
+    d0, d1 = series[0][0][5:].replace("-", "/"), series[-1][0][5:].replace("-", "/")
+    return (f'<svg class="pchart" viewBox="0 0 {w} {h}" role="img" aria-label="値下がり中の商品の割合の推移">'
+            f'<line x1="{pl}" y1="{h - pb}" x2="{w - pr}" y2="{h - pb}" class="pc-avg"/>{bars}'
+            f'<text x="{pl - 6}" y="{pt + 8}" class="pc-lab" text-anchor="end">{top:.0f}%</text>'
+            f'<text x="{pl - 6}" y="{h - pb}" class="pc-lab" text-anchor="end">0%</text>'
+            f'<text x="{pl}" y="{h - 8}" class="pc-lab">{d0}</text>'
+            f'<text x="{w - pr}" y="{h - 8}" class="pc-lab" text-anchor="end">{d1}</text></svg>')
+
+
+def _price_chart(series: list, avg: float) -> str:
+    """日ごとの価格指数（平均=0%）の折れ線グラフ（SVG）。"""
+    w, h, pl, pr, pt, pb = 640, 220, 44, 12, 14, 30
+    vals = [(v - avg) / avg * 100 for _, v in series]
+    lo, hi = min(vals + [-1]), max(vals + [1])
+    span = hi - lo or 1
+    xs = [pl + i * (w - pl - pr) / max(1, len(vals) - 1) for i in range(len(vals))]
+    ys = [pt + (hi - v) / span * (h - pt - pb) for v in vals]
+    y0 = pt + hi / span * (h - pt - pb)
+    pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
+    d0, d1 = series[0][0][5:].replace("-", "/"), series[-1][0][5:].replace("-", "/")
+    return (f'<svg class="pchart" viewBox="0 0 {w} {h}" role="img" aria-label="価格指数の推移（平均を0%とした変化）">'
+            f'<line x1="{pl}" y1="{y0:.1f}" x2="{w - pr}" y2="{y0:.1f}" class="pc-avg"/>'
+            f'<text x="{pl - 6}" y="{y0 + 4:.1f}" class="pc-lab" text-anchor="end">平均</text>'
+            f'<text x="{pl - 6}" y="{pt + 8}" class="pc-lab" text-anchor="end">+{hi:.1f}%</text>'
+            f'<text x="{pl - 6}" y="{h - pb}" class="pc-lab" text-anchor="end">{lo:.1f}%</text>'
+            f'<polyline points="{pts}" class="pc-line"/>'
+            f'<circle cx="{xs[-1]:.1f}" cy="{ys[-1]:.1f}" r="4" class="pc-dot"/>'
+            f'<text x="{pl}" y="{h - 8}" class="pc-lab">{d0}</text>'
+            f'<text x="{w - pr}" y="{h - 8}" class="pc-lab" text-anchor="end">{d1}</text></svg>')
+
+
+def _price_page(g: dict, st: dict, popular: list[dict], updated: str, path: str, crumbs: str) -> tuple[str, list[tuple[str, str]], str]:
+    name = g["name"]
+    bullets = [_price_verdict(st["now_pct"])]
+    if st["low_pct"] <= -0.5:
+        bullets.append(f"記録した中でいちばん安かったのは{st['low_day'][5:].replace('-', '/')}で、平均より{-st['low_pct']:.1f}%安い水準でした。")
+    else:
+        bullets.append(f"記録した{st['days']}日間、ジャンル全体では大きな値動きはありませんでした。値段が動くのは個別の商品です（下の表）。")
+    wd_line = ""
+    if st["wd"]:
+        cheap = min(st["wd"], key=st["wd"].get)
+        diff = st["wd"][cheap] - sum(st["wd"].values()) / 7
+        if diff <= -0.3:
+            wd_line = f"曜日別では{_WD[cheap]}曜日がほかの曜日より平均{-diff:.1f}%安い傾向がありました。"
+            bullets.append(wd_line)
+    if st["fz_pct"] is not None and abs(st["fz_pct"]) >= 0.3:
+        bullets.append(f"楽天の「5と0のつく日」は、ほかの日より商品の値段が平均{abs(st['fz_pct']):.1f}%"
+                       f"{'安く' if st['fz_pct'] < 0 else '高く'}なっていました（ポイント分は別）。")
+    if st["at_low"]:
+        bullets.append(f"値段が動いたうえで、いま記録上の最安値になっている商品は{len(st['at_low'])}件（記録中{st['items']}件のうち）です。")
+    if not st["wd"] and st["days"] >= 28:
+        bullets.append(f"曜日による値段の差は、ほとんどありませんでした（{st['days']}日分の記録）。")
+    elif not st["wd"]:
+        bullets.append(f"記録はまだ{st['days']}日分です。曜日ごとの傾向は、4週間分たまってからこのページに追加します。")
+    concl = ("".join(f"<li>{E(b)}</li>" for b in bullets))
+    wd_rows = ""
+    if st["wd"]:
+        base = sum(st["wd"].values()) / 7
+        wd_rows = ('<section class="section ptbl" aria-labelledby="h-wd"><p class="eyebrow">WEEKDAY</p><h2 id="h-wd">曜日ごとの値段の傾向</h2>'
+                   '<p class="basis">各曜日の値段を、7曜日の平均と比べた差です。マイナスほど安い曜日です。</p>'
+                   '<div class="table-wrap"><table><thead><tr><th>曜日</th><th>平均との差</th></tr></thead><tbody>'
+                   + "".join(f"<tr><td>{_WD[k]}曜日</td><td class=\"num\">{st['wd'][k] - base:+.1f}%</td></tr>" for k in range(7))
+                   + "</tbody></table></div></section>")
+    sw = ""
+    if st["swing"]:
+        rows = "".join(
+            f'<tr><td><a href="{E(_buy_url(x))}" {_REL}>{E(_short_name(x["itemName"], 34))}</a></td>'
+            f'<td class="num">{_yen(x["high"])}</td><td class="num">{_yen(x["low"])}</td>'
+            f'<td class="num">{pct:.0f}%</td></tr>' for pct, x in st["swing"])
+        sw = ('<section class="section ptbl" aria-labelledby="h-sw"><p class="eyebrow">PRICE SWING</p><h2 id="h-sw">値段の動きが大きい商品</h2>'
+              '<p class="basis">同じ商品でも、買う日によってこれだけ値段が変わりました（最高値・最安値はそれぞれ2日以上記録したもの）。</p>'
+              '<div class="table-wrap"><table><thead><tr><th>商品</th><th>最高</th><th>最安</th><th>差</th></tr></thead>'
+              f'<tbody>{rows}</tbody></table></div></section>')
+    lows = st["at_low"]
+    low_html = ""
+    if lows:
+        low_html = ('<section class="section" aria-labelledby="h-low"><p class="eyebrow">RECORD LOW</p>'
+                    f'<h2 id="h-low">いま記録上の最安値の{E(name)}</h2>'
+                    '<p class="basis">当サイトが記録を始めてから、いちばん安い値段になっている商品です。</p>'
+                    + _hscroll(sorted(lows, key=_popularity, reverse=True)[:10], "low", "") + "</section>")
+    qas = [(f"{name}はいつ買うのが安い？",
+            (wd_line or "曜日による差は、記録がたまりしだい（4週間分以上）このページで紹介します。")
+            + (f"記録した中では{st['low_day'][5:].replace('-', '/')}がいちばん安い水準でした。" if st["low_pct"] <= -0.5 else "")
+            + "ジャンル全体より個別の商品の値動きが大きいので、値下がり中の商品をチェックするのがおすすめです。"),
+           (f"今は{name}の買い時？", _price_verdict(st["now_pct"]) + f"（{updated}時点の記録）"),
+           ("価格はどうやって記録している？",
+            f"楽天市場の{name}の商品価格を毎日記録しています。値段の違う商品を比べられるよう、商品ごとの平均価格に対する比率にそろえ、日ごとの中央値を出しています。")]
+    faq_html, faq_ld = _faq([(q, a.replace("[値下がり状況]", "値下がり状況")) for q, a in qas])
+    body = f"""
+<section class="banner" style="background-image:url('/img/{GENRE_IMG.get(g["slug"], "hero")}.jpg')"><div class="wrap">
+{crumbs}<h1>{E(name)}の値段はいつ安い？価格推移と買い時</h1>
+<p>当サイトが{st["first"][5:].replace("-", "/")}から毎日記録している{E(name)}{st["items"]}商品の価格から、値段の動きと安くなりやすい時期をまとめました。</p></div></section>
+<div class="wrap">
+<section class="summary" aria-labelledby="h-summary"><h2 id="h-summary">結論：{E(updated)}時点の{E(name)}の値段</h2><ul>{concl}</ul>
+<span class="stamp">対象：{st["items"]}商品・{st["days"]}日分の記録</span></section>
+<section class="section" aria-labelledby="h-chart"><p class="eyebrow">TREND</p><h2 id="h-chart">値下がり中の{E(name)}の割合</h2>
+<p class="basis">毎日、記録中の商品のうち「直近30日の最高値より5%以上安い」商品が何%あったかを示しています。棒が高い日ほど、安くなっている商品が多い日です。</p>{_drop_chart(st["drop_series"])}</section>
+{wd_rows}
+{low_html}
+{sw}
+<p class="back-link"><a href="/{g["slug"]}/">→ {E(name)}の値下がり・評判ランキングを見る</a></p>
+{faq_html}
+</div>"""
+    desc = f"{name}の値段はいつ安い？毎日の価格記録から、価格の推移・安くなりやすい曜日・いまの値段の水準をまとめました。{_price_verdict(st['now_pct'])}"
+    return body, faq_ld, desc
+
+
 def _discovery_box(items: list[str], title: str = "毎日の記録から見つけた発見") -> str:
     if not items:
         return ""
@@ -2151,6 +2346,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
         yahoo_data[g["slug"]] = ypop
 
     # ---- ジャンルページ
+    price_pages: list = []
     for g in GENRES:
         items, popular, drops = genre_data[g["slug"]]
         path = f"/{g['slug']}/"
@@ -2178,8 +2374,12 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
   <div id="tab-yahoo" class="tabpane" hidden>{_rank_list(ypop, "yahoo", "データを準備中です。")}</div>"""
         else:
             ranking_body = _rank_list(popular, "pop", "データを準備中です。")
+        pstats = _price_stats(rich)
         pills = ['<a href="#drops">値下がり状況</a>', '<a href="#picks">こんな人に</a>',
                  '<a href="#ranking">評判ランキング</a>', '<a href="#compare">比較表</a>']
+        if pstats:
+            pills.insert(1, f'<a href="{path}price/">価格推移・買い時</a>')
+            price_pages.append((g, pstats))
         if guides:
             pills.append('<a href="#guides">選び方ガイド</a>')
         pills.append('<a href="#faq">よくある質問</a>')
@@ -2230,6 +2430,21 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                            path, current=g["slug"], og_image=f"/img/{img}.jpg", ld=ld))
         pages += 1
 
+        # ---- 価格推移・買い時ページ
+        if pstats:
+            ppath = f"{path}price/"
+            crumbs_p, crumbs_p_ld = _breadcrumb([("ホーム", "/"), (cat["name"], f"/c/{cat['slug']}/"),
+                                                 (f"{g['name']}の買い時", path), ("価格推移・買い時", ppath)])
+            pbody, pfaq_ld, pdesc = _price_page(g, pstats, popular, updated, ppath, crumbs_p)
+            pld = _jsonld(crumbs_p_ld, pfaq_ld, {"@context": "https://schema.org", "@type": "Article",
+                                                 "headline": f"{g['name']}の値段はいつ安い？価格推移と買い時",
+                                                 "dateModified": today, "datePublished": today,
+                                                 "mainEntityOfPage": f"{SITE_URL}{ppath}", "author": AUTHOR,
+                                                 "publisher": PUBLISHER, "image": f"{SITE_URL}/img/{img}.jpg"})
+            _write(ppath, _page(f"{g['name']}はいつ安い？価格推移と買い時【{now.year}年{now.month}月】", pbody, pdesc,
+                                ppath, current=g["slug"], og_image=f"/img/{img}.jpg", ld=pld, og_type="article"))
+            pages += 1
+
         # ---- ガイド記事
         for x in guides:
             apath = f"{path}{x['slug']}/"
@@ -2254,6 +2469,8 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 {toc_html}
 {art_html}
 </article>
+{(f'<aside class="price-note"><b>{E(g["name"])}の価格データ</b>{E(_price_verdict(pstats["now_pct"]))}'
+  f'<a href="{path}price/">価格推移と安くなりやすい時期を見る →</a></aside>') if pstats else ""}
 {_a8_box(g)}
 <section class="section" aria-labelledby="h-rel"><h2 id="h-rel">いま評判の良い{E(g["name"])} TOP5</h2>
 <p class="basis">{updated}更新。詳しくは<a href="{path}#ranking">{E(g["name"])}の評判ランキング</a>へ。</p>
@@ -2480,6 +2697,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
     urls = ([("/", today), ("/about/", ABOUT_UPDATED), ("/privacy/", ABOUT_UPDATED)]
             + [(f"/c/{c['slug']}/", today) for c in CATEGORIES]
             + [(f"/{g['slug']}/", today) for g in GENRES]
+            + [(f"/{g['slug']}/price/", today) for g, _ in price_pages]
             + [(f"/{g['slug']}/{x['slug']}/", x["updated"]) for g, x in guides_all])
     sitemap = ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
                + "".join(f"<url><loc>{SITE_URL}{u}</loc><lastmod>{lm}</lastmod></url>" for u, lm in urls)
@@ -2501,6 +2719,9 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
     if guides_all:
         llms += ["", "## 選び方ガイド"] + [f"- [{x['title']}]({SITE_URL}/{g['slug']}/{x['slug']}/): {x['desc']}"
                                        for g, x in guides_all]
+    if price_pages:
+        llms += ["", "## 価格推移・買い時（毎日の記録から）"] + [
+            f"- [{g['name']}はいつ安い？]({SITE_URL}/{g['slug']}/price/): {_price_verdict(st['now_pct'])}" for g, st in price_pages]
     llms += ["", "## 運営情報", f"- [ランキングの根拠と運営者]({SITE_URL}/about/)"]
     (OUT_DIR / "llms.txt").write_text("\n".join(llms) + "\n", encoding="utf-8")
 
