@@ -2143,7 +2143,16 @@ def _price_stats(rich: list[dict]) -> dict | None:
         if hi > lw and prices.count(hi) >= 2 and prices.count(lw) >= 2 and 5 <= (hi - lw) / hi * 100 <= 45:
             swing.append(((hi - lw) / hi * 100, x))
     swing.sort(key=lambda s: -s[0])
+    # 今日の値下がり中の割合を、そのジャンルのふだん（記録期間の平均）と比べる。ジャンル全体の平均価格は
+    # ならされてほとんど動かないため、「今日は安くなっている商品が多いか」で判定する（2026-10-17）
+    ds = [v for _, v in drop_series]
+    deal_now = ds[-1] if ds else 0.0
+    # 記録が短い初期は「値下がり」を判定できる商品が少なく割合が低く出るので、比べる相手は直近14日（今日を除く）
+    base = ds[-15:-1]
+    deal_avg = (sum(base) / len(base)) if base else deal_now
+    deal_ratio = (deal_now / deal_avg) if deal_avg > 0 else (2.0 if deal_now > 0 else 1.0)
     return {
+        "deal_now": deal_now, "deal_avg": deal_avg, "deal_ratio": deal_ratio,
         "series": series, "avg": avg, "drop_series": drop_series, "now_pct": (cur - avg) / avg * 100, "low_day": lo[0],
         "low_pct": (lo[1] - avg) / avg * 100, "first": series[0][0], "days": len(series), "items": len(tracked),
         # 曜日・5と0の日の傾向は、4週間分以上の記録がないと偶然の差と区別できないので出さない
@@ -2169,6 +2178,22 @@ def _record_lows(rich: list[dict], n: int = 12) -> list[dict]:
         if len(out) >= n:
             break
     return out
+
+
+def _deal_verdict(st: dict) -> tuple[str, str, int]:
+    """「今日は値下がりしている商品が多いか」の判定（チップ, 文, 並べ順）。値下がり中の割合を、直近14日のふだんと比べる。"""
+    now, avg = st["deal_now"], st["deal_avg"]
+    if now >= 3 and now >= avg * 1.3 and now - avg >= 1.5:
+        return ('<span class="vchip vchip-buy">お得な日</span>',
+                f"今日は値下がり中の商品が{now:.0f}%と、ふだん（{avg:.0f}%）より多い日です。", 0)
+    if now < 0.5 and avg < 0.5:
+        return ('<span class="vchip vchip-wait">値下がりなし</span>',
+                "今日も、ここ2週間も、値下がりしている商品はほとんどありません。", 2)
+    if avg >= 2 and now <= avg * 0.7:
+        return ('<span class="vchip vchip-wait">値下がり少なめ</span>',
+                f"今日は値下がり中の商品が{now:.0f}%と、ふだん（{avg:.0f}%）より少なめです。", 2)
+    return ('<span class="vchip vchip-norm">ふだん並み</span>',
+            f"今日の値下がり中の商品は{now:.0f}%で、ふだん（{avg:.0f}%）並みです。", 1)
 
 
 def _verdict_chip(now_pct: float) -> str:
@@ -2235,7 +2260,7 @@ def _price_chart(series: list, avg: float) -> str:
 
 def _price_page(g: dict, st: dict, popular: list[dict], updated: str, path: str, crumbs: str) -> tuple[str, list[tuple[str, str]], str]:
     name = g["name"]
-    bullets = [_price_verdict(st["now_pct"])]
+    bullets = [_deal_verdict(st)[1], _price_verdict(st["now_pct"])]
     if st["low_pct"] <= -0.5:
         bullets.append(f"記録した中でいちばん安かったのは{st['low_day'][5:].replace('-', '/')}で、平均より{-st['low_pct']:.1f}%安い水準でした。")
     else:
@@ -2476,7 +2501,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 <nav class="toc-pills" aria-label="ページ内リンク">{"".join(pills)}</nav>
 {summary}
 {(f'<a class="when-card" href="{path}price/"><span class="when-l"><b>{E(g["name"])}はいつ安い？</b>'
-  f'<span>{E(_price_verdict(pstats["now_pct"]))}</span></span>{_verdict_chip(pstats["now_pct"])}'
+  f'<span>{E(_deal_verdict(pstats)[1])}</span></span>{_deal_verdict(pstats)[0]}'
   f'<span class="when-go">価格推移を見る →</span></a>') if pstats else ""}
 {('<section class="section" id="lows" aria-labelledby="h-lows"><p class="eyebrow">RECORD LOW</p>'
   f'<h2 id="h-lows">いま記録上の最安値の{E(g["name"])}</h2>'
@@ -2678,11 +2703,11 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                  + _hscroll(lows_all, "low", "") + "</section>") if lows_all else ""
     when_rows = "".join(
         f'<li><a href="/{g["slug"]}/price/"><span class="w-name">{g["emoji"]} {E(g["name"])}</span>'
-        f'{_verdict_chip(st["now_pct"])}<span class="w-sub">値下がり中 {len(genre_data[g["slug"]][2])}件</span></a></li>'
-        for g, st in sorted(price_pages, key=lambda r: r[1]["now_pct"]))
+        f'{_deal_verdict(st)[0]}<span class="w-sub">値下がり中の商品 今日{st["deal_now"]:.0f}%／ふだん{st["deal_avg"]:.0f}%</span></a></li>'
+        for g, st in sorted(price_pages, key=lambda r: (_deal_verdict(r[1])[2], -r[1]["deal_ratio"])))
     when_html = ('<section class="section" id="when" aria-labelledby="h-when"><p class="eyebrow">WHEN TO BUY</p>'
-                 '<h2 id="h-when">ジャンル別・いまは買い時？</h2>'
-                 '<p class="basis">毎日の価格記録から、いまの値段が記録期間の平均より安いか高いかを判定しています。</p>'
+                 '<h2 id="h-when">ジャンル別・今日はお得な日？</h2>'
+                 '<p class="basis">「直近30日の最高値より5%以上安い商品」の割合を、そのジャンルのふだん（直近2週間の平均）と比べています。</p>'
                  f'<ul class="when-list">{when_rows}</ul></section>') if price_pages else ""
     cat_tiles = "".join(
         f'<li class="cat-tile"><a class="ct-head" href="/c/{c["slug"]}/"><span>{c["emoji"]}</span>{E(c["name"])}</a>'
