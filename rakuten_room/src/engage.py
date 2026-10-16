@@ -249,7 +249,12 @@ def follow_round(cfg: dict, target: int, slug: str) -> None:
         if done < can:
             # 通知欄（自分に反応してくれた人）の候補が尽きたら、新着の投稿をした人もフォローする。
             # 今まさに動いている人なのでフォローが返りやすい（2026-10-11 追加。通知欄だけだと1日10件前後で尽きていた）
-            done += _follow_from_feed(page, can - done, flog, pacer, slug, done)
+            got = _follow_from_feed(page, can - done, flog, pacer, slug, done)
+            done += got
+            if done < can:
+                # 画面から拾う方法で足りないときは、ROOM検索APIで今動いている人を探してAPIでフォローする（2026-10-16 追加。
+                # 新着の画面の作りが変わったのか、画面からはほとんど拾えなくなっていた）
+                done += _follow_via_search(page, can - done, flog, pacer, slug, done)
         print(f"\nフォロー回り完了: {done} 件（今日の累計 {_today_log()['follow']} 件）")
     finally:
         try:
@@ -257,6 +262,52 @@ def follow_round(cfg: dict, target: int, slug: str) -> None:
         except Exception:  # noqa: BLE001
             pass
         pw.stop()
+
+
+FOLLOW_SEARCH_WORDS = ["暮らし", "キッチン", "収納", "インテリア", "子育て", "ベビー", "コスメ", "ファッション", "スイーツ",
+                       "ペット", "掃除", "便利グッズ", "プチプラ", "ギフト", "冬", "食品"]
+
+
+def _follow_via_search(page, need: int, flog: dict, pacer, slug: str, start: int) -> int:
+    """ROOMの検索結果（いま投稿している人）から、まだフォローしていない人をAPIでフォローする。"""
+    uid, tok = _api_session(page, slug)
+    cache = _load(ROOM_LISTS, {})
+    following = {str(u.get("id")) for u in cache.get("following", []) if isinstance(u, dict)}
+    words = random.sample(FOLLOW_SEARCH_WORDS, k=min(6, len(FOLLOW_SEARCH_WORDS)))
+    done, ng = 0, 0
+    for w in words:
+        for pg_no in (1, 2):
+            if done >= need or ng >= 3:
+                return done
+            data = _api_get(page, f"https://room.rakuten.co.jp/api/collect/search?api_version=1&currentTab=collect"
+                                  f"&item_page={pg_no}&keyword={w}&page={pg_no}&query={w}&csrf_tkn={tok}").get("data") or []
+            for c in data:
+                if done >= need or ng >= 3:
+                    break
+                u = c.get("user") or {}
+                oid, uname = str(u.get("id") or ""), u.get("username") or ""
+                key = f"url:/{uname}/items"
+                if not oid or oid == uid or oid in following or key in flog or (u.get("fullname") or "") in flog:
+                    continue
+                r = _api_follow(page, tok, oid, unfollow=False)
+                now = datetime.now().isoformat(timespec="seconds")
+                if r == "ok":
+                    done += 1
+                    ng = 0
+                    _bump("follow")
+                    following.add(oid)
+                    flog[key] = {"at": now, "back": None, "src": "search"}
+                    _save(FOLLOW_LOG, flog)
+                    print(f"  + フォロー {start + done}（ROOM検索「{w}」） {u.get('fullname', '')[:20]}")
+                    if done < need:
+                        pacer.wait(on_rest=lambda s: print(f"    （ひと休み {int(s)}秒）"))
+                elif r == "dup":
+                    following.add(oid)
+                    flog[key] = {"at": now, "back": True, "src": "search"}
+                else:
+                    ng += 1
+    _save(FOLLOW_LOG, flog)
+    return done
 
 
 def _follow_from_feed(page, need: int, flog: dict, pacer, slug: str, start: int) -> int:
