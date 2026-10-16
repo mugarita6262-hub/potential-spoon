@@ -1325,6 +1325,50 @@ border:1px solid #f3d3c0;font-size:14px;line-height:1.7}
 .price-note a{font-weight:700}
 .pc-bar{fill:var(--brand);opacity:.85}
 .ptbl table{min-width:0}.ptbl td,.ptbl th{padding:10px 10px}
+/* ===== 情報設計：お得情報（主役）と、選び方・使い方（参考情報）を分ける ===== */
+.hero-deal .wrap{padding-bottom:40px}
+.deal-nav{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px;max-width:760px}
+.deal-nav a{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:16px;text-decoration:none;
+background:rgba(255,255,255,.94);color:var(--ink);box-shadow:0 6px 18px -8px rgba(0,0,0,.35);transition:transform .2s var(--ease)}
+.deal-nav a:hover{transform:translateY(-2px)}
+.deal-nav b{font-size:24px;line-height:1.1;color:var(--brand)}
+.deal-nav b small{font-size:12px;margin-left:2px;color:var(--sub)}
+.deal-nav span{font-size:12.5px;font-weight:700;color:var(--sub)}
+.cats{margin-top:28px}
+.cat-tiles{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.cat-tile{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 16px}
+.ct-head{display:flex;align-items:center;gap:8px;font-weight:800;font-size:16px;text-decoration:none;color:var(--ink);margin-bottom:8px}
+.ct-head span{font-size:20px}
+.ct-genres{display:flex;flex-wrap:wrap;gap:6px}
+.ct-genres a{font-size:12.5px;padding:4px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line);text-decoration:none;color:var(--ink)}
+.ct-genres a:hover{border-color:var(--brand);color:var(--brand-dark)}
+.zone-head{margin:44px 0 6px;padding-left:14px;border-left:6px solid var(--brand)}
+.zone-head.info{border-left-color:var(--muted)}
+.zone-title{font-size:clamp(22px,3.2vw,28px);margin:0;font-weight:800}
+.zone-lead{margin:4px 0 0;color:var(--sub);font-size:14px}
+.zone-info{background:#efe9df;margin-top:48px;padding:6px 0 28px}
+.zone-info .zone-head{margin-top:28px}
+.zone-info .section{margin:30px 0}
+.zone-info .discovery,.zone-info #faq,.zone-info .section.related,.zone-info #compare{border-top-color:#e2d8ca}
+.badge-low{background:#1f7a5f;color:#fff}
+.vchip{display:inline-block;font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.vchip-buy{background:#1f7a5f;color:#fff}.vchip-norm{background:#e9e2d8;color:var(--ink)}.vchip-wait{background:#fff1e6;color:var(--brand-dark);border:1px solid #f2c9ad}
+.when-list{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.when-list a{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 10px;padding:12px 14px;border-radius:14px;
+background:var(--surface);border:1px solid var(--line);text-decoration:none;color:var(--ink);transition:transform .2s var(--ease),box-shadow .2s}
+.when-list a:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.w-name{font-weight:700}.w-sub{grid-column:1/-1;font-size:12px;color:var(--muted)}
+.when-card{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px 12px;margin:14px 0;padding:14px 16px;border-radius:16px;
+background:var(--surface);border:2px solid var(--brand);text-decoration:none;color:var(--ink)}
+.when-card .when-l{display:flex;flex-direction:column;gap:3px}
+.when-card .when-l b{font-size:16px}.when-card .when-l span{font-size:13.5px;color:var(--sub)}
+.when-go{grid-column:1/-1;font-weight:800;color:var(--brand)}
+.pill-info{background:#efe9df!important}
+@media (max-width:760px){
+.deal-nav{grid-template-columns:repeat(2,1fr)}
+.cat-tiles.swipe{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:12px -18px 0;padding:4px 18px 12px}
+.cat-tiles.swipe>li{flex:0 0 78%;scroll-snap-align:start}
+}
 @media (prefers-reduced-motion:reduce){
 *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 .js .rv{opacity:1!important;transform:none!important}
@@ -1415,6 +1459,8 @@ var r=ol.clientWidth/Math.max(ol.scrollWidth,1);th.style.width=(r*100)+'%';th.st
 function go(d){{ol.scrollBy({{left:d*ol.clientWidth*.85,behavior:'smooth'}})}}
 pv.addEventListener('click',function(){{go(-1)}});nx.addEventListener('click',function(){{go(1)}});
 ol.addEventListener('scroll',up,{{passive:true}});addEventListener('resize',up);if(window.ResizeObserver)new ResizeObserver(up).observe(ol);up()}})}})();</script>
+<script>(function(){{var ig=document.getElementById('instagram'),ct=document.querySelector('.cats');
+if(ig&&ct&&/utm_source=instagram/.test(location.search)){{ct.parentNode.insertBefore(ig,ct)}}}})();</script>
 <script>(function(){{document.querySelectorAll('.ranklist').forEach(function(rl){{var d=rl.querySelector('.rank-default'),s=rl.querySelector('.rank-sorted');
 rl.querySelectorAll('.sortbar button').forEach(function(b){{b.addEventListener('click',function(){{var k=b.dataset.sort;
 rl.querySelectorAll('.sortbar button').forEach(function(x){{x.classList.toggle('on',x===b)}});
@@ -1621,6 +1667,7 @@ def _mini_card(rank: int, it: dict, mode: str) -> str:
     was = (f'<s class="was">{_yen(it["reference_price"])}</s>'
            if it.get("reference_price", 0) > it["price"] else "")
     badge = (f'<span class="badge badge-ever">★{it["reviewAverage"]:.2f}・{it["reviewCount"]:,}件</span>' if mode == "ever"
+             else '<span class="badge badge-low">記録上の最安値</span>' if mode == "low"
              else f'<span class="badge badge-drop">{it["drop_pct"]:.0f}%{"値下がり" if it["drop_pct"] >= DROP_MIN_PCT else "安"}</span>')
     return f"""
 <li class="item mini" id="{mode}-{rank}">
@@ -1856,7 +1903,8 @@ def _qualified(it: dict) -> bool:
 
 
 def _drop_stats(rich: list[dict], drops: list[dict]) -> dict:
-    lows = [x for x in rich if x.get("is_all_time_low") and x.get("days", 0) >= 7 and _qualified(x)]
+    # 「記録上の最安値」はサイト全体で同じ定義：値段が動いたうえで、いまがいちばん安い商品（_record_lows と同じ）
+    lows = _record_lows([x for x in rich if _qualified(x)], 99999)
     return {"n": len(drops), "max": max((d["drop_pct"] for d in drops), default=0), "low": len(lows)}
 
 
@@ -2105,6 +2153,35 @@ def _price_stats(rich: list[dict]) -> dict | None:
         "at_low": [x for x in tracked if x["price"] <= x["low"] and x["high"] >= x["low"] * 1.03],
         "swing": swing[:6],
     }
+
+
+def _record_lows(rich: list[dict], n: int = 12) -> list[dict]:
+    """値段が動いたうえで、いま記録上の最安値になっている商品（評判順）。"""
+    seen, out = set(), []
+    for x in sorted(rich, key=_popularity, reverse=True):
+        if x.get("days", 0) < 7 or not (x["price"] <= x.get("low", 0) and x.get("high", 0) >= x.get("low", 0) * 1.03):
+            continue
+        k = _short_name(x.get("itemName", ""), 30)
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(x)
+        if len(out) >= n:
+            break
+    return out
+
+
+def _verdict_chip(now_pct: float) -> str:
+    if now_pct <= -1:
+        return '<span class="vchip vchip-buy">買い時寄り</span>'
+    if now_pct >= 1:
+        return '<span class="vchip vchip-wait">様子見</span>'
+    return '<span class="vchip vchip-norm">ふだんどおり</span>'
+
+
+def _zone_head(eyebrow: str, title: str, lead: str, cls: str) -> str:
+    return (f'<div class="zone-head {cls}"><p class="eyebrow">{eyebrow}</p><h2 class="zone-title">{title}</h2>'
+            f'<p class="zone-lead">{lead}</p></div>')
 
 
 def _price_verdict(now_pct: float) -> str:
@@ -2375,14 +2452,15 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
         else:
             ranking_body = _rank_list(popular, "pop", "データを準備中です。")
         pstats = _price_stats(rich)
-        pills = ['<a href="#drops">値下がり状況</a>', '<a href="#picks">こんな人に</a>',
-                 '<a href="#ranking">評判ランキング</a>', '<a href="#compare">比較表</a>']
+        glows = _record_lows(rich, 10)
+        pills = ['<a href="#drops">値下がり</a>']
         if pstats:
-            pills.insert(1, f'<a href="{path}price/">価格推移・買い時</a>')
+            pills.append(f'<a href="{path}price/">いつ安い？</a>')
             price_pages.append((g, pstats))
-        if guides:
-            pills.append('<a href="#guides">選び方ガイド</a>')
-        pills.append('<a href="#faq">よくある質問</a>')
+        if glows:
+            pills.append('<a href="#lows">最安値</a>')
+        pills += ['<a href="#picks">こんな人に</a>', '<a href="#ranking">評判ランキング</a>',
+                  '<a class="pill-info" href="#info">選び方・使い方</a>']
         guides_html = ""
         if guides:
             guides_html = ('<section class="section" id="guides" aria-labelledby="h-guides">'
@@ -2397,6 +2475,13 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
 {notice}
 <nav class="toc-pills" aria-label="ページ内リンク">{"".join(pills)}</nav>
 {summary}
+{(f'<a class="when-card" href="{path}price/"><span class="when-l"><b>{E(g["name"])}はいつ安い？</b>'
+  f'<span>{E(_price_verdict(pstats["now_pct"]))}</span></span>{_verdict_chip(pstats["now_pct"])}'
+  f'<span class="when-go">価格推移を見る →</span></a>') if pstats else ""}
+{('<section class="section" id="lows" aria-labelledby="h-lows"><p class="eyebrow">RECORD LOW</p>'
+  f'<h2 id="h-lows">いま記録上の最安値の{E(g["name"])}</h2>'
+  '<p class="basis">値段が動いたうえで、当サイトが記録を始めてからいちばん安くなっている商品です。</p>'
+  + _hscroll(glows, "low", "") + "</section>") if glows else ""}
 <section class="section feature" id="picks" aria-labelledby="h-picks">
   <p class="eyebrow">FOR YOU</p>
   <h2 id="h-picks">こんな人には、この{E(g["name"])}</h2>
@@ -2410,16 +2495,19 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
   {ranking_body}
 </section>
 {_a8_box(g)}
+</div>
+<div class="zone-info" id="info"><div class="wrap">
+{_zone_head("GUIDE & TIPS", f"{E(g['name'])}の選び方・使い方", "買う前に知っておきたい基本や、よくある質問をまとめています。", "info")}
+{guides_html}
 {_discovery_box(disc)}
 <section class="section" id="compare" aria-labelledby="h-compare">
   <details class="compare-box"><summary><span id="h-compare" class="h2like">ランキング上位の比較表を見る</span></summary>
   {_compare_table(popular)}
   </details>
 </section>
-{guides_html}
 {faq_html}
 {_related_genres(g["slug"], genre_data)}
-</div>"""
+</div></div>"""
         ld = _jsonld(crumbs_ld, faq_ld,
                      _itemlist_ld(f"評判の良い{g['name']}ランキング", popular, path),
                      {"@context": "https://schema.org", "@type": "CollectionPage",
@@ -2583,21 +2671,51 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                              _near_drops(all_rich), updated, extra=hot_html)
     home_summary = (f"{updated}時点で、{len(GENRES)}ジャンル{total_items}商品の価格を記録しています。"
                     f"直近30日の最高値から5%以上値下がりしている商品は{n_drops}件です。")
+    lows_all = _record_lows(all_rich, 12)
+    lows_html = ('<section class="section" id="lows" aria-labelledby="h-lows"><p class="eyebrow">RECORD LOW</p>'
+                 '<h2 id="h-lows">いま記録上の最安値</h2>'
+                 '<p class="basis">値段が動いたうえで、当サイトが記録を始めてからいちばん安くなっている商品です（評判の良い順）。</p>'
+                 + _hscroll(lows_all, "low", "") + "</section>") if lows_all else ""
+    when_rows = "".join(
+        f'<li><a href="/{g["slug"]}/price/"><span class="w-name">{g["emoji"]} {E(g["name"])}</span>'
+        f'{_verdict_chip(st["now_pct"])}<span class="w-sub">値下がり中 {len(genre_data[g["slug"]][2])}件</span></a></li>'
+        for g, st in sorted(price_pages, key=lambda r: r[1]["now_pct"]))
+    when_html = ('<section class="section" id="when" aria-labelledby="h-when"><p class="eyebrow">WHEN TO BUY</p>'
+                 '<h2 id="h-when">ジャンル別・いまは買い時？</h2>'
+                 '<p class="basis">毎日の価格記録から、いまの値段が記録期間の平均より安いか高いかを判定しています。</p>'
+                 f'<ul class="when-list">{when_rows}</ul></section>') if price_pages else ""
+    cat_tiles = "".join(
+        f'<li class="cat-tile"><a class="ct-head" href="/c/{c["slug"]}/"><span>{c["emoji"]}</span>{E(c["name"])}</a>'
+        f'<div class="ct-genres">' + "".join(f'<a href="/{g["slug"]}/">{E(NAV_SHORT.get(g["slug"], g["name"]))}</a>'
+                                             for g in _cat_genres(c)) + "</div></li>"
+        for c in CATEGORIES)
+    n_lows = len(_record_lows([x for x in all_rich if _qualified(x)], 99999))
     body = f"""
-<section class="hero" style="background-image:url('/img/hero.jpg')"><div class="wrap">
-<h1>毎日の価格記録で、<br>暮らしの「買い時」が分かる。</h1>
-<p>水・お米・コンタクト・おむつ・コーヒー・寝具など、毎日の暮らしの定番の価格を毎日記録。値下がりしているものと、評判の良いものを、数字の根拠つきでまとめています。</p>
-<div class="chips"><span class="chip"><b>{total_items}</b>商品を記録中</span><span class="chip"><b>{n_drops}</b>件が値下がり中</span><span class="chip">毎朝更新</span></div>
+<section class="hero hero-deal" style="background-image:url('/img/hero.jpg')"><div class="wrap">
+<h1>楽天の値下がり・最安値・買い時を、<br>毎日の価格記録でチェック。</h1>
+<p>{total_items:,}商品の価格を毎日記録して、いま安くなっているもの・いつ買うと安いかを、数字の根拠つきでお知らせします。</p>
+<nav class="deal-nav" aria-label="お得情報">
+<a href="#drops"><b>{n_drops}<small>件</small></b><span>値下がり中</span></a>
+<a href="#lows"><b>{n_lows}<small>件</small></b><span>記録上の最安値</span></a>
+<a href="#when"><b>{len(price_pages)}<small>ジャンル</small></b><span>いつ安い？</span></a>
+<a href="#evergreen"><b>{len(ever)}<small>件</small></b><span>失敗しない定番</span></a>
+</nav>
 </div></section>
 <div class="wrap">
-{_instagram_strip()}
+<section class="section cats" aria-labelledby="h-cats"><p class="eyebrow">CATEGORY</p>
+<h2 id="h-cats">カテゴリから探す</h2><ul class="cat-tiles swipe">{cat_tiles}</ul></section>
+{_zone_head("TODAY'S DEALS", "今日のお得情報", f"{updated}更新。値下がり中・記録上の最安値・買い時の判定を、毎朝の記録から自動でまとめています。", "deal")}
 {home_board}
+{lows_html}
+{when_html}
 {evergreen_html}
-<section class="section related" aria-labelledby="h-genres"><p class="eyebrow">CATEGORY</p>
-<h2 id="h-genres">カテゴリから探す</h2>{cards}</section>
-{_discovery_box(_discoveries(all_rich, []), "全ジャンルの価格記録から見つけた発見")}
+{_instagram_strip()}
+</div>
+<div class="zone-info" id="info"><div class="wrap">
+{_zone_head("GUIDE & TIPS", "選び方・使い方", "買う前に知っておきたい基本と、価格記録から見つけた豆知識です。", "info")}
 {guides_home}
-</div>"""
+{_discovery_box(_discoveries(all_rich, []), "全ジャンルの価格記録から見つけた発見")}
+</div></div>"""
     ld = _jsonld({"@context": "https://schema.org", "@type": "WebSite", "name": SITE_NAME, "url": SITE_URL,
                   "potentialAction": {"@type": "SearchAction", "target": f"{SITE_URL}/search/?q={{search_term_string}}",
                                       "query-input": "required name=search_term_string"},
