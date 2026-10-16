@@ -176,5 +176,12 @@ def update_bio_page(items: list[dict], recent: list[dict] | None = None) -> bool
     if not BIO_PAGE_DIR.parent.exists():
         return False
     BIO_PAGE_DIR.mkdir(parents=True, exist_ok=True)
-    (BIO_PAGE_DIR / "index.html").write_text(render(items, recent), encoding="utf-8")
+    # 2026-10-16: プロフィールのリンクは買い時ナビに変更。古いリンクから来た人は、買い時ナビの
+    # 「Instagramで紹介中の商品」へ自動で移動させる（このページにはA8のサービスしかなく、投稿した商品が無かった）
+    url = "https://kaidokinavi.com/?utm_source=instagram&utm_medium=social&utm_campaign=oldbio#instagram"
+    (BIO_PAGE_DIR / "index.html").write_text(
+        '<!doctype html><html lang="ja"><head><meta charset="utf-8">'
+        f'<meta http-equiv="refresh" content="0;url={url}"><link rel="canonical" href="https://kaidokinavi.com/">'
+        '<title>買い時ナビへ移動します</title></head><body>'
+        f'<p><a href="{url}">買い時ナビ（Instagramで紹介中の商品）へ移動します</a></p></body></html>', encoding="utf-8")
     return True

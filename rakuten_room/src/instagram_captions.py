@@ -100,4 +100,4 @@ def build_instagram_post_text(caption: str, disclosure: str = "PR") -> str:
     先頭に固定で付ける（AI任せにしない。景品表示法のステマ規制対応）。
     """
     tags = f"#{disclosure} #暮らしを豊かに #楽天room"
-    return f"{caption}\n\n気になった人はプロフィールのリンクからチェックしてみてください🔗\n\n{tags}".strip()
+    return f"{caption}\n\n気になった人は、プロフィールのリンク（買い時ナビ）のいちばん上「Instagramで紹介中の商品」からチェックしてみてください🔗\n\n{tags}".strip()
