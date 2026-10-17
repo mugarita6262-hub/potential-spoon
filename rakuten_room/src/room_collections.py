@@ -176,6 +176,46 @@ def _record_metrics(page, uid: str, tok: str, days: int = 7) -> None:
           f"（報酬 {rec['month_reward']}pt・{rec['month_orders']}件）")
 
 
+AFF_REPORT = DATA_DIR / "affiliate_report.json"
+
+
+def _record_affiliate(page) -> None:
+    """楽天アフィリエイトのレポート（今月・先月の合計と注文明細）を毎晩記録し、新しい注文があれば通知する（2026-10-17 追加）。
+    ROOMの操作に使っているChromeが楽天にログイン済みなので、同じログインで affiliate.rakuten.co.jp の内部APIを読める。
+    注文明細の pb_alias で、どこ経由の売上か（楽天ROOM・サイト・SNSなど）が分かる。"""
+    from datetime import date
+    from .notify import notify
+    base = "https://affiliate.rakuten.co.jp"
+    try:
+        page.goto(f"{base}/report/", wait_until="domcontentloaded", timeout=40000)
+        page.wait_for_timeout(2500)
+        months = [date.today().strftime("%Y-%m"), (date.today().replace(day=1) - __import__("datetime").timedelta(days=1)).strftime("%Y-%m")]
+        out = {"at": datetime.now().isoformat(timespec="seconds"), "months": {}, "orders": []}
+        for m in months:
+            tot = _api_get(page, f"{base}/api/report/monthly?date={m}&overview=1").get("totals") or {}
+            rows = _api_get(page, f"{base}/api/report/order?aggs_value=count&date={m}&offset=0&limit=100").get("rows") or []
+            out["months"][m] = tot
+            out["orders"] += [{"id": r.get("mixed_result_id"), "date": r.get("date"), "via": r.get("pb_alias") or r.get("pb_id"),
+                               "amount": r.get("amount"), "rewards": r.get("rewards"), "item": (r.get("item_name") or "")[:80],
+                               "shop": r.get("shop_name"), "status": r.get("status")} for r in rows]
+    except Exception as exc:  # noqa: BLE001
+        print(f"  楽天アフィリエイトのレポートを読めませんでした: {str(exc)[:80]}")
+        return
+    try:
+        old = json.loads(AFF_REPORT.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        old = {}
+    seen = {o.get("id") for o in old.get("orders", [])}
+    new = [o for o in out["orders"] if o["id"] not in seen]
+    AFF_REPORT.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    cur = out["months"].get(months[0], {})
+    print(f"  楽天アフィリエイト（今月）: クリック {cur.get('clicks', 0)}・売上 {cur.get('sales', 0)}件・"
+          f"{cur.get('amount', 0):,}円・報酬 {cur.get('rewards', 0):,}円（未確定含む）")
+    if new and old:
+        lines = [f"{o['date'][5:16]} {o['via']} {o['amount']:,}円（報酬{o['rewards']}円）{o['item'][:24]}" for o in new]
+        notify("売れました！\n" + "\n".join(lines), title="Rakuten affiliate sale")
+
+
 def collections_round(cfg: dict, slug: str, max_add: int = 150, max_pages: int = 30) -> None:
     """新しい投稿をテーマ別コレクションへ振り分ける。前回見た投稿より新しいものだけを見る。"""
     state = _load()
@@ -241,6 +281,7 @@ def collections_round(cfg: dict, slug: str, max_add: int = 150, max_pages: int =
         _save(state)
         _check_survival(page, uid, tok)
         _record_metrics(page, uid, tok)
+        _record_affiliate(page)
         summary = "・".join(f"{v['name']} {v.get('count', 0)}" for v in cols.values())
         print(f"コレクションに {added} 件追加（新規作成 {created}）。{summary}")
     finally:
