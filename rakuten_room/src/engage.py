@@ -273,10 +273,10 @@ def _follow_via_search(page, need: int, flog: dict, pacer, slug: str, start: int
     uid, tok = _api_session(page, slug)
     cache = _load(ROOM_LISTS, {})
     following = {str(u.get("id")) for u in cache.get("following", []) if isinstance(u, dict)}
-    words = random.sample(FOLLOW_SEARCH_WORDS, k=min(6, len(FOLLOW_SEARCH_WORDS)))
+    words = random.sample(FOLLOW_SEARCH_WORDS, k=len(FOLLOW_SEARCH_WORDS))  # 候補が尽きないよう全語・3ページまで
     done, ng = 0, 0
     for w in words:
-        for pg_no in (1, 2):
+        for pg_no in (1, 2, 3):
             if done >= need or ng >= 3:
                 return done
             data = _api_get(page, f"https://room.rakuten.co.jp/api/collect/search?api_version=1&currentTab=collect"
