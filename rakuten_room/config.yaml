@@ -290,25 +290,26 @@ server:
     - '20:45'
   - - '20:45'
     - '23:30'
-  sns_runs_per_day: 2
+  sns_runs_per_day: 1
   a8_window:
   - - '18:30'
     - '20:45'
   - - '20:45'
     - '23:30'
-  a8_runs_per_day: 1
+  a8_runs_per_day: 0
   digest_window:
   - - '18:30'
     - '20:45'
   - - '20:45'
     - '23:30'
-  digest_runs_per_day: 1
+  digest_runs_per_day: 0
+  # 2026-10-17: Threadsは楽天直リンクの貢献がほぼ無いので、買い時ナビへの誘導を8件中5件に増やす
   sitepost_window:
-  - - '18:30'
-    - '20:45'
-  - - '20:45'
-    - '23:30'
-  sitepost_runs_per_day: 1
+  - - '12:00'
+    - '13:30'
+  - - '20:00'
+    - '22:30'
+  sitepost_runs_per_day: 2
   trend_window:
   - - '18:30'
     - '20:45'
@@ -316,11 +317,13 @@ server:
     - '23:30'
   trend_runs_per_day: 0
   sitedrop_window:
+  - - '07:00'
+    - '08:45'
+  - - '11:45'
+    - '13:15'
   - - '18:30'
-    - '20:45'
-  - - '20:45'
-    - '23:30'
-  sitedrop_runs_per_day: 1
+    - '22:00'
+  sitedrop_runs_per_day: 3
   calendar_window:
   - '19:00'
   - '21:00'
@@ -330,7 +333,7 @@ server:
     - '20:45'
   - - '20:45'
     - '23:30'
-  trivia_runs_per_day: 2
+  trivia_runs_per_day: 1
   instagram_window:
   - - '19:00'
     - '21:00'
