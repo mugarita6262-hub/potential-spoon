@@ -48,6 +48,10 @@ def _ga4(cred, days: list[str]) -> dict:
     for (d, ev, path), (n,) in run(["eventName", "pagePath"], ["eventCount"]):
         if ev == "affiliate_click":
             out[fmt(d)]["aff_pages"][path] = int(n)
+    # 楽天リンクのクリックを流入元別に（Threads戦略の判定: 2026-11-30までに threads 経由で累計30回）
+    for (d, ev, src), (n,) in run(["eventName", "sessionSource"], ["eventCount"]):
+        if ev == "affiliate_click":
+            out[fmt(d)].setdefault("aff_sources", {})[src] = int(n)
     return out
 
 

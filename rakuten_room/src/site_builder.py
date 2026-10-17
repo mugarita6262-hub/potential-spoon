@@ -352,6 +352,15 @@ def _enrich(it: dict, hist: dict) -> dict:
             "high": max(prices) if prices else it["price"]}
 
 
+_VARIANT_RE = re.compile(r"選べる|選択|サイズ|カラー|[〜～]|\b[SML]{1,2}[ ・/][SML]{1,2}\b|\d+(?:kg|g|ml|mL|L|枚|個|本|袋|ロール|cm)[ ・/]\d+(?:kg|g|ml|mL|L|枚|個|本|袋|ロール|cm)")
+
+
+def _has_variants(it: dict) -> bool:
+    """容量・サイズ・色を選べる商品（1kg〜10kg、M L など）。選択肢が変わると値段も変わるので、
+    値下がりと区別がつかない（2026-10-18、みかん1,680→980円・着る毛布3,490→2,200円が該当）。"""
+    return bool(_VARIANT_RE.search(it.get("itemName") or ""))
+
+
 def rankings(items: list[dict], hist: dict) -> tuple[list[dict], list[dict]]:
     rich = [_enrich(it, hist) for it in items]
     popular, per_kw, names = [], {}, set()
@@ -369,7 +378,7 @@ def rankings(items: list[dict], hist: dict) -> tuple[list[dict], list[dict]]:
             break
     # ふるさと納税の返礼品は寄付額の変動で、買い物の「値下がり」とは違うので数えない
     drops = [it for it in rich if it["drop_pct"] >= DROP_MIN_PCT and it["days"] >= 2
-             and "ふるさと納税" not in (it.get("itemName") or "")]
+             and "ふるさと納税" not in (it.get("itemName") or "") and not _has_variants(it)]
     drops.sort(key=lambda x: (x["drop_pct"], _popularity(x)), reverse=True)
     return popular, drops[:TOP_N]
 
@@ -1474,7 +1483,7 @@ if(ig&&ct&&/utm_source=instagram/.test(location.search)){{ct.parentNode.insertBe
 var ks=(new URLSearchParams(location.search).get('pick')||'').split('.').filter(Boolean),ol=d.querySelector('ol'),hit=0;
 if(ol){{ks.slice().reverse().forEach(function(k){{var li=ol.querySelector('li[data-k="'+k+'"]');if(li){{li.classList.add('picked');ol.insertBefore(li,ol.firstChild);hit++}}}});ol.scrollLeft=0}}
 var n=document.createElement('p');n.className='db-from';
-n.textContent=hit?'Threadsで紹介した'+hit+'件を先頭に並べています。ふだんの価格と30日の値動きを確かめてからどうぞ':(ks.length?'投稿のあと価格が変わり、値下がりが終わった商品もあります。いま値下がり中の商品はこちら':'Threadsの値下がり速報で紹介した商品は、このリストです（価格は毎日記録）');
+n.textContent=hit?'Threadsで紹介した'+hit+'件を先頭に並べています。ふだんの価格と、記録している値動きを確かめてからどうぞ':(ks.length?'投稿のあと価格が変わり、値下がりが終わった商品もあります。いま値下がり中の商品はこちら':'Threadsの値下がり速報で紹介した商品は、このリストです（価格は毎日記録）');
 d.insertBefore(n,d.firstChild);d.classList.add('from-sns')}})();</script>
 <script>(function(){{document.querySelectorAll('.ranklist').forEach(function(rl){{var d=rl.querySelector('.rank-default'),s=rl.querySelector('.rank-sorted');
 rl.querySelectorAll('.sortbar button').forEach(function(b){{b.addEventListener('click',function(){{var k=b.dataset.sort;
@@ -1692,7 +1701,7 @@ def _mini_card(rank: int, it: dict, mode: str) -> str:
              else f'<span class="badge badge-drop">{it["drop_pct"]:.0f}%{"値下がり" if it["drop_pct"] >= DROP_MIN_PCT else "安"}</span>')
     proof = ""
     if mode == "drop" and it.get("reference_price", 0) > it["price"]:
-        # 値下がりの根拠（ふだんの価格と30日の値動き）をその場で見せる。Threadsから来た人が納得してから買えるように
+        # 値下がりの根拠（ふだんの価格と記録した値動き）をその場で見せる。Threadsから来た人が納得してから買えるように
         proof = (f'<p class="proof">ふだん{_yen(it["reference_price"])} → 今{_yen(it["price"])}</p>'
                  f'{_sparkline(it.get("history", [])[-30:])}'
                  f'<a class="mini-buy" href="{url}" {_REL}>楽天で見る</a>')
@@ -1889,7 +1898,7 @@ def _persona_picks(g: dict, rich: list[dict], popular: list[dict], drops: list[d
     deal = None
     for x in popular:
         if _has_drop(x):
-            deal = (x, f"ふだんの価格（直近30日の中央値）{_yen(x['reference_price'])}から{x['drop_pct']:.0f}%安い{_yen(x['price'])}になっています。")
+            deal = (x, f"ふだんの価格（記録した価格の中央値・最長30日）{_yen(x['reference_price'])}から{x['drop_pct']:.0f}%安い{_yen(x['price'])}になっています。")
             break
     if not deal:
         for x in popular:
@@ -1946,7 +1955,7 @@ def _drop_board(title: str, stats: dict, drops: list[dict], near: list[dict], up
                 extra: str = "") -> str:
     """ページ上部の主役。値下がりの状況を数字で見せ、そのすぐ下に該当商品を並べる。"""
     if drops:
-        lead = f"ふだんの価格（直近30日の中央値）より{DROP_MIN_PCT:.0f}%以上安い商品を、下がった順に並べています。"
+        lead = f"ふだんの価格（記録した価格の中央値・最長30日）より{DROP_MIN_PCT:.0f}%以上安い商品を、下がった順に並べています。"
         lst = _hscroll(drops, "drop", "")
     elif near:
         lead = (f"今は{DROP_MIN_PCT:.0f}%以上の大きな値下がりはありません。"
@@ -2153,7 +2162,7 @@ def _price_stats(rich: list[dict]) -> dict | None:
     cur = series[-1][1]
     lo = min(series, key=lambda s: s[1])
     wd = {k: (mean(v) - 1) * 100 for k, v in by_wd.items() if len(v) >= 30}
-    # 日ごとの「値下がり中の商品の割合」（その日の値段が、ふだんの価格＝直近30日の中央値より5%以上安い商品。
+    # 日ごとの「値下がり中の商品の割合」（その日の値段が、ふだんの価格＝記録した価格の中央値（最長30日）より5%以上安い商品。
     # 値下がりの定義は price_history.price_drop と同じ）
     dcount, dtotal = defaultdict(int), defaultdict(int)
     for x in tracked:
@@ -2352,7 +2361,7 @@ def _price_page(g: dict, st: dict, popular: list[dict], updated: str, path: str,
 <section class="summary" aria-labelledby="h-summary"><h2 id="h-summary">結論：{E(updated)}時点の{E(name)}の値段</h2><ul>{concl}</ul>
 <span class="stamp">対象：{st["items"]}商品・{st["days"]}日分の記録</span></section>
 <section class="section" aria-labelledby="h-chart"><p class="eyebrow">TREND</p><h2 id="h-chart">値下がり中の{E(name)}の割合</h2>
-<p class="basis">毎日、記録中の商品のうち「ふだんの価格（直近30日の中央値）より5%以上安い」商品が何%あったかを示しています。棒が高い日ほど、安くなっている商品が多い日です。</p>{_drop_chart(st["drop_series"])}</section>
+<p class="basis">毎日、記録中の商品のうち「ふだんの価格（記録した価格の中央値・最長30日）より5%以上安い」商品が何%あったかを示しています。棒が高い日ほど、安くなっている商品が多い日です。</p>{_drop_chart(st["drop_series"])}</section>
 {wd_rows}
 {low_html}
 {sw}
@@ -2407,7 +2416,7 @@ def _genre_summary(g: dict, popular: list[dict], drops: list[dict], all_items: l
         lines.append(f'値下がり中の商品は{len(drops)}件で、最も下がっているのは「{_short_name(d["itemName"], 40)}」'
                      f'（直近30日の参考価格{_yen(d["reference_price"])}→{_yen(d["price"])}、{d["drop_pct"]:.0f}%下落）。')
     else:
-        lines.append("現在、ふだんの価格（直近30日の中央値）から5%以上値下がりしている商品はありません。")
+        lines.append("現在、ふだんの価格（記録した価格の中央値・最長30日）から5%以上値下がりしている商品はありません。")
     wk = _week_trend(rich or [])
     if wk:
         lines.append(wk)
@@ -2429,12 +2438,12 @@ def _genre_faq(g: dict, popular: list[dict], drops: list[dict], updated: str) ->
     if drops:
         d = drops[0]
         qas.append((f"今、値下がりしている{g['name']}は？",
-                    f"{updated}時点でふだんの価格（直近30日の中央値）から5%以上下がっている商品は{len(drops)}件です。最も下がっているのは"
+                    f"{updated}時点でふだんの価格（記録した価格の中央値・最長30日）から5%以上下がっている商品は{len(drops)}件です。最も下がっているのは"
                     f"「{_short_name(d['itemName'], 50)}」で、{_yen(d['reference_price'])}から{_yen(d['price'])}"
                     f"（{d['drop_pct']:.0f}%）に下がっています。"))
     else:
         qas.append((f"今、{g['name']}は買い時？",
-                    f"{updated}時点では、記録している商品にふだんの価格（直近30日の中央値）から5%以上の値下がりはありません。"
+                    f"{updated}時点では、記録している商品にふだんの価格（記録した価格の中央値・最長30日）から5%以上の値下がりはありません。"
                     "急ぎでなければ、楽天のお買い物マラソンや5と0のつく日など、ポイントが多く付く日を待つのも一つの方法です。"))
     qas.append(("ランキングはどうやって決めていますか？",
                 f"楽天市場のレビュー評価が★{MIN_AVG}以上かつレビュー{MIN_REVIEWS}件以上の商品を対象に、評価の高さと"
@@ -2657,7 +2666,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                     + "".join(_guide_card(g, x) for g, x in c_guides) + "</ul></section>") if c_guides else ""
         others = "".join(f'<a href="/c/{o["slug"]}/">{o["emoji"]} {E(o["name"])}</a>' for o in CATEGORIES if o is not c)
         c_summary = (f"{updated}時点で、{c['name']}の{len(gs)}ジャンル・{len(c_items)}商品の価格を記録しています。"
-                     f"ふだんの価格（直近30日の中央値）から5%以上値下がりしている商品は{len(c_drops)}件です。")
+                     f"ふだんの価格（記録した価格の中央値・最長30日）から5%以上値下がりしている商品は{len(c_drops)}件です。")
         cimg = GENRE_IMG.get(gs[0]["slug"], "hero")
         body = f"""
 <section class="banner" style="background-image:url('/img/{cimg}.jpg')"><div class="wrap">
@@ -2724,7 +2733,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
                              {**_drop_stats(all_rich, all_drops), "n": n_drops}, all_drops,
                              _near_drops(all_rich), updated, extra=hot_html)
     home_summary = (f"{updated}時点で、{len(GENRES)}ジャンル{total_items}商品の価格を記録しています。"
-                    f"ふだんの価格（直近30日の中央値）から5%以上値下がりしている商品は{n_drops}件です。")
+                    f"ふだんの価格（記録した価格の中央値・最長30日）から5%以上値下がりしている商品は{n_drops}件です。")
     lows_all = _record_lows(all_rich, 12)
     lows_html = ('<section class="section" id="lows" aria-labelledby="h-lows"><p class="eyebrow">RECORD LOW</p>'
                  '<h2 id="h-lows">いま記録上の最安値</h2>'
@@ -2736,7 +2745,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
         for g, st in sorted(price_pages, key=lambda r: (_deal_verdict(r[1])[2], -r[1]["deal_ratio"])))
     when_html = ('<section class="section" id="when" aria-labelledby="h-when"><p class="eyebrow">WHEN TO BUY</p>'
                  '<h2 id="h-when">ジャンル別・今日はお得な日？</h2>'
-                 '<p class="basis">「ふだんの価格（直近30日の中央値）より5%以上安い商品」の割合を、そのジャンルのふだん（直近2週間の平均）と比べています。</p>'
+                 '<p class="basis">「ふだんの価格（記録した価格の中央値・最長30日）より5%以上安い商品」の割合を、そのジャンルのふだん（直近2週間の平均）と比べています。</p>'
                  f'<ul class="when-list">{when_rows}</ul></section>') if price_pages else ""
     cat_tiles = "".join(
         f'<li class="cat-tile"><a class="ct-head" href="/c/{c["slug"]}/"><span>{c["emoji"]}</span>{E(c["name"])}</a>'
@@ -2921,7 +2930,7 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
         full.append(g["lead"])
         for i, it in enumerate(popular[:3], 1):
             full.append(f"- 評判{i}位: {_short_name(it['itemName'], 50)}（{it['price']:,}円、★{it['reviewAverage']:.2f}・{it['reviewCount']:,}件）")
-        full.append(f"- 値下がり中: {len(drops)}件（ふだんの価格（直近30日の中央値）から5%以上安い）")
+        full.append(f"- 値下がり中: {len(drops)}件（ふだんの価格（記録した価格の中央値・最長30日）から5%以上安い）")
         for x in _guides(g["slug"]):
             full.append(f"### {x['title']}（{SITE_URL}/{g['slug']}/{x['slug']}/）")
             ans = _guide_answer(x["md"])

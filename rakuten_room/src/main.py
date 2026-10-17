@@ -602,7 +602,8 @@ def cmd_sitedrop(cfg: dict) -> None:
         items = [it for it in data.get(g["slug"], []) if _genre_ok(g, it)]
         _, drops = rankings(items, hist)
         score = genre_score(g["slug"], len(drops), now)
-        if len(drops) >= int(sc.get("min_drops", 2)) and score > 0:
+        # 3割を超える下げが残るジャンルは、本物か選択肢の切り替わりか見分けがつかないので自動では出さない
+        if len(drops) >= int(sc.get("min_drops", 2)) and score > 0 and max(d["drop_pct"] for d in drops) <= 30:
             cands.append((score, g, drops))
     if not cands:
         print("値下がりを紹介できるジャンルがありません（件数が少ないか、すべてクールダウン中）。")
@@ -625,10 +626,11 @@ def cmd_sitedrop(cfg: dict) -> None:
         return
 
     picks = target[:3]
-    lines = [f"・{post_name(d['itemName'])}（−{d['drop_pct']:.0f}%{'・30日で最安' if _is_low(d) else ''}）" for d in picks]
+    lines = [f"・{post_name(d['itemName'])}（−{d['drop_pct']:.0f}%{'・記録' + str(d['days']) + '日で最安' if _is_low(d) else ''}）" for d in picks]
     url = (f"{SITE_URL}/{g['slug']}/?utm_source=threads&utm_medium=social&utm_campaign={g['slug']}-drops"
            f"&pick={'.'.join(pick_key(d) for d in picks)}#drops")
-    text = (f"{caption}\n\n" + "\n".join(lines) + f"\n\nいまの値段・ふだんの値段・30日の値動きはここで見られます👇\n{url}\n"
+    hook = f"{hook}\n\n（値下がり中の商品は引用でまとめています・PR）"
+    text = (f"PR｜{caption}\n\n" + "\n".join(lines) + f"\n\nいまの値段・ふだんの値段・値動きはここで見られます👇\n{url}\n"
             f"#{sc.get('disclosure') or 'PR'} #買い時ナビ")
     base = {"itemCode": f"sitedrop:{g['slug']}", "itemUrl": url, "itemName": f"{g['name']}の値下がり速報"}
     category = f"sitedrop:{g['name']}"
