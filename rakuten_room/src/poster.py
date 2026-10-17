@@ -398,6 +398,20 @@ def _limit_reached(page) -> bool:
     return "登録上限に達しました" in _modal_text(page)
 
 
+def _room_post_runs_left() -> int:
+    """webapp のスケジューラで動いているとき、今日の room_post の残り回数（この回を含む）。手動実行なら 0。"""
+    import sys
+    from datetime import date
+    wa = sys.modules.get(f"{__package__}.webapp")
+    st = getattr(wa, "_schedule_state", None) if wa else None
+    if not st or st.get("date") != date.today():
+        return 0
+    times = (st.get("targets") or {}).get("room_post") or []
+    fired = st.get("fired") or set()
+    # この回の予定は実行前に fired に入るので、まだ fired でない予定＝この後の回
+    return sum(1 for i in range(len(times)) if ("room_post", i) not in fired) + 1
+
+
 def post_drafts_tabs(cfg: dict, day: str | None = None, full_day: bool = False) -> None:
     """新規の投稿を1件ずつ自動で完了まで進める（完全自動・人の操作なし）。
     full_day=True なら post_batch_size を無視して今日の残り全部。
@@ -439,6 +453,13 @@ def post_drafts_tabs(cfg: dict, day: str | None = None, full_day: bool = False) 
     done_today = posted_today()
     remaining = max(0, target_count - done_today)
     batch = remaining if full_day else int(cfg.get("post_batch_size") or target_count)
+    # スケジューラから動いているときは、残り件数を「この回＋今日の残りの回数」で割る。1回28件の固定だと
+    # 18時台で目標に達して、20〜22時の回が毎日0件になっていた（2026-10-18 に発覚）
+    runs_left = _room_post_runs_left()
+    if runs_left and not full_day:
+        import math
+        batch = math.ceil(remaining / runs_left)
+        print(f"今日の残りの投稿回数（この回を含む）: {runs_left} 回")
     this_run = min(remaining, batch)
 
     if plan.get("reasons"):
