@@ -282,6 +282,11 @@ def collections_round(cfg: dict, slug: str, max_add: int = 150, max_pages: int =
         _check_survival(page, uid, tok)
         _record_metrics(page, uid, tok)
         _record_affiliate(page)
+        try:
+            from .google_stats import record_google_stats
+            record_google_stats()
+        except Exception as e:  # noqa: BLE001
+            print(f"google_stats: 失敗 {e}")
         summary = "・".join(f"{v['name']} {v.get('count', 0)}" for v in cols.values())
         print(f"コレクションに {added} 件追加（新規作成 {created}）。{summary}")
     finally:
