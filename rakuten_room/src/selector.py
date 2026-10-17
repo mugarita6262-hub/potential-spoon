@@ -106,6 +106,8 @@ def _room_hot_items(rs: dict, api: RakutenAPI) -> list[dict]:
 
 
 RANKING_LOG = DATA_DIR / "ranking_log.json"
+SALE_RE = __import__("re").compile(r"クーポン|[0-9０-９]+\s*[%％]\s*OFF|[0-9０-９]+\s*[%％]オフ|半額|ポイント\s*[0-9０-９]+\s*倍|P\s*[0-9０-９]+\s*倍|"
+                                    r"タイムセール|スーパーSALE|SALE|セール|値下げ|期間限定価格|特価", __import__("re").I)
 
 
 def _log_ranking(items: list[dict]) -> None:
@@ -166,9 +168,14 @@ def select_items(cfg: dict, api: RakutenAPI, pool: int | None = None) -> list[di
 
     ranked = score_items(candidates, cfg["scoring"])
     bonus = float(ev.get("score_bonus", 0.15))
+    sale_bonus = float((cfg.get("sale_boost") or {}).get("bonus", 0))
     for it in ranked:
         if it.get("evergreen"):
             it["score"] = round(it["score"] + bonus, 4)
+        # 商品名の先頭にクーポン・割引・ポイント倍などがある＝いまセールでお得な商品
+        if sale_bonus and SALE_RE.search((it.get("itemName") or "")[:60]):
+            it["on_sale"] = True
+            it["score"] = round(it["score"] + sale_bonus, 4)
     ranked.sort(key=lambda x: x["score"], reverse=True)
     print(f"スコア条件を満たした候補: {len(ranked)} 件")
 
