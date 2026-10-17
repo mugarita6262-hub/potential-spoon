@@ -3,9 +3,8 @@
 起動: python -m src.webapp
 （.env の WEBAPP_USER / WEBAPP_PASSWORD でBasic認証。WEBAPP_PORTでポート変更、既定8080）
 
-裏で「1日の中でランダムな時刻に自動実行」するスケジューラも常駐する。
-ROOMのpost/like/follow/prune（実Chrome必須）はここには含めない。
-ローカルマシンのGUIから引き続き実行すること。
+裏で「1日の中でランダムな時刻に自動実行」するスケジューラも常駐する（ROOM・Threads・Instagram・サイト）。
+ジョブはこのプロセスの中で動くので、コードを変えたら再起動が必要。全体像は ARCHITECTURE.md。
 """
 from __future__ import annotations
 
@@ -35,15 +34,8 @@ _last_run: dict[str, dict] = {}
 # コストが発生しない（Claude APIを使わない）調査系ジョブは高頻度、
 # 投稿系（コスト発生・投稿数もコントロールしたい）は低頻度、という前提のラベル
 JOBS = {
-    "collect": ("調査: 広いジャンルの価格収集（無料・高頻度向け）", False),
-    "insights": ("調査: Threadsの反応を集計（無料・高頻度向け）", False),
     "prepare": ("ROOM: 商品選定＋キャプション生成（Claude課金・1日1回想定）", True),
-    "sns": ("Threads: 値下がり検知投稿（Claude課金・1日数回想定）", True),
-    "a8": ("Threads: A8ローテーション投稿（Claude課金・1日1回想定）", True),
-    "digest": ("Threads: ジャンル別売れ筋ダイジェスト（Claude課金・リンクあり）", True),
-    "sitepost": ("Threads: 買い時ナビのガイド紹介（Claude課金・サイトへのリンクあり）", True),
     "sitedrop": ("Threads: 買い時ナビの値下がり速報（Claude課金・サイトへのリンクあり）", True),
-    "trend": ("Threads: ジャンル価格トレンド速報（Claude課金・リンクなし）", True),
     "calendar": ("Threads: セール・お得日リマインド（Claude課金・リンクなし）", True),
     "trivia": ("Threads: ミニ知識・あるあるネタ（Claude課金・リンクなし）", True),
     "instagram": ("Instagram: 売れ筋商品を画像付きで投稿（Claude課金・1日1件）", True),
@@ -122,7 +114,7 @@ def _alert_api_credit(output: str) -> None:
         pass
 
 
-_POSTING_JOBS = {"sns", "a8", "digest", "sitepost", "sitedrop", "trend", "calendar", "trivia", "instagram"}
+_POSTING_JOBS = {"sitedrop", "calendar", "trivia", "instagram"}
 
 
 def _dispatch(cli, cfg: dict, name: str) -> None:
@@ -133,18 +125,8 @@ def _dispatch(cli, cfg: dict, name: str) -> None:
             if not acquired:
                 print("  他の投稿ジョブが実行中のためスキップします"
                       "（手動実行と重なった可能性）。")
-            elif name == "sns":
-                cli.cmd_sns(cfg)
-            elif name == "a8":
-                cli.cmd_a8(cfg)
-            elif name == "digest":
-                cli.cmd_digest(cfg)
-            elif name == "sitepost":
-                cli.cmd_sitepost(cfg)
             elif name == "sitedrop":
                 cli.cmd_sitedrop(cfg)
-            elif name == "trend":
-                cli.cmd_trend(cfg)
             elif name == "calendar":
                 cli.cmd_calendar(cfg)
             elif name == "trivia":
@@ -156,14 +138,10 @@ def _dispatch(cli, cfg: dict, name: str) -> None:
         # セッションCookieで保たれており、毎回落とすと数十分後にログアウト
         # 扱いになる（2026-09-30に実際に発生）。デスクトップ同様に開きっぱなし
         _run_room_job(cli, cfg, name)
-    elif name == "collect":
-        cli.cmd_collect(cfg)
     elif name == "site":
         cli.cmd_site(cfg)
     elif name == "prepare":
         cli.cmd_prepare(cfg)
-    elif name == "insights":
-        cli.cmd_insights(cfg)
     else:
         raise ValueError(f"unknown job: {name}")
 

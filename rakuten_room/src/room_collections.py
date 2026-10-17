@@ -179,6 +179,24 @@ def _record_metrics(page, uid: str, tok: str, days: int = 7) -> None:
 AFF_REPORT = DATA_DIR / "affiliate_report.json"
 
 
+def _match_posts(orders: list[dict]) -> None:
+    """注文の商品を ROOM の投稿記録（posted.json）と商品名で突き合わせ、投稿日時・出どころ・加点理由を付ける。"""
+    from .posted_log import load_posted
+    import re as _re
+    norm = lambda s: _re.sub(r"[【\[［(（][^】\]］)）]{0,60}[】\]］)）]|\s", "", s or "")[:24]  # noqa: E731
+    posts = [p for p in load_posted() if p.get("kind") == "posted"]
+    by_name = {}
+    for p in posts:
+        by_name.setdefault(norm(p.get("itemName")), []).append(p)
+    for o in orders:
+        when = (o.get("date") or "").replace(" ", "T")
+        # 注文より前の投稿のうち、いちばん新しいもの（同じ商品を再投稿していることがある）
+        before = [p for p in by_name.get(norm(o.get("item")), []) if p.get("posted_at", "") <= when]
+        if before:
+            p = max(before, key=lambda x: x.get("posted_at", ""))
+            o["post"] = {k: p.get(k) for k in ("posted_at", "itemCode", "src", "reasons", "score")}
+
+
 def _record_affiliate(page) -> None:
     """楽天アフィリエイトのレポート（今月・先月の合計と注文明細）を毎晩記録し、新しい注文があれば通知する（2026-10-17 追加）。
     ROOMの操作に使っているChromeが楽天にログイン済みなので、同じログインで affiliate.rakuten.co.jp の内部APIを読める。
@@ -205,6 +223,7 @@ def _record_affiliate(page) -> None:
         old = json.loads(AFF_REPORT.read_text(encoding="utf-8"))
     except (FileNotFoundError, ValueError):
         old = {}
+    _match_posts(out["orders"])
     seen = {o.get("id") for o in old.get("orders", [])}
     new = [o for o in out["orders"] if o["id"] not in seen]
     AFF_REPORT.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -212,7 +231,9 @@ def _record_affiliate(page) -> None:
     print(f"  楽天アフィリエイト（今月）: クリック {cur.get('clicks', 0)}・売上 {cur.get('sales', 0)}件・"
           f"{cur.get('amount', 0):,}円・報酬 {cur.get('rewards', 0):,}円（未確定含む）")
     if new and old:
-        lines = [f"{o['date'][5:16]} {o['via']} {o['amount']:,}円（報酬{o['rewards']}円）{o['item'][:24]}" for o in new]
+        lines = [f"{o['date'][5:16]} {o['via']} {o['amount']:,}円（報酬{o['rewards']}円）{o['item'][:24]}"
+                 + (f"\n  ← {o['post']['posted_at'][5:16]}投稿・{o['post'].get('src') or '出どころ記録なし'}"
+                    f"・{'/'.join(o['post'].get('reasons') or []) or '加点なし'}" if o.get("post") else "") for o in new]
         notify("売れました！\n" + "\n".join(lines), title="Rakuten affiliate sale")
 
 

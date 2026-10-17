@@ -91,6 +91,8 @@ class RakutenAPI:
             "reviewCount": int(it.get("reviewCount", 0) or 0),
             "reviewAverage": float(it.get("reviewAverage", 0) or 0),
             "pointRate": float(it.get("pointRate", 1) or 1),
+            # ポイント倍率の期間（"2026-10-20 23:59" の形。倍率が終わった後に加点しないため）
+            "pointRateEndTime": it.get("pointRateEndTime") or "",
             "rank": int(it.get("rank", 0) or 0),
             "imageUrl": image,
             "caption_hint": (it.get("catchcopy") or "").strip(),

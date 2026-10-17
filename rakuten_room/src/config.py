@@ -26,10 +26,26 @@ def _load_env() -> None:
         os.environ.setdefault(key.strip(), value.strip())
 
 
+class _NoDupLoader(yaml.SafeLoader):
+    """同じキーが2回あると後ろが前を黙って上書きする。2026-10-17に sale_boost を重ねて書き、
+    5と0の日・セール時の投稿増が丸ごと無効になった。重複は読み込みの時点でエラーにする。"""
+
+
+def _no_dup_mapping(loader, node, deep=False):
+    keys = [k.value for k, _ in node.value]
+    dup = sorted({k for k in keys if keys.count(k) > 1})
+    if dup:
+        raise ValueError(f"config.yaml に同じキーが2回あります: {dup}（{node.start_mark.line + 1}行目の階層）")
+    return yaml.SafeLoader.construct_mapping(loader, node, deep)
+
+
+_NoDupLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_dup_mapping)
+
+
 def load_config() -> dict:
     _load_env()
     with open(ROOT / "config.yaml", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
+        cfg = yaml.load(f, Loader=_NoDupLoader)
 
     cfg["_app_id"] = os.environ.get("RAKUTEN_APP_ID", "").strip()
     cfg["_access_key"] = os.environ.get("RAKUTEN_ACCESS_KEY", "").strip()

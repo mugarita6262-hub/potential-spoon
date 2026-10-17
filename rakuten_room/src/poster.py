@@ -418,7 +418,17 @@ def post_drafts_tabs(cfg: dict, day: str | None = None, full_day: bool = False) 
     # （ROOM側の「すでにコレ」表示だけに頼ると見逃して二重コレになる）
     from .posted_log import recently_posted_keys
     done_keys = recently_posted_keys(int((cfg.get("exclude") or {}).get("reposted_within_days", 60)))
-    targets = [it for it in targets if (it.get("itemCode") or it.get("itemUrl")) not in done_keys]
+    # 定番の売れ筋は repost_after_days（21日）で再投稿する。ここで60日で弾くと、選定側で再投稿を
+    # 許しても一度も出なかった（2026-10-18 に発覚）
+    done_ev = recently_posted_keys(int((cfg.get("evergreen") or {}).get("repost_after_days", 21)))
+    targets = [it for it in targets
+               if (it.get("itemCode") or it.get("itemUrl")) not in (done_ev if it.get("evergreen") else done_keys)]
+    # 商品名のセール期限（「12:59まで」など）が投稿の時点で過ぎていたら出さない。候補選びは朝の1回なので
+    from .selector import sale_ended
+    n0 = len(targets)
+    targets = [it for it in targets if not sale_ended(it.get("itemName", ""))]
+    if n0 != len(targets):
+        print(f"セール期限が過ぎた {n0 - len(targets)} 件は投稿しません。")
     if not targets:
         print("投稿できる商品がありません。")
         return

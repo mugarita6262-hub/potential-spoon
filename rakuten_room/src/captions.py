@@ -51,10 +51,6 @@ def _today_stem() -> str:
     return date.today().isoformat()
 
 
-def prompt_path(day: str | None = None) -> Path:
-    return DRAFTS_DIR / f"{day or _today_stem()}_prompt.md"
-
-
 def captions_path(day: str | None = None) -> Path:
     return DRAFTS_DIR / f"{day or _today_stem()}_captions.json"
 
@@ -81,21 +77,6 @@ def load_plan(day: str | None = None) -> dict:
         except Exception:  # noqa: BLE001
             return {}
     return {}
-
-
-def write_prompt(items: list[dict]) -> Path:
-    lines = [PROMPT_HEADER]
-    for i, it in enumerate(items, 1):
-        lines.append(
-            f"\n{i}. {it['itemName']}\n"
-            f"   - URL: {it['itemUrl']}\n"
-            f"   - 価格: {it['price']:,}円 / ショップ: {it['shopName']}\n"
-            f"   - レビュー: {it['reviewCount']}件 平均{it['reviewAverage']}\n"
-            + (f"   - キャッチコピー: {it['caption_hint']}\n" if it.get("caption_hint") else "")
-        )
-    path = prompt_path()
-    path.write_text("".join(lines), encoding="utf-8")
-    return path
 
 
 def save_drafts(items: list[dict]) -> Path:

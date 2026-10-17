@@ -2694,10 +2694,6 @@ def build(items_by_genre: dict[str, list[dict]] | None = None) -> int:
     # ---- トップページ
     top_drops = sorted(((g, d) for g in GENRES for d in genre_data[g["slug"]][2][:3]),
                        key=lambda gd: gd[1]["drop_pct"], reverse=True)[:16]
-    cards = "".join(
-        f'<h3 class="cat-h" id="c-{c["slug"]}"><a href="/c/{c["slug"]}/">{c["emoji"]} {E(c["name"])}<span>まとめを見る →</span></a></h3>'
-        f'<div class="gcards">{"".join(_gcard_small(g, genre_data) for g in _cat_genres(c))}</div>'
-        for c in CATEGORIES)
     guides_all = [(g, x) for g in GENRES for x in _guides(g["slug"])]
     first_per_genre, seen_g = [], set()
     for g, x in guides_all:

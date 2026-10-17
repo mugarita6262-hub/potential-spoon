@@ -34,6 +34,12 @@ def record_posted(item: dict, kind: str = "posted") -> None:
         "itemUrl": item.get("itemUrl", ""),
         "itemName": item.get("itemName", ""),
         "kind": kind,
+        # どの仕組みで選ばれたか（売れた商品と突き合わせて、効いている仕組みを見るため。2026-10-18〜）
+        "src": item.get("src", ""),
+        "reasons": item.get("reasons", []),
+        "score": item.get("score"),
+        "price": item.get("price"),
+        "pointRate": item.get("pointRate"),
         "posted_at": datetime.now().isoformat(timespec="seconds"),
     })
     POSTED_FILE.write_text(

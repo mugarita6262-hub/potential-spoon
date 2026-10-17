@@ -3,12 +3,50 @@ from __future__ import annotations
 
 import json
 import random
+import re
 
 from .config import DATA_DIR
-from .favorites import collect_favorite_urls
 from .posted_log import recently_posted_keys
 from .rakuten_api import RakutenAPI, dedupe
 from .scoring import score_items
+
+
+def _tag(items: list[dict], src: str) -> list[dict]:
+    """どの仕組みで見つけた候補かを残す（投稿の記録 posted.json まで運び、売れた商品と突き合わせる）。"""
+    for it in items:
+        it.setdefault("src", src)
+    return items
+
+
+# 「まで・迄」の直前の日付（時刻は省略可。省略ならその日の終わり）を期限として読む
+_DT_RE = re.compile(r"(?:(\d{1,2})\s*/\s*(\d{1,2})|(\d{1,2})\s*日)\s*(?:[(（][月火水木金土日][)）])?\s*"
+                    r"(?:(\d{1,2})\s*[:：時]\s*(\d{2})?)?\s*(?:まで|迄)")
+
+
+def sale_ended(name: str, now=None) -> bool:
+    """商品名の「10/17 9:59まで」「17日09:59まで」「〜10/31 23:59迄」が、もう過ぎているか。
+    2026-10-17 に「17日09:59まで」の商品を 18:40 に投稿していた（候補選びが朝の1回だけで、名前の期限を見ていなかった）。"""
+    from datetime import datetime
+    head = (name or "")[:80]
+    if not re.search(r"まで|迄", head):
+        return False
+    now = now or datetime.now()
+    ends = []
+    for mo, md, dd, h, mi in _DT_RE.findall(head):
+        try:
+            month, day = (int(mo), int(md)) if mo else (now.month, int(dd))
+            hour, minute = (int(h), int(mi or 0)) if h else (23, 59)
+            if not (1 <= month <= 12 and 1 <= day <= 31 and hour <= 24):
+                continue
+            year = now.year + (1 if month < now.month - 6 else 0)
+            ends.append(datetime(year, month, day, min(hour, 23), minute))
+        except ValueError:
+            continue
+    if not ends:
+        for h, mi in re.findall(r"(?<![\d/日])(\d{1,2})\s*[:：時]\s*(\d{2})?\s*(?:まで|迄)", head):
+            if int(h) <= 23:
+                ends.append(now.replace(hour=int(h), minute=int(mi or 0), second=0, microsecond=0))
+    return bool(ends) and max(ends) < now
 
 
 def gather_candidates(cfg: dict, api: RakutenAPI) -> list[dict]:
@@ -18,7 +56,7 @@ def gather_candidates(cfg: dict, api: RakutenAPI) -> list[dict]:
     if sources["ranking"]["enabled"]:
         for genre_id in sources["ranking"]["genre_ids"]:
             try:
-                items = api.ranking(int(genre_id), sources["ranking"]["per_genre"])
+                items = _tag(api.ranking(int(genre_id), sources["ranking"]["per_genre"]), "ranking")
                 _log_ranking(items)
                 candidates.extend(items)
                 print(f"  ランキング genre={genre_id}: {len(items)} 件")
@@ -30,30 +68,74 @@ def gather_candidates(cfg: dict, api: RakutenAPI) -> list[dict]:
         for word in kw.get("words", []):
             try:
                 # 毎日同じ商品にならないよう、検索結果のページをランダムに選ぶ
-                items = api.search(word, int(kw.get("per_keyword", 30)), sort="standard",
-                                   page=random.randint(1, 10))
+                items = _tag(api.search(word, int(kw.get("per_keyword", 30)), sort="standard",
+                                        page=random.randint(1, 10)), f"keyword:{word}")
                 candidates.extend(items)
                 print(f"  キーワード「{word}」: {len(items)} 件")
             except Exception as exc:  # noqa: BLE001
                 print(f"  キーワード「{word}」失敗: {exc}")
 
+    se = sources.get("seasonal") or {}
+    if se.get("enabled"):
+        from datetime import date as _date
+        for word in (se.get("months") or {}).get(_date.today().month, []) or []:
+            try:
+                items = _tag(api.search(word, int(se.get("per_word", 20)), sort="-reviewCount",
+                                        page=random.randint(1, 3)), f"seasonal:{word}")
+                candidates.extend(items)
+                print(f"  季節「{word}」: {len(items)} 件")
+            except Exception as exc:  # noqa: BLE001
+                print(f"  季節「{word}」失敗: {exc}")
+
+    ss = sources.get("sold_shops") or {}
+    if ss.get("enabled"):
+        candidates.extend(_sold_shop_items(ss, api))
+
     rs = sources.get("room_search") or {}
     if rs.get("enabled"):
-        candidates.extend(_room_hot_items(rs, api))
-
-    if sources["favorites"]["enabled"]:
-        fav_urls = collect_favorite_urls(sources["favorites"])
-        for url in fav_urls:
-            try:
-                it = api.lookup_by_url(url)
-                if it:
-                    candidates.append(it)
-            except Exception as exc:  # noqa: BLE001
-                print(f"  お気に入り {url} 取得失敗: {exc}")
+        candidates.extend(_tag(_room_hot_items(rs, api), "room_search"))
 
     from .claims_filter import drop_risky
 
     return drop_risky(dedupe(candidates))
+
+
+def _sold_shop_items(ss: dict, api: RakutenAPI) -> list[dict]:
+    """売れた商品のショップの人気商品（2026-10-18 追加）。
+
+    楽天アフィリエイトの注文明細（data/affiliate_report.json、毎晩 room_collect が記録）の商品名から
+    ショップコードを引き、data/sold_shops.json に貯める。売れた店は ROOM の読者に合っている可能性が高い。
+    """
+    rep_file, shop_file = DATA_DIR / "affiliate_report.json", DATA_DIR / "sold_shops.json"
+    shops = json.loads(shop_file.read_text(encoding="utf-8")) if shop_file.exists() else {}
+    if rep_file.exists():
+        for o in json.loads(rep_file.read_text(encoding="utf-8")).get("orders", []):
+            name = o.get("shop") or ""
+            if not name or name in shops:
+                continue
+            try:
+                # 先頭の【店内全品P10倍】のような宣伝のカッコ書きがあると検索に当たらない
+                # 1文字の語や記号があると楽天APIが400を返すので、2文字以上の語を先頭から5つ
+                q = re.sub(r"[【\[［(（][^】\]］)）]{0,40}[】\]］)）]", " ", o.get("item") or "")
+                q = " ".join([w for w in re.split(r"[\s|｜/／・]+", q) if len(w) >= 2][:5])
+                hit = api.search(q, 5)
+                code = next((h["itemCode"].split(":")[0] for h in hit if h.get("shopName") == name), "")
+            except Exception as exc:  # noqa: BLE001
+                print(f"  売れた店「{name}」のショップコード取得失敗: {exc}")
+                continue
+            if code:
+                shops[name] = code
+        shop_file.write_text(json.dumps(shops, ensure_ascii=False, indent=1), encoding="utf-8")
+    out = []
+    for name, code in shops.items():
+        try:
+            items = api.search(None, int(ss.get("per_shop", 15)), shopCode=code, sort="-reviewCount")
+        except Exception as exc:  # noqa: BLE001
+            print(f"  売れた店「{name}」失敗: {exc}")
+            continue
+        out.extend(_tag(items, f"sold_shop:{name}"))
+        print(f"  売れた店「{name}」: {len(items)} 件")
+    return out
 
 
 def _room_hot_items(rs: dict, api: RakutenAPI) -> list[dict]:
@@ -106,7 +188,7 @@ def _room_hot_items(rs: dict, api: RakutenAPI) -> list[dict]:
 
 
 RANKING_LOG = DATA_DIR / "ranking_log.json"
-SALE_RE = __import__("re").compile(r"クーポン|[0-9０-９]+\s*[%％]\s*OFF|[0-9０-９]+\s*[%％]オフ|半額|ポイント\s*[0-9０-９]+\s*倍|P\s*[0-9０-９]+\s*倍|"
+SALE_RE = __import__("re").compile(r"クーポン|[0-9０-９]+\s*[%％]\s*OFF|[0-9０-９]+\s*[%％]オフ|半額|"
                                     r"タイムセール|スーパーSALE|SALE|セール|値下げ|期間限定価格|特価", __import__("re").I)
 
 
@@ -166,19 +248,53 @@ def select_items(cfg: dict, api: RakutenAPI, pool: int | None = None) -> list[di
     ]
     print(f"投稿済みを除外後: {len(candidates)} 件（うち定番の売れ筋 {sum(it['evergreen'] for it in candidates)} 件）")
 
+    n0 = len(candidates)
+    candidates = [it for it in candidates if not sale_ended(it.get("itemName", ""))]
+    if n0 != len(candidates):
+        print(f"商品名のセール期限が過ぎている {n0 - len(candidates)} 件を除外")
+
     ranked = score_items(candidates, cfg["scoring"])
     bonus = float(ev.get("score_bonus", 0.15))
     sale_bonus = float((cfg.get("sale_boost") or {}).get("bonus", 0))
+    point_bonus = {int(k): float(v) for k, v in ((cfg.get("sale_boost") or {}).get("point_bonus") or {}).items()}
+    shop_bonus = float(((cfg.get("sources") or {}).get("sold_shops") or {}).get("bonus", 0))
+    from datetime import datetime as _dt
+    now_s = _dt.now().strftime("%Y-%m-%d %H:%M")
     for it in ranked:
+        reasons = []
         if it.get("evergreen"):
             it["score"] = round(it["score"] + bonus, 4)
-        # 商品名の先頭にクーポン・割引・ポイント倍などがある＝いまセールでお得な商品
+            reasons.append("定番")
+        # 商品名の先頭にクーポン・割引・セールなどがある＝いまセールでお得な商品（期限切れは上で除外済み）
         if sale_bonus and SALE_RE.search((it.get("itemName") or "")[:60]):
             it["on_sale"] = True
             it["score"] = round(it["score"] + sale_bonus, 4)
+            reasons.append("セール表記")
+        # ポイント倍率（楽天APIの値。期間内のものだけ）。いちばん高い段の加点を1回だけ
+        end = it.get("pointRateEndTime") or ""
+        pb = max((b for r, b in point_bonus.items() if it.get("pointRate", 1) >= r), default=0)
+        if pb and (not end or end[:16] >= now_s):
+            it["point_up"] = True
+            it["score"] = round(it["score"] + pb, 4)
+            reasons.append(f"P{int(it['pointRate'])}倍")
+        if shop_bonus and str(it.get("src", "")).startswith("sold_shop"):
+            it["score"] = round(it["score"] + shop_bonus, 4)
+            reasons.append("売れた店")
+        it["reasons"] = reasons
     ranked.sort(key=lambda x: x["score"], reverse=True)
     print(f"スコア条件を満たした候補: {len(ranked)} 件")
 
     if pool is None:
         pool = int(cfg.get("candidate_pool", cfg["post_count"] * 3))
-    return ranked[:pool]
+    # 季節ものはレビュー数順で取るので点数が高く出やすく、放っておくと候補の4割を占める（2026-10-18）。上限を設ける
+    share = float(((cfg.get("sources") or {}).get("seasonal") or {}).get("max_share", 1.0))
+    cap, n_season, out = int(pool * share), 0, []
+    for it in ranked:
+        if str(it.get("src", "")).startswith("seasonal"):
+            if n_season >= cap:
+                continue
+            n_season += 1
+        out.append(it)
+        if len(out) >= pool:
+            break
+    return out

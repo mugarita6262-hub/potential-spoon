@@ -12,6 +12,12 @@ post_boost:
   until: '2026-10-27'
 sale_boost:
   enabled: true
+  # 商品名にクーポン・割引・ポイント倍がある商品への加点（選ぶとき）
+  bonus: 0.12
+  # 楽天APIのポイント倍率での加点（売れたクリスマスツリーは店内全品P10倍だった）
+  point_bonus:
+    5: 0.06
+    10: 0.12
   five_ten_day_multiplier: 1.3
   event_multiplier: 1.8
   max_multiplier: 2.0
@@ -34,10 +40,6 @@ post_interval_seconds:
 - 60
 - 90
 sources:
-  favorites:
-    enabled: true
-    url: https://my.bookmark.rakuten.co.jp/
-    manual_list_file: data/favorites.txt
   ranking:
     enabled: true
     genre_ids:
@@ -66,6 +68,29 @@ sources:
     - クーポン
     - まとめ買い
     per_keyword: 30
+  # 2026-10-18: その月に買われるもの。10/16にクリスマスツリーが売れた
+  seasonal:
+    enabled: true
+    per_word: 20
+    max_share: 0.2  # 候補のうち季節ものは2割まで
+    months:
+      1: [福袋, 加湿器, 電気毛布, 節分, バレンタイン チョコ]
+      2: [バレンタイン チョコ, ひな人形, 新生活 家電, 加湿器]
+      3: [新生活 家電, 入学祝い, 卒業 ギフト, 収納 ケース]
+      4: [母の日 ギフト, 新生活, 日傘, レインコート]
+      5: [母の日 ギフト, 父の日 ギフト, 日傘, 梅雨 対策]
+      6: [父の日 ギフト, 扇風機, 日傘, お中元]
+      7: [お中元, 扇風機, 冷感 敷きパッド, 水筒]
+      8: [防災 グッズ, 扇風機, 冷感 敷きパッド, 敬老の日 ギフト]
+      9: [防災 グッズ, 敬老の日 ギフト, ハロウィン, 秋冬 ニット]
+      10: [クリスマスツリー, 電気毛布, 着る毛布, 加湿器, おせち 予約, ハロウィン]
+      11: [クリスマスツリー, クリスマスプレゼント, お歳暮, おせち 予約, 電気毛布, 加湿器, カレンダー 2027]
+      12: [クリスマスプレゼント, お歳暮, おせち, 福袋, 年越しそば, 大掃除, 加湿器]
+  # 売れた商品のショップの人気商品（楽天アフィリエイトの注文明細から。data/sold_shops.json にショップを記録）
+  sold_shops:
+    enabled: true
+    per_shop: 15
+    bonus: 0.05
   # ROOM内で反応が出ている商品（以前のツールの方式。商品だけ借りて紹介文は自分で書く）
   room_search:
     enabled: true
@@ -96,7 +121,7 @@ scoring:
     review_average: 0.2
     ranking_rank: 0.25
     price_fit: 0.1
-    point_rate: 0.1
+    point_rate: 0  # ポイントは sale_boost.point_bonus（楽天APIの倍率・期間内）で1回だけ数える（2026-10-18）
   price_band:
   - 500
   - 20000
@@ -106,8 +131,6 @@ exclude:
   reposted_within_days: 60
 # ほっといても売れる定番の売れ筋（ランキング入り＋レビュー5000件以上★4.3以上、または30日中7日以上ランクイン）
 # セール・クーポンで今お得な商品を優先（売れた商品はどちらもクーポン・ポイント倍のセール中だった）
-sale_boost:
-  bonus: 0.12
 evergreen:
   min_reviews: 5000
   min_average: 4.3
@@ -137,59 +160,11 @@ engage:
   daily_gap_minutes:
   - 2
   - 6
-sns:
-  enabled: true
-  run_in_daily: false
-  lookback_days: 30
-  min_discount_pct: 10
-  repost_cooldown_days: 30
-  threads:
-    enabled: true
-    post_count: 1
-    interval_seconds:
-    - 20
-    - 45
-    disclosure: PR
-research:
-  enabled: true
-  extra_genre_ids:
-  - 101070
-  - 100371
-  - 551177
-  - 216131
-  - 100533
-  - 100132
-  - 101213
-  - 100026
-  - 211742
-  - 101164
-a8:
-  enabled: true
-  run_in_daily: false
-  repost_cooldown_days: 10
-  disclosure: PR
-digest:
-  enabled: true
-  run_in_daily: false
-  repost_cooldown_days: 5
-  disclosure: PR
-sitepost:
-  enabled: true
-  repost_cooldown_days: 21
-  disclosure: PR
 sitedrop:
   enabled: true
   repost_cooldown_days: 2
   min_drops: 3
   disclosure: PR
-# 2026-10-07: リンクなしで空振りも多かったので、サイトへの流入を作る sitedrop に置き換え
-trend:
-  enabled: false
-  run_in_daily: false
-  lookback_days: 7
-  min_sample: 3
-  min_pct_change: 3.0
-  repost_cooldown_days: 5
 calendar:
   enabled: true
   run_in_daily: false
@@ -212,14 +187,6 @@ trivia:
   - 買い置きしすぎない日用品のストックの考え方
 server:
   enabled: true
-  collect_window:
-  - 06:00
-  - '23:00'
-  collect_runs_per_day: 12
-  insights_window:
-  - 06:00
-  - '23:00'
-  insights_runs_per_day: 6
   prepare_window:
   - 06:00
   - 06:45
@@ -284,37 +251,6 @@ server:
   - - '23:15'
     - '23:55'
   room_collect_runs_per_day: 1
-  sns_window:
-  - - '18:30'
-    - '20:45'
-  - - '20:45'
-    - '23:30'
-  sns_runs_per_day: 0
-  a8_window:
-  - - '18:30'
-    - '20:45'
-  - - '20:45'
-    - '23:30'
-  a8_runs_per_day: 0
-  digest_window:
-  - - '18:30'
-    - '20:45'
-  - - '20:45'
-    - '23:30'
-  digest_runs_per_day: 0
-  # 2026-10-17: Threadsは楽天直リンクの貢献がほぼ無いので、買い時ナビへの誘導を8件中5件に増やす
-  sitepost_window:
-  - - '12:00'
-    - '13:30'
-  - - '20:00'
-    - '22:30'
-  sitepost_runs_per_day: 0
-  trend_window:
-  - - '18:30'
-    - '20:45'
-  - - '20:45'
-    - '23:30'
-  trend_runs_per_day: 0
   # 2026-10-18: Threadsは値下がり情報アカウント。否定レビューを受けて値下がり速報は昼1本＋夜1本
   # （3件以上のジャンルだけ。無ければ出さない）。判定は2026-11-30（Threads経由の楽天クリック累計30回）
   sitedrop_window:
