@@ -563,19 +563,23 @@ def cmd_digest(cfg: dict) -> None:
 
 
 def cmd_sitedrop(cfg: dict) -> None:
-    """買い時ナビの「値下がり速報」をThreadsに出す（フック＋サイトの値下がり部分へのリンク）。
+    """買い時ナビの「値下がり速報」をThreadsに出す（フック＋買い時ナビの値下がり欄へのリンク）。
 
-    サイトならではの「毎日の値下がり記録」をSNSで見せて、サイトへの流入を作るための投稿。
-    値下がりの多いジャンルから選び、同じジャンルは cooldown 日あける。
+    2026-10-18: Threadsを値下がり情報アカウントに一本化。時間帯・季節に合うジャンルを選び、
+    ジャンル内で値下がりが多いペルソナに向けて書く（threads_deal）。フックはジャンル全体の
+    数字だけ（商品名なし）、引用側に商品名と下げ幅の一覧（コードが正確に作る）＋リンク＋#PR。
+    リンク先の値下がり欄は同じデータから作られるので、投稿で見た商品がそのまま並ぶ。
     """
     import json as _json
+    from datetime import datetime as _dt
 
-    from .content_captions import build_site_post_text, generate_sitedrop_caption
+    from .content_captions import generate_dealdrop_caption
     from .price_history import load_all
-    from .site_builder import GENRES, SITE_ITEMS_FILE, SITE_URL, _genre_ok, _short_name, rankings
+    from .site_builder import GENRE_PERSONAS, GENRES, SITE_ITEMS_FILE, SITE_URL, _genre_ok, pick_key, rankings
     from .sns_posted_log import posted_today as sns_posted_today
     from .sns_posted_log import record_posted as sns_record_posted
     from .sns_posted_log import recently_posted_keys
+    from .threads_deal import genre_score, pick_persona, post_name, slot_of
 
     sc = cfg.get("sitedrop", {}) or {}
     if not sc.get("enabled", True):
@@ -584,6 +588,10 @@ def cmd_sitedrop(cfg: dict) -> None:
     if not _ensure_threads_ready(cfg):
         return
 
+    now = _dt.now()
+    # 投稿の直前にサイトを作り直す。投稿の数字・商品と、リンク先の値下がり欄を同じデータにそろえるため
+    from .site_builder import build as _build_site
+    _build_site(None)
     data = _json.loads(SITE_ITEMS_FILE.read_text(encoding="utf-8"))
     hist = load_all()
     skip = recently_posted_keys(int(sc.get("repost_cooldown_days", 3)), platform="threads")
@@ -593,24 +601,40 @@ def cmd_sitedrop(cfg: dict) -> None:
             continue
         items = [it for it in data.get(g["slug"], []) if _genre_ok(g, it)]
         _, drops = rankings(items, hist)
-        if len(drops) >= int(sc.get("min_drops", 2)):
-            cands.append((len(drops), g, drops))
+        score = genre_score(g["slug"], len(drops), now)
+        if len(drops) >= int(sc.get("min_drops", 2)) and score > 0:
+            cands.append((score, g, drops))
     if not cands:
         print("値下がりを紹介できるジャンルがありません（件数が少ないか、すべてクールダウン中）。")
         return
-    cands.sort(key=lambda x: (x[0], max(d["drop_pct"] for d in x[2])), reverse=True)
-    n, g, drops = cands[0]
-    max_pct = max(d["drop_pct"] for d in drops)
-    print(f"今回の値下がり速報: {g['name']}（{n}件、最大{max_pct:.0f}%）")
-    hook, caption = generate_sitedrop_caption(g["name"], n, max_pct, [_short_name(d["itemName"], 30) for d in drops[:3]])
+    cands.sort(key=lambda x: x[0], reverse=True)
+    _, g, drops = cands[0]
+    persona, target = pick_persona(g["slug"], drops, GENRE_PERSONAS)
+    # フックの数字はジャンル全体（リンク先の値下がり欄と同じ数字）。ペルソナは呼びかけと一覧の絞り込みに使う
+    n, max_pct = len(drops), max(d["drop_pct"] for d in drops)
+
+    def _is_low(d: dict) -> bool:
+        return d.get("days", 0) >= 7 and d["drop_pct"] >= 5 and d["price"] <= d.get("low", 0) and d.get("high", 0) >= d.get("low", 0) * 1.03
+
+    n_low = sum(1 for d in drops if _is_low(d))
+    slot = slot_of(now)
+    print(f"今回の値下がり速報: {g['name']} / {persona or '全体'}（{n}件、最大{max_pct:.0f}%、最安{n_low}件、{slot}）")
+    hook, caption = generate_dealdrop_caption(g["name"], persona, n, max_pct, n_low, slot)
     if not hook or not caption:
         print("紹介文の生成に失敗しました。")
         return
 
-    url = f"{SITE_URL}/{g['slug']}/?utm_source=threads&utm_medium=social&utm_campaign={g['slug']}-drops#drops"
-    text = build_site_post_text(url, caption, disclosure=sc.get("disclosure") or "PR")
+    picks = target[:3]
+    lines = [f"・{post_name(d['itemName'])}（−{d['drop_pct']:.0f}%{'・30日で最安' if _is_low(d) else ''}）" for d in picks]
+    url = (f"{SITE_URL}/{g['slug']}/?utm_source=threads&utm_medium=social&utm_campaign={g['slug']}-drops"
+           f"&pick={'.'.join(pick_key(d) for d in picks)}#drops")
+    text = (f"{caption}\n\n" + "\n".join(lines) + f"\n\nいまの値段・ふだんの値段・30日の値動きはここで見られます👇\n{url}\n"
+            f"#{sc.get('disclosure') or 'PR'} #買い時ナビ")
     base = {"itemCode": f"sitedrop:{g['slug']}", "itemUrl": url, "itemName": f"{g['name']}の値下がり速報"}
     category = f"sitedrop:{g['name']}"
+    if "--dry" in sys.argv:
+        print("---- hook\n" + hook + "\n---- quote\n" + text)
+        return
     try:
         post_id, mode = _post_hook_then_reply(cfg, hook, text, record_base=base, category=category)
         sns_record_posted(base, platform="threads", post_id=post_id, category=category, link_mode=mode)
@@ -856,7 +880,7 @@ def cmd_trivia(cfg: dict) -> None:
         print("告知文の生成に失敗しました。")
         return
 
-    text = build_info_post_text(caption, tags="#暮らしの豆知識")
+    text = build_info_post_text(caption, tags="#楽天お買い物のコツ")
     try:
         post_id = _post_to_threads_notified(cfg, text)
         sns_record_posted(

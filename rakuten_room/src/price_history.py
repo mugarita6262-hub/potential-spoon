@@ -76,11 +76,19 @@ def price_drop(item: dict, lookback_days: int = 30, history: dict | None = None)
 
     cutoff = (date.today() - timedelta(days=lookback_days)).isoformat()
     recent = [r["price"] for r in rows if r["date"] != today and r["date"] >= cutoff]
-    reference = max(recent or past)
+    # 2026-10-18: 最高値を基準にすると、数日だけ高かった日（2,280円が2日だけ3,900円など）と比べて、
+    # ふだんの値段に戻っただけでも「42%値下がり」に見えてしまう。基準は「ふだんの価格」＝30日の中央値
+    pool = sorted(recent or past)
+    reference = pool[len(pool) // 2]
     drop_pct = round((reference - price) / reference * 100, 1) if reference else 0.0
+    # 6割を超える下げは、セット内容や商品自体が差し替わったページがほとんど（5,680円→1,780円など）。
+    # 値下がりとしては扱わない
+    if drop_pct > 60:
+        drop_pct = 0.0
 
     return {
         "drop_pct": max(drop_pct, 0.0),
         "reference_price": reference,
-        "is_all_time_low": price <= min(past),
+        # ふだんの値段のまま（たまたま記録上いちばん安い日と同じ）なら「過去最安」とは言わない
+        "is_all_time_low": price <= min(past) and drop_pct >= 3,
     }

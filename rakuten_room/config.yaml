@@ -179,7 +179,7 @@ sitepost:
   disclosure: PR
 sitedrop:
   enabled: true
-  repost_cooldown_days: 3
+  repost_cooldown_days: 2
   min_drops: 2
   disclosure: PR
 # 2026-10-07: リンクなしで空振りも多かったので、サイトへの流入を作る sitedrop に置き換え
@@ -198,22 +198,16 @@ trivia:
   run_in_daily: false
   repost_cooldown_days: 7
   topics:
-  - コーヒー
-  - お茶
-  - 美容・スキンケア
-  - 日用品雑貨
-  - 食品・スイーツ
-  - キッチン家電
-  - ダイエット・健康
-  - インテリア・収納
-  - 掃除・洗濯
-  - 料理・時短
-  - 節約・家計
-  - 子育て
-  - 睡眠
-  - 季節の過ごし方
-  - ペット
-  - 防災・備蓄
+  - 値下がりの見分け方（30日の最高値と比べる）
+  - まとめ買いは1個あたりの値段で比べる
+  - 送料込みの値段で比べる
+  - レビュー件数と星の見方
+  - セール直前の値上げに気づくコツ
+  - 日用品の買い置きの目安
+  - 季節ものは時期をずらすと安い
+  - 欲しいものリストに入れて値下がりを待つ
+  - 定番品の「いつもの値段」を覚えておく
+  - 大容量と小分けの選び方
 server:
   enabled: true
   collect_window:
@@ -228,10 +222,13 @@ server:
   - 06:00
   - 06:45
   prepare_runs_per_day: 1
+  # 2026-10-18: 夕方にも価格を取り直して、夜の値下がり速報とサイトの数字を新しくする
   site_window:
-  - 05:00
-  - 05:45
-  site_runs_per_day: 1
+  - - '05:00'
+    - '05:45'
+  - - '15:30'
+    - '16:15'
+  site_runs_per_day: 2
   # 2026-10-17: 売れた2件はどちらも昼前後の投稿から1〜2時間で購入されたので、昼（10:30〜14:30）に半分ほど寄せる
   room_post_window:
   - - '07:30'
@@ -290,7 +287,7 @@ server:
     - '20:45'
   - - '20:45'
     - '23:30'
-  sns_runs_per_day: 1
+  sns_runs_per_day: 0
   a8_window:
   - - '18:30'
     - '20:45'
@@ -309,21 +306,24 @@ server:
     - '13:30'
   - - '20:00'
     - '22:30'
-  sitepost_runs_per_day: 2
+  sitepost_runs_per_day: 0
   trend_window:
   - - '18:30'
     - '20:45'
   - - '20:45'
     - '23:30'
   trend_runs_per_day: 0
+  # 2026-10-18: Threadsは値下がり情報アカウントに一本化（朝・昼・夜2回。時間帯に合うジャンルを選ぶ）
   sitedrop_window:
   - - '07:00'
-    - '08:45'
-  - - '11:45'
-    - '13:15'
-  - - '18:30'
-    - '22:00'
-  sitedrop_runs_per_day: 3
+    - '08:30'
+  - - '12:00'
+    - '13:00'
+  - - '19:00'
+    - '20:30'
+  - - '21:00'
+    - '22:30'
+  sitedrop_runs_per_day: 4
   calendar_window:
   - '19:00'
   - '21:00'
@@ -339,7 +339,7 @@ server:
     - '21:00'
   instagram_runs_per_day: 1
 posting_limits:
-  max_per_day: 8
+  max_per_day: 10
   instagram_max_per_day: 1
 instagram:
   enabled: true
