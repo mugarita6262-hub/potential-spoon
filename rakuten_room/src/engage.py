@@ -255,6 +255,10 @@ def follow_round(cfg: dict, target: int, slug: str) -> None:
                 # 画面から拾う方法で足りないときは、ROOM検索APIで今動いている人を探してAPIでフォローする（2026-10-16 追加。
                 # 新着の画面の作りが変わったのか、画面からはほとんど拾えなくなっていた）
                 done += _follow_via_search(page, can - done, flog, pacer, slug, done)
+            if done < can:
+                # 検索に出るのは常連ばかりで、1巡で新しい候補が80人ほどしかない（2026-10-18 に計測）。
+                # よく投稿している人のフォロワーのうち、最近も投稿している人をフォローする
+                done += _follow_via_followers(page, can - done, flog, pacer, slug, done)
         print(f"\nフォロー回り完了: {done} 件（今日の累計 {_today_log()['follow']} 件）")
     finally:
         try:
@@ -306,6 +310,58 @@ def _follow_via_search(page, need: int, flog: dict, pacer, slug: str, start: int
                     flog[key] = {"at": now, "back": True, "src": "search"}
                 else:
                     ng += 1
+    _save(FOLLOW_LOG, flog)
+    return done
+
+
+def _follow_via_followers(page, need: int, flog: dict, pacer, slug: str, start: int) -> int:
+    """ROOM検索に出てくる「いま投稿している人」を起点に、その人のフォロワーをたどってフォローする。
+    フォロワーのうち、最近の投稿がある（recent_collects が空でない）人だけ。動いている人の方がフォローが返りやすい。"""
+    uid, tok = _api_session(page, slug)
+    cache = _load(ROOM_LISTS, {})
+    following = {str(u.get("id")) for u in cache.get("following", []) if isinstance(u, dict)}
+    seeds = []
+    for w in random.sample(FOLLOW_SEARCH_WORDS, k=4):
+        data = _api_get(page, f"https://room.rakuten.co.jp/api/collect/search?api_version=1&currentTab=collect"
+                              f"&item_page=1&keyword={w}&page=1&query={w}&csrf_tkn={tok}").get("data") or []
+        for c in data:
+            oid = str((c.get("user") or {}).get("id") or "")
+            if oid and oid != uid and oid not in seeds:
+                seeds.append(oid)
+    random.shuffle(seeds)
+    done, ng = 0, 0
+    for seed in seeds[:12]:
+        if done >= need or ng >= 3:
+            break
+        # フォロワーの多い人は一覧が長いので、毎回同じ先頭を見ないよう少しずらす
+        off = random.choice([0, 0, 100, 200])
+        users = _api_get(page, f"https://room.rakuten.co.jp/api/{seed}/followers?api_version=2&limit=100"
+                               f"&offset={off}&csrf_tkn={tok}").get("data") or []
+        for u in users:
+            if done >= need or ng >= 3:
+                break
+            oid, uname = str(u.get("id") or ""), u.get("username") or ""
+            key = f"url:/{uname}/items"
+            if (not oid or oid == uid or oid in following or u.get("is_following") or not u.get("is_followable", True)
+                    or not u.get("recent_collects") or key in flog or (u.get("fullname") or "") in flog):
+                continue
+            r = _api_follow(page, tok, oid, unfollow=False)
+            now = datetime.now().isoformat(timespec="seconds")
+            if r == "ok":
+                done += 1
+                ng = 0
+                _bump("follow")
+                following.add(oid)
+                flog[key] = {"at": now, "back": None, "src": "followers"}
+                _save(FOLLOW_LOG, flog)
+                print(f"  + フォロー {start + done}（よく投稿する人のフォロワー） {(u.get('fullname') or '')[:20]}")
+                if done < need:
+                    pacer.wait(on_rest=lambda s: print(f"    （ひと休み {int(s)}秒）"))
+            elif r == "dup":
+                following.add(oid)
+                flog[key] = {"at": now, "back": True, "src": "followers"}
+            else:
+                ng += 1
     _save(FOLLOW_LOG, flog)
     return done
 

@@ -46,6 +46,7 @@ JOBS = {
     "room_prune": ("ROOM: 古い投稿の削除（登録上限対策）", False),
     "room_unfollow": ("ROOM: フォロー返し＋フォローを返していない人の解除", False),
     "room_collect": ("ROOM: 新しい投稿をテーマ別コレクションへ振り分け", False),
+    "report": ("毎晩: その日の予定と実績をスマホに通知", False),
 }
 
 _ROOM_JOBS = {"room_post", "room_like", "room_follow", "room_prune", "room_unfollow", "room_collect"}
@@ -142,6 +143,9 @@ def _dispatch(cli, cfg: dict, name: str) -> None:
         cli.cmd_site(cfg)
     elif name == "prepare":
         cli.cmd_prepare(cfg)
+    elif name == "report":
+        from .daily_report import send
+        send()
     else:
         raise ValueError(f"unknown job: {name}")
 
