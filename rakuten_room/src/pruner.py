@@ -467,6 +467,92 @@ def _prune_oldest_api(page, cfg, pcfg, commit: bool) -> None:
     print(f"削除完了: {done} 件")
 
 
+def _is_dead(c: dict) -> bool:
+    """販売が終わった商品の投稿か（売り切れ・商品削除・在庫なし）。ROOMの投稿APIの item にある値で判定する。"""
+    it = c.get("item") or {}
+    return bool(it.get("flg_soldout") or it.get("flg_deleted") or str(it.get("availability", "1")) != "1")
+
+
+def _prune_dead_api(page, cfg, pcfg, commit: bool) -> None:
+    """販売が終わった商品の投稿だけを消す（2026-10-18 追加）。
+
+    それまでの oldest は「2025年より前で反応の少ない順」に消していたが、2022年の投稿20件を見ると販売中が14件で、
+    売れる可能性のある投稿を消し、販売終了の投稿を残していた。こちらは販売終了だけを、古い方から探して消す。
+    投稿から keep_recent_days 日以内は、販売終了でも消さない（10/13 の新規投稿の誤削除の再発防止）。
+    登録上限（約1万9千件）が近いとき（max_total 超）だけ、足りない分を oldest で消す。
+    """
+    from datetime import date, timedelta
+    from .engage import _api_get, _api_session
+    from .human import Pacer
+    slug = cfg["my_room_url"].rstrip("/").split("/")[-2]
+    keep_days = int(pcfg.get("keep_recent_days", 30))
+    cutoff = (date.today() - timedelta(days=keep_days)).isoformat()
+    max_delete = int(pcfg.get("max_delete_per_run", 12))
+    lo, hi = pcfg.get("delete_interval_seconds", [4, 9])
+    pacer = Pacer(base=(float(lo), float(hi)))
+    uid, tok = _api_session(page, slug)
+    state = _load(DATA_DIR / "prune_state.json", {})
+    last = _last_offset(page, uid, tok, int(state.get("last_offset", 0)))
+    if last < 0:
+        print("投稿一覧が取れませんでした。")
+        return
+    state["last_offset"] = last
+    # 前回どこまで見たか（古い方から新しい方へ進む）。末尾を超えていたら、末尾から見直す
+    cur = int(state.get("dead_cursor", last))
+    if cur > last or cur < 0:
+        cur = last
+    found, scanned = [], 0
+    while len(found) < max_delete and scanned < int(pcfg.get("scan_per_run", 1500)):
+        start = max(0, cur - 99)
+        data = _api_get(page, f"{API}/{uid}/collects?api_version=1&limit=100&offset={start}&csrf_tkn={tok}").get("data") or []
+        if not data:
+            break
+        scanned += len(data)
+        found += [c for c in data if (c.get("created_at") or "9999") < cutoff and _is_dead(c)]
+        # ここから先（新しい側）が keep_recent_days 以内になったら、末尾に戻って次回また古い方から見る
+        if start == 0 or min((c.get("created_at") or "9999") for c in data) >= cutoff:
+            cur = last
+            break
+        cur = start - 1
+    state["dead_cursor"] = cur
+    _save(DATA_DIR / "prune_state.json", state)
+    print(f"  販売終了の投稿を探索: {scanned} 件を見て {len(found)} 件（全体 約{last + 1}件・{cutoff} より前のみ）")
+    pruned_log = _load(PRUNE_LOG, [])
+    done = 0
+    for c in found[:max_delete]:
+        it = c.get("item") or {}
+        rec = {"url": f"https://room.rakuten.co.jp/{slug}/{c['id']}", "name": (c.get("content") or it.get("name") or "")[:100],
+               "posted": (c.get("created_at") or "")[:10], "likes": c.get("likes"), "comments": c.get("comments"),
+               "reason": "soldout" if it.get("flg_soldout") else "deleted" if it.get("flg_deleted") else f"availability={it.get('availability')}"}
+        if not commit:
+            print(f"  [プレビュー] 削除対象: {rec['posted']} {rec['reason']} {it.get('name', '')[:40]}")
+            continue
+        # 最終確認：新しい投稿・日付不明・販売中は絶対に消さない
+        if not rec["posted"] or rec["posted"] >= cutoff or not _is_dead(c):
+            from .notify import notify
+            msg = f"ROOM削除を停止: 消してはいけない投稿を消そうとしました（{rec['posted']} {rec['reason']} {rec['name'][:30]}）"
+            print("  " + msg)
+            notify(msg, title="ROOM prune STOPPED")
+            break
+        s, text = _api_post(page, f"{API}/{c['id']}?csrf_tkn={tok}", "_method=delete")
+        if s == 200 and '"success"' in text:
+            done += 1
+            rec["deleted_at"] = datetime.now().isoformat(timespec="seconds")
+            pruned_log.append(rec)
+            print(f"  削除: {rec['posted']} {rec['reason']} {it.get('name', '')[:40]}")
+        else:
+            print(f"  削除できませんでした（{s} {text[:120]}）。この回は止めます")
+            break
+        pacer.wait()
+    if commit:
+        _save(PRUNE_LOG, pruned_log)
+    print(f"削除完了: {done} 件（販売終了）")
+    # 登録上限が近いときだけ、足りない分を古い順（販売中を含む）で消す
+    if last + 1 - done > int(pcfg.get("max_total", 18000)) and done < max_delete:
+        print(f"  投稿総数が {pcfg.get('max_total', 18000)} 件を超えているので、古い投稿も消します")
+        _prune_oldest_api(page, cfg, {**pcfg, "max_delete_per_run": max_delete - done}, commit)
+
+
 def prune(cfg: dict, commit: bool = False, max_delete: int | None = None) -> None:
     pcfg = dict(cfg.get("prune", {}))
     if not pcfg.get("enabled", False):
@@ -496,6 +582,8 @@ def prune(cfg: dict, commit: bool = False, max_delete: int | None = None) -> Non
               f"ガード: {pcfg.get('only_before') or 'なし'}")
         if mode == "soldout":
             _prune_soldout(page, cfg, pcfg, commit)
+        elif mode == "dead":
+            _prune_dead_api(page, cfg, pcfg, commit)
         else:
             _prune_oldest_api(page, cfg, pcfg, commit)
     finally:
