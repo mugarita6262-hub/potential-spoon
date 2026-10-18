@@ -48,6 +48,11 @@ _TIME_LIMITED = __import__("re").compile(
     r"(\d{1,2}\s*日|\d{1,2}\s*/\s*\d{1,2}|\d{1,2}\s*時)[^。、\n]{0,8}(まで|迄|限定)|期間限定|本日限定|今だけ|半額|"
     r"クーポン|\d[\d,]*\s*円")
 
+# 使ったふり・過去の体験に読める言い回し（10/18「毛布選びで何度も失敗してるから」が通っていた）
+_FAKE_EXPERIENCE = __import__("re").compile(
+    r"失敗し(て|た)|使って(る|います|いる|み(た|ました))|愛用|リピ|買ってよかった|買いました|届いた|うちの|我が家|"
+    r"手放せ|毎日使って|ずっと使って|実際に使った")
+
 
 def _item_lines(items: list[dict]) -> str:
     out = []
@@ -108,6 +113,9 @@ def _generate_chunk(items: list[dict]) -> dict[str, str]:
         if url and cap:
             if _TIME_LIMITED.search(cap):
                 print(f"  期限つきの情報・価格を含むので使わない: {cap[:50]}")
+                continue
+            if _FAKE_EXPERIENCE.search(cap):
+                print(f"  使ったふり・体験談に読めるので使わない: {cap[:50]}")
                 continue
             result[url] = cap
 
