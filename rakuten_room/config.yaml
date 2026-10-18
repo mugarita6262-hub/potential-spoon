@@ -161,7 +161,7 @@ engage:
   followback_per_run: 80
   daily_likes: 500
   daily_follows: 200
-  daily_prune: 300
+  daily_prune: 150  # 投稿と同じ1日150件。総数を約1万4千件に保つ（登録上限は約1万9千件。2026-10-18 に300→150）
   daily_gap_minutes:
   - 2
   - 6
