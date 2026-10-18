@@ -159,7 +159,7 @@ engage:
   unfollow_after_days: 7
   daily_unfollows: 800
   followback_per_run: 80
-  daily_likes: 500
+  daily_likes: 700  # 上限 like_per_day 700 まで使う（2026-10-18 に500→700。1回88件・1時間130件以内）
   daily_follows: 200
   daily_prune: 150  # 投稿と同じ1日150件。総数を約1万4千件に保つ（登録上限は約1万9千件。2026-10-18 に300→150）
   daily_gap_minutes:
