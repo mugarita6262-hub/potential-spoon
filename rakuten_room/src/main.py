@@ -267,7 +267,7 @@ def _post_to_threads_notified(cfg: dict, text: str, image_url: str | None = None
 
 def _post_hook_then_reply(cfg: dict, hook: str, text: str, image_url: str | None = None,
                           record_base: dict | None = None,
-                          category: str = "") -> tuple[str, str]:
+                          category: str = "", mode: str | None = None) -> tuple[str, str]:
     """商品を出さない普通の「フック投稿」を出し、リンク＋#PR付きの紹介投稿を続けて出す。
     (紹介投稿のID, 出し方) を返す。出し方は "reply"（ツリー。いわゆる「リンクはリプ欄」）と
     "quote"（フックを引用した通常投稿）を交互にする A/B テスト中（2026-10-03〜）。
@@ -288,7 +288,7 @@ def _post_hook_then_reply(cfg: dict, hook: str, text: str, image_url: str | None
 
     # 2026-10-08 A/Bテスト終了: ツリーのリンク投稿はフックの数%（0回の日も）しか見られず、
     # 引用は2〜3割に届いた。以後は引用に固定（config の sns.threads.link_mode で reply/ab に戻せる）
-    lm = ((cfg.get("sns", {}) or {}).get("threads", {}) or {}).get("link_mode", "quote")
+    lm = mode or ((cfg.get("sns", {}) or {}).get("threads", {}) or {}).get("link_mode", "quote")
     if lm == "ab":
         mode = "quote" if last_link_mode() == "reply" else "reply"
     else:
@@ -330,7 +330,7 @@ def cmd_sitedrop(cfg: dict) -> None:
     from .sns_posted_log import posted_today as sns_posted_today
     from .sns_posted_log import record_posted as sns_record_posted
     from .sns_posted_log import recently_posted_keys
-    from .threads_deal import genre_score, pick_persona, post_name, slot_of
+    from .threads_deal import genre_score, pick_persona, slot_of
 
     sc = cfg.get("sitedrop", {}) or {}
     if not sc.get("enabled", True):
@@ -377,19 +377,19 @@ def cmd_sitedrop(cfg: dict) -> None:
         return
 
     picks = target[:3]
-    lines = [f"・{post_name(d['itemName'])}（−{d['drop_pct']:.0f}%{'・記録' + str(d['days']) + '日で最安' if _is_low(d) else ''}）" for d in picks]
     url = (f"{SITE_URL}/{g['slug']}/?utm_source=threads&utm_medium=social&utm_campaign={g['slug']}-drops"
            f"&pick={'.'.join(pick_key(d) for d in picks)}#drops")
-    hook = f"{hook}\n\n（値下がり中の商品は引用でまとめています・PR）"
-    text = (f"PR｜{caption}\n\n" + "\n".join(lines) + f"\n\nいまの値段・ふだんの値段・値動きはここで見られます👇\n{url}\n"
-            f"#{sc.get('disclosure') or 'PR'} #買い時ナビ")
+    # 2026-10-18: 引用だと本体から見えず（本体147表示・引用5表示）「引用でまとめています」が届かなかった。
+    # リンクは本体への返信に付ける。返信は自分のサイトの案内だけ（商品名を出さない）なのでPRは付けない
+    hook = f"{hook}\n\n値下がり中の商品は、この投稿への返信から👇"
+    text = (f"{caption}\n\n{g['name']}で値下がり中の{n}件と、ふだんの値段・値動きはここにまとめています👇\n{url}\n#買い時ナビ")
     base = {"itemCode": f"sitedrop:{g['slug']}", "itemUrl": url, "itemName": f"{g['name']}の値下がり速報"}
     category = f"sitedrop:{g['name']}"
     if "--dry" in sys.argv:
-        print("---- hook\n" + hook + "\n---- quote\n" + text)
+        print("---- hook\n" + hook + "\n---- reply\n" + text)
         return
     try:
-        post_id, mode = _post_hook_then_reply(cfg, hook, text, record_base=base, category=category)
+        post_id, mode = _post_hook_then_reply(cfg, hook, text, record_base=base, category=category, mode="reply")
         sns_record_posted(base, platform="threads", post_id=post_id, category=category, link_mode=mode)
         print(f"✅ Threads投稿完了（値下がり速報: {g['name']}） -> id={post_id}")
     except Exception as exc:  # noqa: BLE001

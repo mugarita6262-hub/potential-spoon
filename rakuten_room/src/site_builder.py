@@ -1483,7 +1483,7 @@ if(ig&&ct&&/utm_source=instagram/.test(location.search)){{ct.parentNode.insertBe
 var ks=(new URLSearchParams(location.search).get('pick')||'').split('.').filter(Boolean),ol=d.querySelector('ol'),hit=0;
 if(ol){{ks.slice().reverse().forEach(function(k){{var li=ol.querySelector('li[data-k="'+k+'"]');if(li){{li.classList.add('picked');ol.insertBefore(li,ol.firstChild);hit++}}}});ol.scrollLeft=0}}
 var n=document.createElement('p');n.className='db-from';
-n.textContent=hit?'Threadsで紹介した'+hit+'件を先頭に並べています。ふだんの価格と、記録している値動きを確かめてからどうぞ':(ks.length?'投稿のあと価格が変わり、値下がりが終わった商品もあります。いま値下がり中の商品はこちら':'Threadsの値下がり速報で紹介した商品は、このリストです（価格は毎日記録）');
+n.textContent=hit?'Threadsの値下がり速報の商品（'+hit+'件）を先頭に並べています。ふだんの価格と、記録している値動きを確かめてからどうぞ':(ks.length?'投稿のあと価格が変わり、値下がりが終わった商品もあります。いま値下がり中の商品はこちら':'Threadsの値下がり速報で紹介した商品は、このリストです（価格は毎日記録）');
 d.insertBefore(n,d.firstChild);d.classList.add('from-sns')}})();</script>
 <script>(function(){{document.querySelectorAll('.ranklist').forEach(function(rl){{var d=rl.querySelector('.rank-default'),s=rl.querySelector('.rank-sorted');
 rl.querySelectorAll('.sortbar button').forEach(function(b){{b.addEventListener('click',function(){{var k=b.dataset.sort;
