@@ -478,15 +478,17 @@ def _prune_dead_api(page, cfg, pcfg, commit: bool) -> None:
 
     それまでの oldest は「2025年より前で反応の少ない順」に消していたが、2022年の投稿20件を見ると販売中が14件で、
     売れる可能性のある投稿を消し、販売終了の投稿を残していた。こちらは販売終了だけを、古い方から探して消す。
-    投稿から keep_recent_days 日以内は、販売終了でも消さない（10/13 の新規投稿の誤削除の再発防止）。
-    登録上限（約1万9千件）が近いとき（max_total 超）だけ、足りない分を oldest で消す。
+    対象は only_before（2025-01-01）より前の投稿だけ。このツールで投稿したもの（2025年以降）は、販売終了でも絶対に消さない
+    （ユーザー指示: 必死に増やした投稿を消すのは絶対にだめ。10/13 の誤削除の再発防止も兼ねる）。
+    販売終了で1回の枠が余ったら、残りは oldest（only_before より前を古い順）で消す。
     """
-    from datetime import date, timedelta
     from .engage import _api_get, _api_session
     from .human import Pacer
     slug = cfg["my_room_url"].rstrip("/").split("/")[-2]
-    keep_days = int(pcfg.get("keep_recent_days", 30))
-    cutoff = (date.today() - timedelta(days=keep_days)).isoformat()
+    cutoff = (pcfg.get("only_before") or "").strip()
+    if not cutoff:
+        print("only_before が未設定のため、安全のため削除しません。")
+        return
     max_delete = int(pcfg.get("max_delete_per_run", 12))
     lo, hi = pcfg.get("delete_interval_seconds", [4, 9])
     pacer = Pacer(base=(float(lo), float(hi)))
@@ -509,7 +511,7 @@ def _prune_dead_api(page, cfg, pcfg, commit: bool) -> None:
             break
         scanned += len(data)
         found += [c for c in data if (c.get("created_at") or "9999") < cutoff and _is_dead(c)]
-        # ここから先（新しい側）が keep_recent_days 以内になったら、末尾に戻って次回また古い方から見る
+        # ここから先（新しい側）が only_before 以降になったら、末尾に戻って次回また古い方から見る
         if start == 0 or min((c.get("created_at") or "9999") for c in data) >= cutoff:
             cur = last
             break
@@ -547,9 +549,10 @@ def _prune_dead_api(page, cfg, pcfg, commit: bool) -> None:
     if commit:
         _save(PRUNE_LOG, pruned_log)
     print(f"削除完了: {done} 件（販売終了）")
-    # 登録上限が近いときだけ、足りない分を古い順（販売中を含む）で消す
-    if last + 1 - done > int(pcfg.get("max_total", 18000)) and done < max_delete:
-        print(f"  投稿総数が {pcfg.get('max_total', 18000)} 件を超えているので、古い投稿も消します")
+    # 販売終了で枠が余ったら、古い投稿（only_before より前。2022年ごろの意図の分からない投稿）を古い順に消す
+    # （2026-10-18 ユーザー指示: 販売終了 → 古い商品 の順で消す）
+    if done < max_delete:
+        print(f"  残り {max_delete - done} 件は、{pcfg.get('only_before')} より前の古い投稿を古い順に消します")
         _prune_oldest_api(page, cfg, {**pcfg, "max_delete_per_run": max_delete - done}, commit)
 
 

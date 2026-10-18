@@ -33,10 +33,9 @@ sale_boost:
     end: '2026-09-11'
 prune:
   enabled: true
-  # 2026-10-18: 販売終了（売り切れ・削除・在庫なし）の投稿だけを消す。oldest は販売中も消していた（2022年の20件中14件が販売中）
+  # 2026-10-18: 消すのは only_before より前（2022年ごろ）の投稿だけ。その中で販売終了 → 古い順。
+  # このツールで投稿したもの（2025年以降）は販売終了でも絶対に消さない（ユーザー指示）
   mode: dead
-  keep_recent_days: 30   # 投稿から30日以内は販売終了でも消さない
-  max_total: 18000       # 総数がこれを超えたときだけ、足りない分を古い順（only_before より前）で消す
   scan_per_run: 1500
   only_before: '2025-01-01'
   prefer_zero_engagement: true
