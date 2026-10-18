@@ -286,14 +286,19 @@ def select_items(cfg: dict, api: RakutenAPI, pool: int | None = None) -> list[di
 
     if pool is None:
         pool = int(cfg.get("candidate_pool", cfg["post_count"] * 3))
-    # 季節ものはレビュー数順で取るので点数が高く出やすく、放っておくと候補の4割を占める（2026-10-18）。上限を設ける
-    share = float(((cfg.get("sources") or {}).get("seasonal") or {}).get("max_share", 1.0))
-    cap, n_season, out = int(pool * share), 0, []
+    # 季節もの・売れた店は点数が高く出やすく、放っておくと偏る（10/18 は季節29%・売れた2店だけで17%）。
+    # 投稿は候補の上から順に出るので、上限は「1日の投稿数」に対する割合で数える
+    srcs = (cfg.get("sources") or {})
+    # 出どころの印 → config の sources のキー
+    caps = {k: int(int(cfg.get("post_count", 100)) * float((srcs.get(ck) or {}).get("max_share", 1.0)))
+            for k, ck in (("seasonal", "seasonal"), ("sold_shop", "sold_shops"))}
+    used, out = dict.fromkeys(caps, 0), []
     for it in ranked:
-        if str(it.get("src", "")).startswith("seasonal"):
-            if n_season >= cap:
+        kind = str(it.get("src", "")).split(":")[0]
+        if kind in caps:
+            if used[kind] >= caps[kind]:
                 continue
-            n_season += 1
+            used[kind] += 1
         out.append(it)
         if len(out) >= pool:
             break

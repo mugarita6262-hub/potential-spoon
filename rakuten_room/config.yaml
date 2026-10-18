@@ -72,7 +72,7 @@ sources:
   seasonal:
     enabled: true
     per_word: 20
-    max_share: 0.2  # 候補のうち季節ものは2割まで
+    max_share: 0.2  # 1日の投稿のうち季節ものは2割まで
     months:
       1: [福袋, 加湿器, 電気毛布, 節分, バレンタイン チョコ]
       2: [バレンタイン チョコ, ひな人形, 新生活 家電, 加湿器]
@@ -90,6 +90,7 @@ sources:
   sold_shops:
     enabled: true
     per_shop: 15
+    max_share: 0.1  # 1日の投稿のうち売れた店の商品は1割まで（2店だけで17%になった）
     bonus: 0.05
   # ROOM内で反応が出ている商品（以前のツールの方式。商品だけ借りて紹介文は自分で書く）
   room_search:

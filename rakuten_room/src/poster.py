@@ -402,8 +402,12 @@ def _room_post_runs_left() -> int:
     """webapp のスケジューラで動いているとき、今日の room_post の残り回数（この回を含む）。手動実行なら 0。"""
     import sys
     from datetime import date
-    wa = sys.modules.get(f"{__package__}.webapp")
-    st = getattr(wa, "_schedule_state", None) if wa else None
+    # サーバーでは `python -m src.webapp` で起動するので、スケジューラは __main__ にいる（src.webapp ではない）
+    st = None
+    for name in (f"{__package__}.webapp", "__main__"):
+        st = getattr(sys.modules.get(name), "_schedule_state", None)
+        if st:
+            break
     if not st or st.get("date") != date.today():
         return 0
     times = (st.get("targets") or {}).get("room_post") or []
