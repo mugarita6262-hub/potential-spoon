@@ -58,7 +58,20 @@ def load_config() -> dict:
     for d in (DATA_DIR, DRAFTS_DIR, SESSION_DIR):
         d.mkdir(parents=True, exist_ok=True)
     _apply_post_boost(cfg)
+    _apply_follow_boost(cfg)
     return cfg
+
+
+def _apply_follow_boost(cfg: dict) -> None:
+    """期間限定でフォローの1日の目標を上乗せする（follow_boost: {extra, until}）。
+    2026-10-18: 10/11〜18 は候補不足で目標200件/日に対し実績が3割前後、不足1,079件。取り戻すため。"""
+    from datetime import date
+    b = cfg.get("follow_boost") or {}
+    extra = int(b.get("extra", 0) or 0)
+    if not extra or date.today().isoformat() > str(b.get("until") or ""):
+        return
+    ec = cfg.setdefault("engage", {})
+    ec["daily_follows"] = int(ec.get("daily_follows", 0)) + extra
 
 
 def _apply_post_boost(cfg: dict) -> None:
