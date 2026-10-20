@@ -288,12 +288,12 @@ server:
   instagram_window:
   - - '19:00'
     - '21:00'
-  instagram_runs_per_day: 1
+  instagram_runs_per_day: 0
 posting_limits:
   max_per_day: 10
   instagram_max_per_day: 1
 instagram:
-  enabled: true
+  enabled: false  # 2026-10-20 停止（フォロワー7人・直近1週間のリーチ0。ユーザー判断）
   run_in_daily: false
   repost_cooldown_days: 14
   disclosure: PR
