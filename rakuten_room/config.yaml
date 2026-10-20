@@ -4,7 +4,8 @@
 
 my_room_url: https://room.rakuten.co.jp/room_e36e002876/items
 post_count: 100
-candidate_pool: 150
+# 2026-10-20: 5と0の日（目標195件）に候補194件・紹介文182件で足りず164件止まり。セール最大2倍（300件）でも足りる数に
+candidate_pool: 360
 post_batch_size: 28  # セール期間は目標が1.3倍(最大195件)になるので、8回で届くように
 # 期間限定の上乗せ（削除ジョブの不具合で消えた投稿の取り戻し）。until を過ぎると自動で元の post_count に戻る
 post_boost:
@@ -74,6 +75,15 @@ sources:
     - 訳あり
     - クーポン
     - まとめ買い
+    # 2026-10-20 追加: ランキングは毎日ほぼ同じ商品で、投稿済みを除くと新しい候補が足りなかった
+    - 楽天1位
+    - 限定クーポン
+    - ポイント10倍
+    - 送料無料 人気
+    - 大容量
+    - 福袋
+    - 新作
+    - 高評価
     per_keyword: 30
   # 2026-10-18: その月に買われるもの。10/16にクリスマスツリーが売れた
   seasonal:
@@ -119,10 +129,10 @@ sources:
     - ギフト
     - あったか
     - 便利グッズ
-    per_run_words: 6
-    pages: 2
+    per_run_words: 16  # 2026-10-20: 6→16・2→3ページ・40→120件（候補不足のため）
+    pages: 3
     min_likes: 300
-    max_items: 40
+    max_items: 120
 scoring:
   weights:
     review_count: 0.35
