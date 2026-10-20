@@ -179,15 +179,15 @@ engage:
   - 2
   - 6
 sitedrop:
-  enabled: true
+  enabled: false  # 2026-10-20 Threadsは停止（フォロワー11人・サイトへの訪問1日1人・クリック0。ユーザー判断）
   repost_cooldown_days: 2
   min_drops: 3
   disclosure: PR
 calendar:
-  enabled: true
+  enabled: false  # 2026-10-20 Threadsは停止（フォロワー11人・サイトへの訪問1日1人・クリック0。ユーザー判断）
   run_in_daily: false
 trivia:
-  enabled: true
+  enabled: false  # 2026-10-20 Threadsは停止（フォロワー11人・サイトへの訪問1日1人・クリック0。ユーザー判断）
   run_in_daily: false
   repost_cooldown_days: 7
   topics:
@@ -273,18 +273,18 @@ server:
     - '13:00'
   - - '20:00'
     - '21:30'
-  sitedrop_runs_per_day: 2
+  sitedrop_runs_per_day: 0
   calendar_window:
   - '19:00'
   - '21:00'
-  calendar_runs_per_day: 1
+  calendar_runs_per_day: 0
   # 買い物・値段の知識（具体的な品目）で表示を稼ぐ。朝と夜遅めの2本
   trivia_window:
   - - '07:30'
     - '09:00'
   - - '21:45'
     - '23:00'
-  trivia_runs_per_day: 2
+  trivia_runs_per_day: 0
   instagram_window:
   - - '19:00'
     - '21:00'
