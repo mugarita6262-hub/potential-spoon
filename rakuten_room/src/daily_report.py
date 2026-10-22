@@ -38,7 +38,8 @@ def _targets(cfg: dict) -> dict:
     plan = load_plan()
     return {"room_post": int(plan.get("target_count") or cfg.get("post_count", 0)),
             "room_like": int(ec.get("daily_likes", 0)), "room_follow": int(ec.get("daily_follows", 0)),
-            "room_unfollow": int(ec.get("daily_unfollows", 0)), "room_prune": int(ec.get("daily_prune", 0))}
+            "room_prune": int(ec.get("daily_prune", 0))}
+    # フォロー解除は「返してくれない人」がいなければ0件で正常なので、件数ではなく実行回数で見る（2026-10-22）
 
 
 def build(day: str | None = None) -> str:
