@@ -237,6 +237,60 @@ def _record_affiliate(page) -> None:
         notify("売れました！\n" + "\n".join(lines), title="Rakuten affiliate sale")
 
 
+def _rotate_collections(page, tok: str, cols: dict, max_items: int, max_remove: int) -> None:
+    """コレクションの中身を入れ替える（2026-10-23 ユーザー指示「定期的に入れ替えて」）。
+
+    各コレクションは新しい max_items 件だけ残し、それより古いものと、販売が終わった商品
+    （売り切れ・商品削除・在庫なし）を外す。外すのはコレクションからだけで、投稿そのものは消さない
+    （コレクション更新API: POST /api/{コレクションID} _method=put, omitted_collects=投稿ID,…。
+    投稿の削除API（/api/{投稿ID} _method=delete）は使わない）。
+    """
+    from .engage import _api_get
+    removed_total = 0
+    for slug_, info in cols.items():
+        if removed_total >= max_remove:
+            break
+        cid = info.get("id")
+        meta = _api_get(page, f"{API}/{cid}?csrf_tkn={tok}").get("data") or {}
+        if not meta.get("name"):
+            print(f"  入れ替え: {info.get('name')} の情報が取れないので飛ばします")
+            continue
+        members, after = [], None
+        for _ in range(30):  # 新しい順に20件ずつ
+            j = _api_get(page, f"{API}/{cid}/collects?limit=20" + (f"&after_id={after}" if after else ""))
+            d = j.get("data") or []
+            members += d
+            after = (j.get("meta") or {}).get("after_id")
+            if not d or not after:
+                break
+            time.sleep(random.uniform(0.4, 0.9))
+
+        def dead(c: dict) -> bool:
+            it = c.get("item") or {}
+            return bool(it.get("flg_soldout") or it.get("flg_deleted") or str(it.get("availability", "1")) != "1")
+
+        keep = [c for c in members if not dead(c)][:max_items]
+        keep_ids = {c["id"] for c in keep}
+        omit = [c["id"] for c in members if c["id"] not in keep_ids][: max_remove - removed_total]
+        if not omit:
+            continue
+        body = urlencode({"_method": "put", "name": meta["name"], "about": meta.get("about") or "",
+                          "img_icon": (meta.get("image_icon") or {}).get("id", "") if isinstance(meta.get("image_icon"), dict) else "",
+                          "collection_id": cid, "omitted_collects": ",".join(omit), "added_collects": ""})
+        j = _post(page, f"{API}/{cid}?csrf_tkn={tok}", body)
+        ok = j.get("status") == "success" and (j.get("data") or {}).get("name") == meta["name"]
+        if not ok:
+            print(f"  入れ替え: {meta['name']} の更新に失敗したので止めます（{str(j)[:120]}）")
+            break
+        removed_total += len(omit)
+        info["count"] = len(members) - len(omit)
+        n_dead = sum(1 for c in members if c["id"] in set(omit) and dead(c))
+        print(f"  入れ替え: {meta['name']} {len(members)}件 → {info['count']}件（販売終了 {n_dead}・古い {len(omit) - n_dead} を外す）")
+        time.sleep(random.uniform(1.0, 2.0))
+    if removed_total:
+        print(f"  コレクションの入れ替え: 合計 {removed_total} 件を外しました（投稿そのものは残っています）")
+
+
 def collections_round(cfg: dict, slug: str, max_add: int = 150, max_pages: int = 30) -> None:
     """新しい投稿をテーマ別コレクションへ振り分ける。前回見た投稿より新しいものだけを見る。"""
     state = _load()
@@ -299,6 +353,12 @@ def collections_round(cfg: dict, slug: str, max_add: int = 150, max_pages: int =
         # 処理済みの記録は直近分だけ残せば十分（新しい順の読み取りを止める目印に使う）
         state["done"] = sorted(done)[-3000:]
         state["last_run"] = datetime.now().isoformat(timespec="seconds")
+        rc = cfg.get("room_collections") or {}
+        if rc.get("rotate", True):
+            try:
+                _rotate_collections(page, tok, cols, int(rc.get("max_items", 60)), int(rc.get("max_remove_per_night", 400)))
+            except Exception as e:  # noqa: BLE001
+                print(f"  コレクションの入れ替えで失敗（投稿には影響なし）: {e}")
         _save(state)
         _check_survival(page, uid, tok)
         _record_metrics(page, uid, tok)

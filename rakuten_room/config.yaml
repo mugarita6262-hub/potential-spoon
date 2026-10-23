@@ -32,6 +32,12 @@ sale_boost:
   - name: スーパーSALE
     start: '2026-09-04'
     end: '2026-09-11'
+# 2026-10-23: マイコレクションを毎晩入れ替える。各コレクションは新しい max_items 件だけ残し、古いものと販売終了を外す
+# （コレクションから外すだけで投稿は消さない）
+room_collections:
+  rotate: true
+  max_items: 60
+  max_remove_per_night: 400
 prune:
   enabled: true
   # 2026-10-18: 消すのは only_before より前（2022年ごろ）の投稿だけ。その中で販売終了 → 古い順。
