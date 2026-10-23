@@ -603,6 +603,42 @@ def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
                 if fails >= 3:
                     print("  解除が続けて失敗しました（ROOM側の制限の可能性）。この回は止めます。")
                     break
+        # 3) フォロー中がROOMの上限（1万人）に近いときだけ、フォローを返してくれている人を古い順に解除して枠を空ける
+        #    （2026-10-23 ユーザーと合意）。古い順＝このツールの記録がない人（9/10より前のフォロー）→ 記録の日時が古い人。
+        #    最近（keep_days日以内）フォローした人は外さない
+        keep_below = int(ec.get("following_keep_below", 9000))
+        over = len(gset) - len(removed_extra) - keep_below
+        if over > 0 and done < can_un and fails < 3:
+            def _followed_at(u: dict) -> str:
+                for k in (f"url:/{u.get('username')}/items", u.get("username"), u.get("fullname"), u["id"]):
+                    v = flog.get(k) if k else None
+                    if isinstance(v, dict) and v.get("at"):
+                        return v["at"]
+                return ""  # 記録なし＝いちばん古い
+            mutual = [u for u in following if u["id"] in fset and u["id"] not in removed_extra
+                      and u.get("username") not in recent and u.get("fullname") not in recent]
+            mutual.sort(key=_followed_at)
+            n_old = min(over, can_un - done)
+            print(f"  フォロー中が {keep_below} 人を {over} 人超えているので、返してくれている人を古い順に {n_old} 人解除します")
+            done_old, last_at = 0, ""
+            for u in mutual:
+                if done_old >= n_old:
+                    break
+                r = _api_follow(page, tok, u["id"], unfollow=True)
+                if r in ("ok", "dup"):
+                    removed_extra.add(u["id"])
+                    if r == "ok":
+                        done_old += 1
+                        done += 1
+                        last_at = _followed_at(u)
+                        _bump("unfollow")
+                        page.wait_for_timeout(random.randint(1200, 3500))
+                else:
+                    fails += 1
+                    if fails >= 3:
+                        print("  解除が続けて失敗しました（ROOM側の制限の可能性）。この回は止めます。")
+                        break
+            print(f"  上限対策で解除: {done_old} 人（古い順。解除した中でいちばん新しいフォロー日 {last_at[:10] or '記録なし（9/10より前）'}）")
         # 解除した人を保存済みの一覧からも消す（同じ日の次の回で二重に処理しない）
         removed = removed_extra  # 解除できた人＋すでに解除済みだった人
         cache = _load(ROOM_LISTS, {})

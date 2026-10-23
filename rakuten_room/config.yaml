@@ -170,6 +170,8 @@ engage:
   - 4
   - 10
   unfollow_after_days: 7
+  # フォロー中がこれを超えたら、返してくれている人を古い順に解除して枠を空ける（ROOMの上限1万人。2026-10-23）
+  following_keep_below: 9000
   daily_unfollows: 800
   followback_per_run: 80
   daily_likes: 700  # 上限 like_per_day 700 まで使う（2026-10-18 に500→700。1回88件・1時間130件以内）
