@@ -94,6 +94,17 @@ def build(day: str | None = None) -> str:
     if n_runs and len(posts_by_run) < runs["room_post"]:
         out.append(f"✕ ROOM投稿: {runs['room_post'] - len(posts_by_run)}回は0件（時間帯が偏っている）")
         bad.append("ROOM投稿の時間配分")
+    # フォロー中の人数（ROOMの上限は1万人。2026-10-23 時点で1日+500人ほど増えている）
+    try:
+        import json as _json
+        st = _json.loads((DATA_DIR / "room_stats.json").read_text(encoding="utf-8"))
+        last = st[sorted(st)[-1]]
+        warn = last.get("following", 0) >= 9000
+        out.append(f"{'✕' if warn else '○'} フォロワー {last.get('followers', 0):,}人 / フォロー中 {last.get('following', 0):,}人（上限1万人）")
+        if warn:
+            bad.append("フォロー中が上限1万人に近い")
+    except Exception:  # noqa: BLE001
+        pass
     head = f"{day} 予定と実績" + (f"（要確認: {'・'.join(bad)}）" if bad else "（すべて予定どおり）")
     return head + "\n" + "\n".join(out)
 
