@@ -12,6 +12,7 @@
   - 日中に再起動すると、その日の過ぎた予定はスキップされる。
 - **ROOM の操作**はサーバー上の Chrome（ログイン済み）に Playwright でつないで行う。ROOM の内部 API も使う。
 - **買い時ナビ** `/home/kirui/kaidokinavi` は静的ファイルで、Caddy が配信している。
+- **管理画面**は https://room-admin.133.18.252.142.nip.io （Caddy で中継、ご自宅のIPだけ・Basic認証）。8080番は外に開けない。postfix はサーバー内だけ（2026-10-23）
 - **バックアップ**は cron で毎日 04:30 に `/home/kirui/backups`。14日分を残す。
 
 ## 2. 1日の流れ（server の *_window / *_runs_per_day）

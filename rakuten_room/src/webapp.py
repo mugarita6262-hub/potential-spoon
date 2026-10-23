@@ -382,7 +382,9 @@ def main() -> None:
         )
     start_scheduler()
     port = int(os.environ.get("WEBAPP_PORT", "8080"))
-    app.run(host="0.0.0.0", port=port)
+    # 2026-10-23: 外からは Caddy の HTTPS（room-admin.133.18.252.142.nip.io、ご自宅のIPだけ）経由で入る。
+    # 8080番を直接外に開けない（暗号化なしでパスワードが流れるため）
+    app.run(host=os.environ.get("WEBAPP_HOST", "127.0.0.1"), port=port)
 
 
 if __name__ == "__main__":
