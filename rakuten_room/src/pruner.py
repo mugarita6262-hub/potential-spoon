@@ -457,6 +457,8 @@ def _prune_oldest_api(page, cfg, pcfg, commit: bool) -> None:
             done += 1
             rec["deleted_at"] = datetime.now().isoformat(timespec="seconds")
             pruned_log.append(rec)
+            # 1件ごとに記録する（回の最後にまとめて書くと、途中で止められた回の削除が記録に残らない。2026-10-24）
+            _save(PRUNE_LOG, pruned_log)
             print(f"  削除: {rec['posted']} {rec['name'][:44]}")
         else:
             print(f"  削除できませんでした（{s} {text[:120]}）。この回は止めます")
@@ -541,6 +543,8 @@ def _prune_dead_api(page, cfg, pcfg, commit: bool) -> None:
             done += 1
             rec["deleted_at"] = datetime.now().isoformat(timespec="seconds")
             pruned_log.append(rec)
+            # 1件ごとに記録する（回の最後にまとめて書くと、途中で止められた回の削除が記録に残らない。2026-10-24）
+            _save(PRUNE_LOG, pruned_log)
             print(f"  削除: {rec['posted']} {rec['reason']} {it.get('name', '')[:40]}")
         else:
             print(f"  削除できませんでした（{s} {text[:120]}）。この回は止めます")
