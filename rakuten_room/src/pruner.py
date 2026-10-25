@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import re
 import time
 from datetime import datetime, timedelta
@@ -80,18 +81,33 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def _limit_reached(pruned_log: list, pcfg: dict) -> str:
-    """1時間・1日の削除の上限に達していたら理由を返す（2026-10-26: 1時間に200件を2秒間隔で消していた）。"""
-    now = datetime.now()
-    hour_ago = (now - timedelta(hours=1)).isoformat(timespec="seconds")
-    today = now.date().isoformat()
-    recent = [r for r in pruned_log[-2000:] if (r.get("deleted_at") or "") >= hour_ago]
-    n_today = sum(1 for r in pruned_log[-2000:] if (r.get("deleted_at") or "")[:10] == today)
-    per_hour, per_day = int(pcfg.get("delete_per_hour", 120)), int(pcfg.get("delete_per_day", 400))
-    if len(recent) >= per_hour:
-        return f"直近1時間の削除が上限 {per_hour} 件に達した"
+    """1日の削除の上限に達していたら理由を返す。1時間の上限は _wait_hour_limit で待つ（打ち切ると件数が減る）。"""
+    today = datetime.now().date().isoformat()
+    n_today = sum(1 for r in pruned_log[-3000:] if (r.get("deleted_at") or "")[:10] == today)
+    per_day = int(pcfg.get("delete_per_day", 600))
     if n_today >= per_day:
         return f"今日の削除が上限 {per_day} 件に達した"
     return ""
+
+
+def _wait_hour_limit(pruned_log: list, pcfg: dict, started: float) -> bool:
+    """直近1時間の削除が上限なら、いちばん古い1件が1時間を過ぎるまで待つ（2026-10-26: 上限で打ち切ると
+    2回目の回が20件ほどで止まり、1日の件数が減っていた）。1回の長さの上限（max_run_minutes）を超えるなら False。"""
+    per_hour = int(pcfg.get("delete_per_hour", 150))
+    max_run = float(pcfg.get("max_run_minutes", 75)) * 60
+    while True:
+        now = datetime.now()
+        hour_ago = (now - timedelta(hours=1)).isoformat(timespec="seconds")
+        recent = sorted(r.get("deleted_at") or "" for r in pruned_log[-2000:] if (r.get("deleted_at") or "") >= hour_ago)
+        if len(recent) < per_hour:
+            return True
+        wait = (datetime.fromisoformat(recent[len(recent) - per_hour]) + timedelta(hours=1) - now).total_seconds()
+        wait = max(30.0, wait) + random.uniform(5, 40)
+        if time.time() - started + wait > max_run:
+            print(f"  直近1時間の削除が上限 {per_hour} 件で、待つと回が長くなりすぎるので、この回はここまでにします")
+            return False
+        print(f"  直近1時間の削除が上限 {per_hour} 件なので、{int(wait / 60)}分ほど待ってから続けます")
+        time.sleep(wait)
 
 
 def _pid(s: str) -> str:
@@ -473,6 +489,7 @@ def _prune_oldest_api(page, cfg, pcfg, commit: bool) -> None:
     pruned_log = _load_prune_log()
     done = 0
     refreshed = False
+    started = time.time()
     for c in olds[:max_delete]:
         rec = {"url": f"https://room.rakuten.co.jp/{slug}/{c['id']}", "name": (c.get("content") or c.get("name") or "")[:100],
                "posted": (c.get("created_at") or "")[:10], "likes": c.get("likes"), "comments": c.get("comments")}
@@ -482,6 +499,8 @@ def _prune_oldest_api(page, cfg, pcfg, commit: bool) -> None:
         why = _limit_reached(pruned_log, pcfg)
         if why:
             print(f"  {why}ので、この回はここまでにします")
+            break
+        if not _wait_hour_limit(pruned_log, pcfg, started):
             break
         # 最終確認：ガードより新しい・日付不明・日付の形が違う投稿は絶対に消さない（2026-10-13の誤削除の再発防止）
         if not _DATE_RE.match(rec["posted"]) or rec["posted"] >= only_before:
@@ -570,6 +589,7 @@ def _prune_dead_api(page, cfg, pcfg, commit: bool) -> None:
     pruned_log = _load_prune_log()
     done = 0
     refreshed = False
+    started = time.time()
     for c in found[:max_delete]:
         it = c.get("item") or {}
         rec = {"url": f"https://room.rakuten.co.jp/{slug}/{c['id']}", "name": (c.get("content") or it.get("name") or "")[:100],
@@ -581,6 +601,8 @@ def _prune_dead_api(page, cfg, pcfg, commit: bool) -> None:
         why = _limit_reached(pruned_log, pcfg)
         if why:
             print(f"  {why}ので、この回はここまでにします")
+            break
+        if not _wait_hour_limit(pruned_log, pcfg, started):
             break
         # 最終確認：新しい投稿・日付不明・日付の形が違う・販売中は絶対に消さない
         if not _DATE_RE.match(rec["posted"]) or rec["posted"] >= cutoff or not _is_dead(c):
@@ -629,6 +651,9 @@ def prune(cfg: dict, commit: bool = False, max_delete: int | None = None) -> Non
         return
     if max_delete is not None:
         pcfg["max_delete_per_run"] = max_delete
+        if max_delete <= 0:
+            print("この回の削除は0件です（今日の分は済んでいます）。")
+            return
 
     mode = (pcfg.get("mode") or "oldest").strip()
     pw, ctx, _b = _launch()

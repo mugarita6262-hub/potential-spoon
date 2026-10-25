@@ -59,7 +59,13 @@ def _load_log() -> dict:
     try:
         return json.loads(LOG.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001
-        raise RuntimeError(f"{LOG.name} が読めないので止めます（上限を数え直さないため）: {exc}") from exc
+        msg = f"{LOG.name} が読めないので、いいね・フォローを止めます（上限を数え直さないため）: {exc}"
+        try:
+            from .notify import notify
+            notify(msg, title="rakuten_room: engage stopped")
+        except Exception:  # noqa: BLE001
+            pass
+        raise RuntimeError(msg) from exc
 
 
 def _today_log() -> dict:

@@ -65,7 +65,10 @@ def main() -> None:
     if not done:
         log("10/28の設定の書き換え: 変更する箇所が見つからなかったので何もしていません（手で確認してください）")
         return
-    CFG.write_bytes(t.encode("utf-8"))
+    # 一時ファイルに書いてから置き換える（スケジューラが5分ごとに読むので、書きかけを読ませない）
+    tmp = CFG.with_name(CFG.name + ".tmp")
+    tmp.write_bytes(t.encode("utf-8"))
+    os.replace(tmp, CFG)
     try:
         from src.config import load_config
         c = load_config()

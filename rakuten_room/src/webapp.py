@@ -55,9 +55,17 @@ _ROOM_JOBS = {"room_post", "room_like", "room_follow", "room_prune", "room_unfol
 def _done_today(job: str) -> int:
     """今日すでにした件数（いいね・フォロー・削除）。"""
     try:
-        if job in ("room_like", "room_follow"):
+        if job == "room_like":
             from .engage import _today_log
-            return int(_today_log().get("like" if job == "room_like" else "follow", 0))
+            return int(_today_log().get("like", 0))
+        if job == "room_follow":
+            # 新しいフォローだけを数える。フォロー返し（フォロー解除の回で行う。1日20〜60件）を含めると、
+            # そのぶん新しいフォローが減ってしまう（2026-10-26）
+            from .engage import FOLLOW_LOG, _load, _today_log
+            today = date.today().isoformat()
+            fb = sum(1 for v in _load(FOLLOW_LOG, {}).values()
+                     if isinstance(v, dict) and v.get("src") == "followback" and (v.get("at") or "")[:10] == today)
+            return max(0, int(_today_log().get("follow", 0)) - fb)
         if job == "room_prune":
             from .pruner import _load_prune_log
             today = date.today().isoformat()

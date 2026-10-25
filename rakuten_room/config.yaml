@@ -52,6 +52,7 @@ prune:
   - 18
   delete_per_hour: 150
   delete_per_day: 600
+  max_run_minutes: 75  # 1時間の上限で待つときも、1回はこの長さまで
 post_interval_seconds:
 - 60
 - 90
