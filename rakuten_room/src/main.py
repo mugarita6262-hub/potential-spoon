@@ -115,6 +115,14 @@ def cmd_prepare(cfg: dict) -> None:
                     encoding="utf-8",
                 )
                 print(f"キャプションを自動生成して保存しました: {captions_path()}")
+                # 紹介文の数が目標に足りないときは、目標を紹介文の9割までにする（既にROOMにある商品などで1割ほど飛ぶ）。
+                # 目標が多すぎると、残り回数で割った1回の件数が膨らみ、いいね・フォローの回が後ろへずれる（2026-10-26）
+                cap_n = int(len(caps) * 0.9)
+                if target_count > cap_n:
+                    print(f"   紹介文 {len(caps)} 件に対して目標 {target_count} 件は多いので、{cap_n} 件にします")
+                    save_plan({"date": _today_iso(), "base_count": base_count, "multiplier": st["multiplier"],
+                               "target_count": cap_n,
+                               "reasons": st["reasons"] + [f"紹介文の数で{cap_n}件に調整"]})
                 print("続けて `python -m src.main post` を実行できます。")
                 return
             print("キャプション生成の結果が空でした。プロンプト方式に切り替えます。")

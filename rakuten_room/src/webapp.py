@@ -238,10 +238,57 @@ def _random_times(window: list, n: int, today: date) -> list[datetime]:
     return sorted(times)
 
 
+# 日付をまたいでも捨てずに実行するジョブ（夜遅くの予定。前のジョブが長引くと0時を過ぎることがある）
+_CARRY_OVER = ("room_collect", "report")
+
+
+def _carry_over_yesterday() -> None:
+    """前の日の予定のうち、まだ動いていないものを片付ける（2026-10-26）。
+
+    それまでは日付が変わった瞬間に予定を作り直していて、23時台の report・room_collect が0時を越えると
+    ログにも残らず消えていた（10/21〜25 の5晩のうち、毎晩の通知が届いたのは2晩だけ）。
+    room_collect と report はその場で実行し（report は前の日の分として送る）、ほかの捨てる予定は記録して通知する。
+    """
+    prev = _schedule_state.get("date")
+    if not prev:
+        return
+    left = [(job, i) for job, times in (_schedule_state.get("targets") or {}).items()
+            for i in range(len(times)) if (job, i) not in _schedule_state.get("fired", set())]
+    if not left:
+        return
+    for job in _CARRY_OVER:
+        if not any(j == job for j, _ in left):
+            continue
+        _log(f"[自動実行] {job}（{prev} の予定が日付をまたいだので実行）")
+        if job == "report":
+            try:
+                with _lock:
+                    from .daily_report import send
+                    buf = io.StringIO()
+                    with redirect_stdout(buf):
+                        send(prev.isoformat())
+                    _log("=== report ===\n" + buf.getvalue())
+            except Exception:  # noqa: BLE001
+                _log("report でエラー:\n" + traceback.format_exc())
+        else:
+            run_job(job)
+    dropped = sorted({j for j, _ in left if j not in _CARRY_OVER})
+    if dropped:
+        msg = f"{prev} の予定のうち、日付をまたいで実行できなかったもの: " + "・".join(
+            f"{j}×{sum(1 for x, _ in left if x == j)}" for j in dropped)
+        _log(msg)
+        try:
+            from .notify import notify
+            notify(msg, title="rakuten_room: skipped jobs")
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def _ensure_today_schedule(cfg: dict) -> None:
     today = date.today()
     if _schedule_state["date"] == today:
         return
+    _carry_over_yesterday()
     sc = cfg.get("server", {}) or {}
     targets = {}
     for job in JOBS:
@@ -269,11 +316,11 @@ def _scheduler_loop() -> None:
             cfg = load_config()
             if (cfg.get("server", {}) or {}).get("enabled", True):
                 _ensure_today_schedule(cfg)
-                now = datetime.now()
                 for job, times in _schedule_state["targets"].items():
                     for i, t in enumerate(times):
                         key = (job, i)
-                        if key in _schedule_state["fired"] or now < t:
+                        # 時刻はその都度見る（周の最初の時刻だと、長いジョブの間に時刻を過ぎた予定が次の周まで待たされる）
+                        if key in _schedule_state["fired"] or datetime.now() < t:
                             continue
                         _schedule_state["fired"].add(key)
                         _log(f"[自動実行] {job}（予定 {t.strftime('%H:%M')}）")

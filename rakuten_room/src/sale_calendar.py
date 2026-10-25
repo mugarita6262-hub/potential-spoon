@@ -29,24 +29,35 @@ def _in_range(d: date, start: str, end: str) -> bool:
 
 
 def _event_signal(items: list[dict], now: datetime | None = None) -> tuple[float, int]:
-    """(セール表記の割合, いま開催中の同じ期間表記の商品数) を返す。"""
+    """(セール表記の割合, いま開催中の同じ期間を書いている「店の数」) を返す。
+
+    2026-10-26 批判レビューを受けて:
+    - 店の数で数える（adidas 1店の4商品だけで ×1.8 になる日があった）
+    - 今日で終わる期間は数えない（10/27 9:59 終了のマラソンで、10/27 が丸1日 ×1.8 になるところだった）
+    - 年をまたぐ期間（12/26〜1/5）は終わりを翌年として読む
+    """
     if not items:
         return 0.0, 0
     now = now or datetime.now()
     names = [it.get("itemName", "") for it in items]
     kw_hit = sum(1 for n in names if EVENT_KEYWORDS.search(n))
-    windows: dict[tuple, int] = {}
-    for n in names:
-        for m in SALE_WINDOW.finditer(n):
+    windows: dict[tuple, set] = {}
+    for it in items:
+        for m in SALE_WINDOW.finditer(it.get("itemName", "")):
             a = [int(x) for x in m.groups()]
             try:
                 start = datetime(now.year, a[0], a[1], min(a[2], 23), a[3])
                 end = datetime(now.year, a[4], a[5], min(a[6], 23), a[7])
+                if end < start:  # 年をまたぐ
+                    end = end.replace(year=end.year + 1)
+                if start > now and (start - now).days > 180:  # 年初に前年12月の表記を読んだとき
+                    start = start.replace(year=start.year - 1)
             except ValueError:
                 continue
-            if (end - start).days <= 10 and start <= now <= end:
-                windows[(start, end)] = windows.get((start, end), 0) + 1
-    max_window = max(windows.values()) if windows else 0
+            if (end - start).days <= 10 and start <= now <= end and end.date() > now.date():
+                shop = it.get("shopName") or (it.get("itemCode") or "").split(":")[0] or it.get("itemName", "")[:20]
+                windows.setdefault((start, end), set()).add(shop)
+    max_window = max((len(s) for s in windows.values()), default=0)
     return kw_hit / len(items), max_window
 
 
@@ -84,7 +95,7 @@ def sale_status(cfg: dict, items: list[dict] | None = None,
             reasons.append(f"セール開催中らしい(候補の{ratio:.0%}にセール表記, ×{ev_mult})")
         elif window_hits >= 3:
             multiplier = max(multiplier, ev_mult)
-            reasons.append(f"セール開催中(同一エントリー期間の商品{window_hits}件, ×{ev_mult})")
+            reasons.append(f"セール開催中(同じ期間を書いている店{window_hits}店, ×{ev_mult})")
 
     cap = float(sb.get("max_multiplier", 2.0))
     return {"multiplier": round(min(multiplier, cap), 2), "reasons": reasons}
