@@ -250,7 +250,7 @@ server:
   room_follow_window:
   - '09:00'
   - '22:45'
-  room_follow_runs_per_day: 12
+  room_follow_runs_per_day: 13  # 2026-10-26: 1回45件まで×13回＝585件（目標500件に余裕85件。1回が落ちても届くように）
   room_unfollow_window:
   - - 09:30
     - '12:00'
