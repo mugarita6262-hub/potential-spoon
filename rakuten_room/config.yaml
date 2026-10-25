@@ -50,8 +50,8 @@ prune:
   delete_interval_seconds:  # 2026-10-26: 3〜7秒 → 8〜18秒（ときどき長めの休憩も入る）
   - 8
   - 18
-  delete_per_hour: 120
-  delete_per_day: 400
+  delete_per_hour: 150
+  delete_per_day: 600
 post_interval_seconds:
 - 60
 - 90
@@ -184,7 +184,7 @@ engage:
   followback_per_run: 80
   daily_likes: 700  # 上限 like_per_day 700 まで使う（2026-10-18 に500→700。1回88件・1時間130件以内）
   daily_follows: 500  # 2026-10-23: 取り戻し期間（500件）でフォロワーが1日+250人前後に伸びたので、500件を通常にする
-  daily_prune: 400  # 2026-10-26: 600→400。1時間に200件を2秒間隔で消していたので、ゆっくり消す（1時間120件まで・1件8〜18秒）
+  daily_prune: 600  # 2026-10-26: 件数は600のまま、ゆっくり消す（1時間150件まで・1件8〜18秒、夜中＋昼の6回）
   daily_gap_minutes:
   - 2
   - 6
@@ -260,12 +260,15 @@ server:
     - '23:30'
   room_unfollow_runs_per_day: 4
   # 2026-10-26: 削除は混まない夜中に移す（日中だと他のジョブが詰まり、夜の処理が0時を越える）。3:00の前後は空ける
+  # 1日600件はそのまま（ユーザー指示: 件数は減らさず、時間をかけてよい）。夜中2枠＋昼の空いた時間帯で6回
   room_prune_window:
   - - '00:30'
     - '02:30'
   - - '03:30'
     - '05:00'
-  room_prune_runs_per_day: 4
+  - - '14:00'
+    - '17:00'
+  room_prune_runs_per_day: 6
   room_collect_window:
   - - '23:15'
     - '23:55'

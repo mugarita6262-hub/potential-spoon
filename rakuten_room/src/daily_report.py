@@ -43,7 +43,7 @@ def _targets(cfg: dict, day: str | None = None) -> dict:
 
 
 # 1時間あたりの目安（ROOMの上限より手前）。超えたら✕
-BURST_LIMIT = {"投稿": 40, "いいね": 130, "フォロー": 90, "フォロー解除": 120, "削除": 120}
+BURST_LIMIT = {"投稿": 40, "いいね": 130, "フォロー": 90, "フォロー解除": 120, "削除": 150}
 
 
 def _burst_lines(day: str) -> list[tuple[str, bool]]:
