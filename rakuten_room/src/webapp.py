@@ -145,7 +145,9 @@ def _dispatch(cli, cfg: dict, name: str) -> None:
         cli.cmd_prepare(cfg)
     elif name == "report":
         from .daily_report import send
-        send()
+        # 予定を作った日の分として送る（0時をまたいでも前の日を集計する）
+        d = _schedule_state.get("date")
+        send(d.isoformat() if d else None)
     else:
         raise ValueError(f"unknown job: {name}")
 
@@ -319,8 +321,10 @@ def _scheduler_loop() -> None:
                 for job, times in _schedule_state["targets"].items():
                     for i, t in enumerate(times):
                         key = (job, i)
-                        # 時刻はその都度見る（周の最初の時刻だと、長いジョブの間に時刻を過ぎた予定が次の周まで待たされる）
-                        if key in _schedule_state["fired"] or datetime.now() < t:
+                        # 時刻はその都度見る（周の最初の時刻だと、長いジョブの間に時刻を過ぎた予定が次の周まで待たされる）。
+                        # ただし日付が変わったら前の日の予定はここでは流さず、_carry_over_yesterday に任せる
+                        # （0時台に前の日の room_post が流れて候補選びが走る・空の日の通知が飛ぶのを防ぐ）
+                        if key in _schedule_state["fired"] or t.date() != date.today() or datetime.now() < t:
                             continue
                         _schedule_state["fired"].add(key)
                         _log(f"[自動実行] {job}（予定 {t.strftime('%H:%M')}）")

@@ -31,11 +31,11 @@ LABEL = {"room_post": "ROOM投稿", "room_like": "いいね", "room_follow": "�
          "calendar": "Threadsセール告知", "instagram": "Instagram", "site": "サイト更新", "prepare": "ROOM候補選び"}
 
 
-def _targets(cfg: dict) -> dict:
+def _targets(cfg: dict, day: str | None = None) -> dict:
     """1日の目標件数（件数で見るジョブだけ）。投稿はその日の plan（セール倍率込み）を優先。"""
     from .captions import load_plan
     ec = cfg.get("engage", {}) or {}
-    plan = load_plan()
+    plan = load_plan(day)  # 前の日の分を0時台に送るとき、今日の plan を読まない
     return {"room_post": int(plan.get("target_count") or cfg.get("post_count", 0)),
             "room_like": int(ec.get("daily_likes", 0)), "room_follow": int(ec.get("daily_follows", 0)),
             "room_prune": int(ec.get("daily_prune", 0))}
@@ -61,7 +61,7 @@ def build(day: str | None = None) -> str:
             r = RESULT_RE[cur].search(l)
             if r:
                 got[cur] += int(r.group(1)) if r.group(1).isdigit() else 1
-    tg = _targets(load_config())
+    tg = _targets(load_config(), day)
     out, bad = [], []
     for job, times in plan.items():
         if job not in LABEL:

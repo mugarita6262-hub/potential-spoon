@@ -34,10 +34,17 @@ def log(msg: str) -> None:
 
 
 def main() -> None:
+    try:  # .env（通知の宛先 NTFY_TOPIC）を先に読み込む。どの結果でも通知が届くように
+        from src.config import load_config
+        load_config()
+    except Exception:  # noqa: BLE001
+        pass
     raw = CFG.read_bytes()
     nl = "\r\n" if b"\r\n" in raw else "\n"
     t = raw.decode("utf-8")
     backup = Path(os.environ.get("RR_BACKUP", "/home/kirui/backups/config.yaml.bak-20261028"))
+    if backup.exists():  # 2回目以降は別名で退避（1回目のバックアップを上書きしない）
+        backup = backup.with_name(backup.name + datetime.now().strftime("-%H%M%S"))
     shutil.copy2(CFG, backup)
     done = []
     # 1) 季節ものの割合（seasonal ブロックの max_share）

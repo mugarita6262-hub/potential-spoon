@@ -48,10 +48,10 @@ def _event_signal(items: list[dict], now: datetime | None = None) -> tuple[float
             try:
                 start = datetime(now.year, a[0], a[1], min(a[2], 23), a[3])
                 end = datetime(now.year, a[4], a[5], min(a[6], 23), a[7])
+                if start > now and (start - now).days > 180:  # 年初に前年12月の表記を読んだとき（先に戻す）
+                    start = start.replace(year=start.year - 1)
                 if end < start:  # 年をまたぐ
                     end = end.replace(year=end.year + 1)
-                if start > now and (start - now).days > 180:  # 年初に前年12月の表記を読んだとき
-                    start = start.replace(year=start.year - 1)
             except ValueError:
                 continue
             if (end - start).days <= 10 and start <= now <= end and end.date() > now.date():
