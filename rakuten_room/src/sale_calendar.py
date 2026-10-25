@@ -14,8 +14,10 @@ EVENT_KEYWORDS = re.compile(
     r"スーパー\s*SALE|スーパーセール|お買い物マラソン|買い回り|買いまわり|"
     r"勝ったら倍|ワンダフルデー|楽天スーパー|39ショップ"
 )
-# スーパーSALE / マラソンの「エントリー期間」表記。開催中は多数の商品につく
-SALE_WINDOW = re.compile(r"\d{1,2}/\d{1,2}\s*20:00\s*[〜～\-–]\s*\d{1,2}/\d{1,2}\s*0?1:59")
+# 商品名の「10/24 20:00〜10/27 9:59」のような期間の表記。今がその期間内の商品が3件以上あれば、セール開催中とみなす
+# （2026-10-25: 以前は終わりが「1:59」の形しか読めず、10/24 20:00〜10/27 9:59 のお買い物マラソンを検知できなかった）
+SALE_WINDOW = re.compile(r"(\d{1,2})/(\d{1,2})\s*(?:[(（][月火水木金土日][)）])?\s*(\d{1,2}):(\d{2})\s*[〜～~\-–ー]\s*"
+                         r"(\d{1,2})/(\d{1,2})\s*(?:[(（][月火水木金土日][)）])?\s*(\d{1,2}):(\d{2})")
 
 
 def _in_range(d: date, start: str, end: str) -> bool:
@@ -26,18 +28,24 @@ def _in_range(d: date, start: str, end: str) -> bool:
         return False
 
 
-def _event_signal(items: list[dict]) -> tuple[float, int]:
-    """(セール表記の割合, 同一エントリー期間表記の商品数) を返す。"""
+def _event_signal(items: list[dict], now: datetime | None = None) -> tuple[float, int]:
+    """(セール表記の割合, いま開催中の同じ期間表記の商品数) を返す。"""
     if not items:
         return 0.0, 0
+    now = now or datetime.now()
     names = [it.get("itemName", "") for it in items]
     kw_hit = sum(1 for n in names if EVENT_KEYWORDS.search(n))
-    windows: dict[str, int] = {}
+    windows: dict[tuple, int] = {}
     for n in names:
-        m = SALE_WINDOW.search(n)
-        if m:
-            windows[m.group(0).replace(" ", "")] = windows.get(
-                m.group(0).replace(" ", ""), 0) + 1
+        for m in SALE_WINDOW.finditer(n):
+            a = [int(x) for x in m.groups()]
+            try:
+                start = datetime(now.year, a[0], a[1], min(a[2], 23), a[3])
+                end = datetime(now.year, a[4], a[5], min(a[6], 23), a[7])
+            except ValueError:
+                continue
+            if (end - start).days <= 10 and start <= now <= end:
+                windows[(start, end)] = windows.get((start, end), 0) + 1
     max_window = max(windows.values()) if windows else 0
     return kw_hit / len(items), max_window
 
