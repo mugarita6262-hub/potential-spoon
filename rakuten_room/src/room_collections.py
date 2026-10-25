@@ -274,11 +274,17 @@ def _rotate_collections(page, tok: str, cols: dict, max_items: int, max_remove: 
         omit = [c["id"] for c in members if c["id"] not in keep_ids][: max_remove - removed_total]
         if not omit:
             continue
-        body = urlencode({"_method": "put", "name": meta["name"], "about": meta.get("about") or "",
-                          "img_icon": (meta.get("image_icon") or {}).get("id", "") if isinstance(meta.get("image_icon"), dict) else "",
-                          "collection_id": cid, "omitted_collects": ",".join(omit), "added_collects": ""})
-        j = _post(page, f"{API}/{cid}?csrf_tkn={tok}", body)
-        ok = j.get("status") == "success" and (j.get("data") or {}).get("name") == meta["name"]
+        # 1回に外せるのは100件まで（R134 "Over the max count(maximum is 100)"。2026-10-25）
+        ok = True
+        for i in range(0, len(omit), 100):
+            body = urlencode({"_method": "put", "name": meta["name"], "about": meta.get("about") or "",
+                              "img_icon": (meta.get("image_icon") or {}).get("id", "") if isinstance(meta.get("image_icon"), dict) else "",
+                              "collection_id": cid, "omitted_collects": ",".join(omit[i:i + 100]), "added_collects": ""})
+            j = _post(page, f"{API}/{cid}?csrf_tkn={tok}", body)
+            ok = j.get("status") == "success" and (j.get("data") or {}).get("name") == meta["name"]
+            if not ok:
+                break
+            time.sleep(random.uniform(1.0, 2.0))
         if not ok:
             print(f"  入れ替え: {meta['name']} の更新に失敗したので止めます（{str(j)[:120]}）")
             break
