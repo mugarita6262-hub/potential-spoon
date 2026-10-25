@@ -47,9 +47,11 @@ prune:
   only_before: '2025-01-01'
   prefer_zero_engagement: true
   max_delete_per_run: 15
-  delete_interval_seconds:
-  - 3
-  - 7
+  delete_interval_seconds:  # 2026-10-26: 3〜7秒 → 8〜18秒（ときどき長めの休憩も入る）
+  - 8
+  - 18
+  delete_per_hour: 120
+  delete_per_day: 400
 post_interval_seconds:
 - 60
 - 90
@@ -182,7 +184,7 @@ engage:
   followback_per_run: 80
   daily_likes: 700  # 上限 like_per_day 700 まで使う（2026-10-18 に500→700。1回88件・1時間130件以内）
   daily_follows: 500  # 2026-10-23: 取り戻し期間（500件）でフォロワーが1日+250人前後に伸びたので、500件を通常にする
-  daily_prune: 600  # 2025年より前の投稿（12,869件・2022〜23年）を約3週間で消し切る（2026-10-22 に150→600、1回200件×3回）
+  daily_prune: 400  # 2026-10-26: 600→400。1時間に200件を2秒間隔で消していたので、ゆっくり消す（1時間120件まで・1件8〜18秒）
   daily_gap_minutes:
   - 2
   - 6
@@ -257,14 +259,13 @@ server:
   - - '21:30'
     - '23:30'
   room_unfollow_runs_per_day: 4
+  # 2026-10-26: 削除は混まない夜中に移す（日中だと他のジョブが詰まり、夜の処理が0時を越える）。3:00の前後は空ける
   room_prune_window:
-  - - 09:30
-    - '11:30'
-  - - '14:00'
-    - '18:30'
-  - - '22:45'
-    - '23:50'
-  room_prune_runs_per_day: 3
+  - - '00:30'
+    - '02:30'
+  - - '03:30'
+    - '05:00'
+  room_prune_runs_per_day: 4
   room_collect_window:
   - - '23:15'
     - '23:55'

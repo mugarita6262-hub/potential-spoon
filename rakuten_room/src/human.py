@@ -11,7 +11,7 @@ import time
 
 
 class Pacer:
-    def __init__(self, base=(6.0, 15.0), *, burst_chance=0.12, burst=(2.0, 4.0),
+    def __init__(self, base=(6.0, 15.0), *, burst_chance=0.12, burst=(3.0, 5.0),  # 連続の最短は3秒（2026-10-26）
                  rest_every=(9, 18), rest=(35.0, 110.0)):
         self.lo, self.hi = base
         self.burst_chance = burst_chance

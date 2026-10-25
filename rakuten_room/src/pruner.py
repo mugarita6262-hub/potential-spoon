@@ -10,9 +10,10 @@ commit=False（プレビュー）では削除しない。
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from .config import DATA_DIR
@@ -58,7 +59,39 @@ def _load(path, default):
 
 
 def _save(path, data) -> None:
-    Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    # 一時ファイルに書いてから置き換える（書いている途中で止められてもファイルが壊れない。2026-10-26）
+    p = Path(path)
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp, p)
+
+
+def _load_prune_log() -> list:
+    """削除の記録。読めないときに [] で始めると、次の保存で過去の記録を消し、上限も数え直してしまうので止める。"""
+    if not PRUNE_LOG.exists():
+        return []
+    try:
+        return json.loads(PRUNE_LOG.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"{PRUNE_LOG.name} が読めないので削除を止めます: {exc}") from exc
+
+
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _limit_reached(pruned_log: list, pcfg: dict) -> str:
+    """1時間・1日の削除の上限に達していたら理由を返す（2026-10-26: 1時間に200件を2秒間隔で消していた）。"""
+    now = datetime.now()
+    hour_ago = (now - timedelta(hours=1)).isoformat(timespec="seconds")
+    today = now.date().isoformat()
+    recent = [r for r in pruned_log[-2000:] if (r.get("deleted_at") or "") >= hour_ago]
+    n_today = sum(1 for r in pruned_log[-2000:] if (r.get("deleted_at") or "")[:10] == today)
+    per_hour, per_day = int(pcfg.get("delete_per_hour", 120)), int(pcfg.get("delete_per_day", 400))
+    if len(recent) >= per_hour:
+        return f"直近1時間の削除が上限 {per_hour} 件に達した"
+    if n_today >= per_day:
+        return f"今日の削除が上限 {per_day} 件に達した"
+    return ""
 
 
 def _pid(s: str) -> str:
@@ -437,22 +470,35 @@ def _prune_oldest_api(page, cfg, pcfg, commit: bool) -> None:
     # 反応のない投稿を先に、その中で古い順
     olds.sort(key=lambda c: ((c.get("likes") or 0) + (c.get("comments") or 0) > 0, c.get("created_at") or ""))
     print(f"  一覧の末尾 {len(data)} 件のうち、{only_before} より前の投稿 {len(olds)} 件（全体 約{last + 1}件）")
-    pruned_log = _load(PRUNE_LOG, [])
+    pruned_log = _load_prune_log()
     done = 0
+    refreshed = False
     for c in olds[:max_delete]:
         rec = {"url": f"https://room.rakuten.co.jp/{slug}/{c['id']}", "name": (c.get("content") or c.get("name") or "")[:100],
                "posted": (c.get("created_at") or "")[:10], "likes": c.get("likes"), "comments": c.get("comments")}
         if not commit:
             print(f"  [プレビュー] 削除対象: {rec['posted']} {rec['name'][:44]}")
             continue
-        # 最終確認：ガードより新しい・日付不明の投稿は絶対に消さない（2026-10-13の誤削除の再発防止）
-        if not rec["posted"] or rec["posted"] >= only_before:
+        why = _limit_reached(pruned_log, pcfg)
+        if why:
+            print(f"  {why}ので、この回はここまでにします")
+            break
+        # 最終確認：ガードより新しい・日付不明・日付の形が違う投稿は絶対に消さない（2026-10-13の誤削除の再発防止）
+        if not _DATE_RE.match(rec["posted"]) or rec["posted"] >= only_before:
             from .notify import notify
             msg = f"ROOM削除を停止: ガード({only_before})より新しい投稿を消そうとしました（{rec['posted']} {rec['name'][:30]}）"
             print("  " + msg)
             notify(msg, title="ROOM prune STOPPED")
             break
         s, text = _api_post(page, f"{API}/{c['id']}?csrf_tkn={tok}", "_method=delete")
+        if not (s == 200 and '"success"' in text) and not refreshed:
+            # 長い回の途中でログイン情報（トークン）が切れることがあるので、1回だけ取り直してやり直す
+            refreshed = True
+            try:
+                uid, tok = _api_session(page, slug)
+                s, text = _api_post(page, f"{API}/{c['id']}?csrf_tkn={tok}", "_method=delete")
+            except Exception:  # noqa: BLE001
+                pass
         if s == 200 and '"success"' in text:
             done += 1
             rec["deleted_at"] = datetime.now().isoformat(timespec="seconds")
@@ -521,8 +567,9 @@ def _prune_dead_api(page, cfg, pcfg, commit: bool) -> None:
     state["dead_cursor"] = cur
     _save(DATA_DIR / "prune_state.json", state)
     print(f"  販売終了の投稿を探索: {scanned} 件を見て {len(found)} 件（全体 約{last + 1}件・{cutoff} より前のみ）")
-    pruned_log = _load(PRUNE_LOG, [])
+    pruned_log = _load_prune_log()
     done = 0
+    refreshed = False
     for c in found[:max_delete]:
         it = c.get("item") or {}
         rec = {"url": f"https://room.rakuten.co.jp/{slug}/{c['id']}", "name": (c.get("content") or it.get("name") or "")[:100],
@@ -531,14 +578,26 @@ def _prune_dead_api(page, cfg, pcfg, commit: bool) -> None:
         if not commit:
             print(f"  [プレビュー] 削除対象: {rec['posted']} {rec['reason']} {it.get('name', '')[:40]}")
             continue
-        # 最終確認：新しい投稿・日付不明・販売中は絶対に消さない
-        if not rec["posted"] or rec["posted"] >= cutoff or not _is_dead(c):
+        why = _limit_reached(pruned_log, pcfg)
+        if why:
+            print(f"  {why}ので、この回はここまでにします")
+            break
+        # 最終確認：新しい投稿・日付不明・日付の形が違う・販売中は絶対に消さない
+        if not _DATE_RE.match(rec["posted"]) or rec["posted"] >= cutoff or not _is_dead(c):
             from .notify import notify
             msg = f"ROOM削除を停止: 消してはいけない投稿を消そうとしました（{rec['posted']} {rec['reason']} {rec['name'][:30]}）"
             print("  " + msg)
             notify(msg, title="ROOM prune STOPPED")
             break
         s, text = _api_post(page, f"{API}/{c['id']}?csrf_tkn={tok}", "_method=delete")
+        if not (s == 200 and '"success"' in text) and not refreshed:
+            # 長い回の途中でログイン情報（トークン）が切れることがあるので、1回だけ取り直してやり直す
+            refreshed = True
+            try:
+                uid, tok = _api_session(page, slug)
+                s, text = _api_post(page, f"{API}/{c['id']}?csrf_tkn={tok}", "_method=delete")
+            except Exception:  # noqa: BLE001
+                pass
         if s == 200 and '"success"' in text:
             done += 1
             rec["deleted_at"] = datetime.now().isoformat(timespec="seconds")

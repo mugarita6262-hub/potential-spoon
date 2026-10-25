@@ -42,6 +42,52 @@ def _targets(cfg: dict, day: str | None = None) -> dict:
     # フォロー解除は「返してくれない人」がいなければ0件で正常なので、件数ではなく実行回数で見る（2026-10-22）
 
 
+# 1時間あたりの目安（ROOMの上限より手前）。超えたら✕
+BURST_LIMIT = {"投稿": 40, "いいね": 130, "フォロー": 90, "フォロー解除": 120, "削除": 120}
+
+
+def _burst_lines(day: str) -> list[tuple[str, bool]]:
+    """1件ごとの時刻から、1時間の最大件数と2秒以下の間隔の回数を出す（時刻は秒単位なので、3秒の最短を守っていても
+    境目で誤って数えないよう2秒以下で数える）。"""
+    import json as _j
+    from datetime import datetime as _dt, timedelta as _td
+    times: dict[str, list] = {k: [] for k in BURST_LIMIT}
+
+    def _add(kind: str, s: str) -> None:
+        try:
+            t = _dt.fromisoformat((s or "")[:19])
+        except ValueError:
+            return
+        if t.date().isoformat() == day:
+            times[kind].append(t)
+
+    try:
+        for p in _j.loads((DATA_DIR / "posted.json").read_text(encoding="utf-8")):
+            if p.get("kind") == "posted":
+                _add("投稿", p.get("posted_at", ""))
+        for r in _j.loads((DATA_DIR / "pruned.json").read_text(encoding="utf-8"))[-3000:]:
+            _add("削除", r.get("deleted_at", ""))
+        log = _j.loads((DATA_DIR / "engage_log.json").read_text(encoding="utf-8"))
+        for e in (log.get(day) or {}).get("events", []):
+            _add({"like": "いいね", "follow": "フォロー", "unfollow": "フォロー解除"}.get(e.get("kind"), ""), e.get("at", ""))                 if e.get("kind") in ("like", "follow", "unfollow") else None
+    except Exception as exc:  # noqa: BLE001
+        return [(f"✕ 無理な動きの点検ができませんでした（{exc}）", True)]
+    out = []
+    for kind, ts in times.items():
+        if not ts:
+            continue
+        ts.sort()
+        peak, j = 0, 0
+        for i, t in enumerate(ts):
+            while ts[j] < t - _td(hours=1):
+                j += 1
+            peak = max(peak, i - j + 1)
+        fast = sum(1 for a, b in zip(ts, ts[1:]) if (b - a).total_seconds() <= 2)
+        ng = peak > BURST_LIMIT[kind] or fast >= 5
+        out.append((f"{'✕' if ng else '○'} {kind}の速さ: 1時間の最大 {peak}件（目安{BURST_LIMIT[kind]}）・2秒以下の間隔 {fast}回", ng))
+    return out
+
+
 def build(day: str | None = None) -> str:
     day = day or date.today().isoformat()
     lines = LOG.read_text(encoding="utf-8", errors="ignore").splitlines()
@@ -94,6 +140,11 @@ def build(day: str | None = None) -> str:
     if n_runs and len(posts_by_run) < runs["room_post"]:
         out.append(f"✕ ROOM投稿: {runs['room_post'] - len(posts_by_run)}回は0件（時間帯が偏っている）")
         bad.append("ROOM投稿の時間配分")
+    # 無理な動きの点検（2026-10-26）: 1時間の最大件数と、2秒以下の間隔の回数
+    for line, ng in _burst_lines(day):
+        out.append(line)
+        if ng:
+            bad.append("無理な動き")
     # フォロー中の人数（ROOMの上限は1万人。2026-10-23 時点で1日+500人ほど増えている）
     try:
         import json as _json

@@ -52,10 +52,38 @@ JOBS = {
 _ROOM_JOBS = {"room_post", "room_like", "room_follow", "room_prune", "room_unfollow", "room_collect"}
 
 
+def _done_today(job: str) -> int:
+    """今日すでにした件数（いいね・フォロー・削除）。"""
+    try:
+        if job in ("room_like", "room_follow"):
+            from .engage import _today_log
+            return int(_today_log().get("like" if job == "room_like" else "follow", 0))
+        if job == "room_prune":
+            from .pruner import _load_prune_log
+            today = date.today().isoformat()
+            return sum(1 for r in _load_prune_log()[-3000:] if (r.get("deleted_at") or "")[:10] == today)
+    except Exception:  # noqa: BLE001
+        pass
+    return 0
+
+
 def _per_run(cfg: dict, daily: int, job: str) -> int:
-    """1日の目標件数を、その日の実行回数で割った1回あたりの件数。"""
+    """1回あたりの件数。「今日の残り件数 ÷ この回を含む残りの回数」を基準に、0.85〜1.0倍の下向きにだけ揺らす。
+    最後の回は揺らさず残りを埋める（2026-10-26: 毎回同じ件数だと機械的。上向きに揺らすと1時間の上限に当たる）。
+    フォロー解除は「返してくれない人」の数で決まるので、上限を回数で割るだけ。"""
     runs = int((cfg.get("server", {}) or {}).get(f"{job}_runs_per_day", 1) or 1)
-    return max(1, -(-daily // runs))
+    if job == "room_unfollow":
+        return max(1, -(-daily // runs))
+    times = (_schedule_state.get("targets") or {}).get(job) or []
+    if _schedule_state.get("date") == date.today() and times:
+        left = sum(1 for i in range(len(times)) if (job, i) not in _schedule_state.get("fired", set())) + 1
+    else:
+        left = runs
+    remaining = max(0, daily - _done_today(job))
+    if left <= 1:
+        return remaining
+    base = -(-remaining // left)
+    return max(1, int(base * random.uniform(0.85, 1.0))) if remaining else 0
 
 
 def _run_room_job(cli, cfg: dict, name: str) -> None:

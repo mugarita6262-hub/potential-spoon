@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 import re
 from datetime import date, datetime, timedelta
@@ -45,30 +46,52 @@ def _load(p: Path, d):
 
 
 def _save(p: Path, obj):
-    p.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+    # 一時ファイルに書いてから置き換える（書いている途中で止められてもファイルが壊れない。2026-10-26）
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp, p)
+
+
+def _load_log() -> dict:
+    """いいね・フォローの記録。読めないときに {} を返すと今日の累計が0に戻り、1日の上限が効かなくなるので止める。"""
+    if not LOG.exists():
+        return {}
+    try:
+        return json.loads(LOG.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"{LOG.name} が読めないので止めます（上限を数え直さないため）: {exc}") from exc
 
 
 def _today_log() -> dict:
-    log = _load(LOG, {})
+    log = _load_log()
     t = date.today().isoformat()
     return log.setdefault(t, {"like": 0, "follow": 0, "unfollow": 0, "events": []})
 
 
 def _bump(kind: str, n: int = 1) -> None:
-    log = _load(LOG, {})
+    log = _load_log()
     t = date.today().isoformat()
     d = log.setdefault(t, {"like": 0, "follow": 0, "unfollow": 0, "events": []})
     d[kind] = d.get(kind, 0) + n
     d["events"].append({"kind": kind, "at": datetime.now().isoformat(timespec="seconds")})
-    d["events"] = d["events"][-400:]
+    # 1件ごとの時刻は今日と前の日の分を全部残す（以前は直近400件だけで、1日700件のいいねを測れなかった。
+    # 前の日の分は、0時をまたいだ1時間の数え方と、0時台に送る前の日の通知に使う）。それより古い日は件数だけ残す
+    keep = {t, (date.today() - timedelta(days=1)).isoformat()}
+    for k, v in log.items():
+        if k not in keep and isinstance(v, dict) and v.get("events"):
+            v["events"] = []
     _save(LOG, log)
 
 
 def _count_last_hour(kind: str) -> int:
-    d = _today_log()
+    # 前の日の分も見る（0時で数え直すと、23時台にした分が0時台の回で数えられず1時間の上限が効かない）
+    log = _load_log()
+    events = []
+    for k in ((date.today() - timedelta(days=1)).isoformat(), date.today().isoformat()):
+        events += (log.get(k) or {}).get("events", [])
     cutoff = datetime.now() - timedelta(hours=1)
     n = 0
-    for e in d.get("events", []):
+    for e in events:
         if e.get("kind") != kind:
             continue
         try:
@@ -527,10 +550,29 @@ def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
         if not _before(v.get("at"), cutoff):
             recent.add(k.replace("url:/", "").replace("/items", ""))  # url:/room_xxx/items → room_xxx、名前はそのまま
 
+    # 1〜4秒の固定幅だと機械的に速すぎた（10/25 に1秒間隔が7回）。揺らぎのある待ち方にする（2026-10-26）
+    fb_pacer = Pacer(base=tuple(ec.get("followback_interval", [6, 14])))
+    un_pacer = Pacer(base=tuple(ec.get("unfollow_interval", [5, 12])))
+    rest_msg = lambda s: print(f"    （ひと休み {int(s)}秒）")  # noqa: E731
+
     pw, ctx, _b = _launch()
     try:
         page = ctx.new_page()
         uid, tok = _api_session(page, slug)
+        refreshed = False
+
+        def _follow_api(oid: str, unfollow: bool) -> str:
+            """失敗したら、ログイン情報（トークン）を1回だけ取り直してやり直す（長い回の途中で切れることがある）。"""
+            nonlocal tok, refreshed
+            r = _api_follow(page, tok, oid, unfollow=unfollow)
+            if r == "ng" and not refreshed:
+                refreshed = True
+                try:
+                    _, tok = _api_session(page, slug)
+                    r = _api_follow(page, tok, oid, unfollow=unfollow)
+                except Exception:  # noqa: BLE001
+                    pass
+            return r
         # 一覧の取得は約5分かかるので1日1回だけ取り、その日の残りの回は保存したものを使う
         cache = _load(ROOM_LISTS, {})
         if cache.get("date") == date.today().isoformat():
@@ -558,7 +600,7 @@ def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
                 break
             if u["id"] in gset:
                 continue
-            r = _api_follow(page, tok, u["id"], unfollow=False)
+            r = _follow_api(u["id"], unfollow=False)
             if r == "dup":  # すでにフォロー済み（一覧取得後にフォローした相手）
                 gset.add(u["id"])
                 following.append(u)
@@ -571,7 +613,7 @@ def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
                 flog[u.get("username") or u["id"]] = {"at": datetime.now().isoformat(timespec="seconds"),
                                                       "back": True, "src": "followback"}
                 print(f"  ↩ フォロー返し {done_fb}  {u.get('fullname', '')[:20]}")
-                page.wait_for_timeout(random.randint(1500, 4000))
+                fb_pacer.wait(on_rest=rest_msg)
             else:
                 print("  フォロー返しが受け付けられなくなりました（ROOM側の制限の可能性）。この回は止めます。")
                 break
@@ -586,7 +628,7 @@ def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
         for u in stale:
             if done >= can_un:
                 break
-            r = _api_follow(page, tok, u["id"], unfollow=True)
+            r = _follow_api(u["id"], unfollow=True)
             if r == "dup":
                 removed_extra.add(u["id"])
                 continue
@@ -597,7 +639,7 @@ def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
                 _bump("unfollow")
                 if done % 20 == 0:
                     print(f"  - 解除 {done} 人")
-                page.wait_for_timeout(random.randint(1200, 3500))
+                un_pacer.wait(on_rest=rest_msg)
             else:
                 fails += 1
                 if fails >= 3:
@@ -624,7 +666,7 @@ def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
             for u in mutual:
                 if done_old >= n_old:
                     break
-                r = _api_follow(page, tok, u["id"], unfollow=True)
+                r = _follow_api(u["id"], unfollow=True)
                 if r in ("ok", "dup"):
                     removed_extra.add(u["id"])
                     if r == "ok":
@@ -632,7 +674,7 @@ def unfollow_round(cfg: dict, slug: str, target: int | None = None) -> None:
                         done += 1
                         last_at = _followed_at(u)
                         _bump("unfollow")
-                        page.wait_for_timeout(random.randint(1200, 3500))
+                        un_pacer.wait(on_rest=rest_msg)
                 else:
                     fails += 1
                     if fails >= 3:
