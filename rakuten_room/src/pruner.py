@@ -97,6 +97,10 @@ def _wait_hour_limit(pruned_log: list, pcfg: dict, started: float) -> bool:
     max_run = float(pcfg.get("max_run_minutes", 75)) * 60
     while True:
         now = datetime.now()
+        # 3:00 はコードを反映する再起動の時刻。その前後は削除しない（回の途中で打ち切られないように）
+        if (now.hour == 2 and now.minute >= 45) or (now.hour == 3 and now.minute < 15):
+            print("  3:00 の再起動の前後なので、この回はここまでにします")
+            return False
         hour_ago = (now - timedelta(hours=1)).isoformat(timespec="seconds")
         recent = sorted(r.get("deleted_at") or "" for r in pruned_log[-2000:] if (r.get("deleted_at") or "") >= hour_ago)
         if len(recent) < per_hour:

@@ -88,10 +88,23 @@ def _per_run(cfg: dict, daily: int, job: str) -> int:
     else:
         left = runs
     remaining = max(0, daily - _done_today(job))
-    if left <= 1:
-        return remaining
+    if not remaining:
+        return 0
+    # 毎回「残り÷残りの回数」に±10%の揺らぎ。1回の件数は「1時間の上限の半分」まで（遅れて2回続いても1時間の上限に
+    # 収まる）。下向きだけに揺らして最後の回で埋める方式は、最後の回が膨らんで上限で削られ、その日の件数が減った
+    # （2026-10-26 再点検）。削除は1回の上限（prune.max_per_run）まで
     base = -(-remaining // left)
-    return max(1, int(base * random.uniform(0.85, 1.0))) if remaining else 0
+    # 最後の回は揺らさず残りを出す（揺らすと届かない日が半分近く出た）
+    n = remaining if left <= 1 else max(1, round(base * random.uniform(0.9, 1.1)))
+    caps = (cfg.get("engage", {}) or {}).get("caps", {}) or {}
+    cap = {"room_like": int(caps.get("like_per_hour", 130)) // 2,
+           "room_follow": int(caps.get("follow_per_hour", 90)) // 2,
+           "room_prune": int((cfg.get("prune", {}) or {}).get("max_per_run", 120))}.get(job)
+    if cap:
+        # 残りの回だけでは1回の上限の範囲に収まらないなら、この回を多めにする（揺らぎで1日の件数が減らないように）
+        n = max(n, remaining - (left - 1) * cap)
+        return min(n, cap, remaining)
+    return min(n, remaining)
 
 
 def _run_room_job(cli, cfg: dict, name: str) -> None:
