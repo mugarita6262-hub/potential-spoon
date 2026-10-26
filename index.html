@@ -877,11 +877,26 @@
     { key: "s2", name: "キラキラ バート＆アーニー", tier: "super" },
     { key: "s3", name: "セサミオールスター☆スペシャル", tier: "super" }
   ];
+  // 第3弾（2026-10-26〜、まめキャラ）
+  var STICKER_CATALOG_S3 = [
+    { key: "n_akaingen", name: "赤いんげんまめ", tier: "common" },
+    { key: "n_azuki", name: "あずき", tier: "common" },
+    { key: "n_daizu", name: "だいず", tier: "common" },
+    { key: "n_edamame", name: "えだまめ", tier: "common" },
+    { key: "n_shiroingenmame", name: "白いんげんまめ", tier: "common" },
+    { key: "r_endoumame", name: "えんどうまめ", tier: "rare" },
+    { key: "r_hiyokomame", name: "ひよこまめ", tier: "rare" },
+    { key: "r_renzumame", name: "レンズまめ", tier: "rare" },
+    { key: "r_uzuramame", name: "うずらまめ", tier: "rare" },
+    { key: "sr_kuromame", name: "くろまめ", tier: "super" },
+    { key: "sr_rakkasei", name: "らっかせい", tier: "super" },
+    { key: "sr_soramame", name: "そらまめ", tier: "super" }
+  ];
   var TIER_LABEL = { common: "ふつう", rare: "レア！", super: "★超レア★" };
   var TIER_SHORT_LABEL = { common: "ノーマル", rare: "レア", super: "超レア" }; // for the collection grid chip
 
-  // 第1弾と第2弾で確率・最大所持数・画像フォルダが異なるので季節ごとにまとめる。
-  // 第2弾は 2026-10-01 のガチャから自動的に切り替わる（activeSeasonKey 参照）。
+  // 第1弾・第2弾・第3弾で確率・最大所持数・画像フォルダが異なるので季節ごとにまとめる。
+  // 第2弾は 2026-10-01、第3弾は 2026-10-26 のガチャから自動的に切り替わる（activeSeasonKey 参照）。
   var SEASONS = {
     s1: {
       label: "第1弾",
@@ -897,11 +912,25 @@
       tierWeight: { super: 20, rare: 100 / 3 }, // レアは確率のまま3回に1回
       maxCopies: { common: 2, rare: 2, super: 1 },
       superPityWindow: 5 // 超レアは「保証」：5回引いて一度も出ていなければ、その回で必ず出す
+    },
+    s3: {
+      label: "第3弾",
+      catalog: STICKER_CATALOG_S3,
+      imgDir: "img/mame",
+      tierWeight: { super: 20, rare: 100 / 3 }, // 第2弾と同条件
+      maxCopies: { common: 2, rare: 2, super: 1 },
+      superPityWindow: 5
     }
   };
   var SEASON2_START = "2026-10-01";
+  var SEASON3_START = "2026-10-26";
 
-  function activeSeasonKey() { return todayISO() >= SEASON2_START ? "s2" : "s1"; }
+  function activeSeasonKey() {
+    var t = todayISO();
+    if (t >= SEASON3_START) return "s3";
+    if (t >= SEASON2_START) return "s2";
+    return "s1";
+  }
 
   function ownedStickerCounts(seasonKey) {
     var counts = {};
@@ -1036,7 +1065,7 @@
     openMistakeFormReviewId: null, // expanded review panel on the mistakes tab
     openMistakeForm: false,
     photoDraft: null,
-    collectionSeason: "s2"
+    collectionSeason: "s3"
   };
 
   // "log" (学習記録), "mistakes" (まちがいノート), "weakness" (弱点分析), and now "prep"
@@ -1440,7 +1469,7 @@
   }
 
   function renderCollectionView() {
-    var seasonKey = app.collectionSeason || "s2";
+    var seasonKey = app.collectionSeason || "s3";
     var season = SEASONS[seasonKey];
     var counts = ownedStickerCounts(seasonKey);
     var ownedCount = Object.keys(counts).length;
