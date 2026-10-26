@@ -519,7 +519,7 @@
   var TIER_SHORT_LABEL = { common: "ノーマル", rare: "レア", super: "超レア" }; // for the collection grid chip
 
   // 第1弾・第2弾・第3弾で確率・最大所持数・画像フォルダが異なるので季節ごとにまとめる。
-  // 第2弾は 2026-10-01、第3弾は 2026-10-26 のガチャから自動的に切り替わる（activeSeasonKey 参照）。
+  // 第2弾は 2026-10-01、第3弾は 2026-10-27 のガチャから自動的に切り替わる（activeSeasonKey 参照）。
   var SEASONS = {
     s1: {
       label: "第1弾",
@@ -546,7 +546,7 @@
     }
   };
   var SEASON2_START = "2026-10-01";
-  var SEASON3_START = "2026-10-26";
+  var SEASON3_START = "2026-10-27";
 
   function activeSeasonKey() {
     var t = todayISO();
